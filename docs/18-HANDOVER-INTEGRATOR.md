@@ -16,19 +16,21 @@ Truth order: (1) latest comments on issue #2 and on open PRs, (2) this file, (3)
 
 Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merges, no force pushes, no secrets in Git or chat.
 
-## 2. State snapshot (2026-09-14, ~05:30 UTC) — verify against #2 before trusting
+## 2. State snapshot (2026-09-14, ~11:45 UTC) — verify against #2 before trusting
 
 | Item | State |
 |---|---|
-| `main` | contains PR #1, #11 (via #12), #12, #13, #15, #16: plan, rules, `CONTINUE.md`, design archive, contracts v0.1 definitions, hosting decision, evidence handback, Grok's component map |
-| PR #14 (Cursor: contract schemas + server foundation + Railway + in-memory photo path) | fix commit `0026d9b` pushed after review; 198 tests pass on Node 22; narrow re-review in progress; owner merges after the integrator's confirmation on the PR |
-| #5 stream A brain | **built** — draft PR #19 (prompt v0.3, knowledge pack, Claude adapter with photo path, 225 tests); real-model evaluation NOT RUN until the owner's key is on the host |
-| #6 Grok second handback (components) | waits for PR #14 merge |
-| #7 Cursor | after PR #14: provider adapter (§5), then integration |
-| #8 owner walkthrough | not started |
-| #10 Rekaz booking integration | READY-PENDING-CREDENTIALS (owner is asking Khalid for the API key); after M1 |
-| Hosting | Railway decided (`docs/17-HOSTING.md`); owner has signed up; no project created yet |
-| Claude API key | owner has created a dedicated key; it goes into Railway variables as `WEEKEND_MODEL_API_KEY` only |
+| `main` = `7385247` | contracts + server (PR #14), the Rakan brain (PR #19: prompt v0.3, knowledge pack, Claude adapter with photo path), hosting decision, evidence handback, owner answers, this handover; 228 tests |
+| PR #22 (integrator, stream A) | **open, clean** — hardening after the post-merge bot reviews: exact price/figure/link grounding against cited records, citable membership arithmetic, cost rounded up and retries summed, abort-aware turns (`adapter({ …, signal })`), knowledge pack revision 2 (47 records, 45 enabled), prompt v0.4, MISSING-FACTS rows 18–19; two two-agent rounds applied; Qodo re-review 0 findings; 235 tests |
+| PR #21 (Grok, stream B) | **open, approve-with-fixes** — required: wire the share/delete buttons, merge `main`, booking link as a real anchor (popup blocked after the awaited call); next handback: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:id/share-actions`, hide M2 ids, copy keys for every `message_key` |
+| PR #20 (Cursor, stream C) | **open, approve-with-fixes** — required: reserve spend and the session call slot atomically *before* the model call (with a two-concurrent-turns test) |
+| Package C2 (Cursor, after #20; issue #7 comment of 11:30 UTC) | 15 items from the Qodo reviews of #14/#19: preference drafts, consent-gated staff inbox, photo share = observations, server-side brief binding, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the adapter call, body shape → 400, error logging, abort signal to the adapter, `POST /briefs/:id/share-actions`, `tests/ui` glob |
+| Merge order (owner) | #21 (after fixes) → #20 (after fix) → #22 → small C commit adding `tests/ui/*.test.mjs` to `npm test`. Verified 11:45 UTC: the three PRs merged together on `main` pass 293 tests |
+| #8 owner walkthrough | after the merges, C2, the first Railway deploy and one `npm run eval:agent` run with the owner's key (results to #5) |
+| #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
+| Hosting | Railway decided (`docs/17-HOSTING.md`); owner signed up; project not created yet; `WEEKEND_TRUST_PROXY=1`; the dedicated Claude key goes into Railway as `WEEKEND_MODEL_API_KEY` only |
+| Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
+| Bot reviews | Qodo and Codex review every PR (also after merge): read them on each check-in; a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
 
 ## 3. Decisions log (all recorded; do not reopen without the owner)
 
@@ -47,6 +49,9 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 | D11 | Privacy defaults accepted: owner = controller; text preferences opt-in, deletable, 90-day retention; photo bytes in memory only; observations stored under receipt | `OWNER-ANSWERS`, #2 |
 | D12 | Evaluation images: AI-generated or licensed adult faces; the owner's own photo only with written permission | #5 comment |
 | D13 | Contract v0.2 (later, integrator writes): `booking_handoff = integrated`; actions `create_booking`/`modify_booking`/`cancel_booking`; `CosmeticObservations.skin_surface` | #10, #5 |
+| D14 | M1 photo share (`share_photo_ref`) gives staff the stored cosmetic observations of that `image_ref`, never image bytes (not retained); the owner may later choose retained photos under the sharing consent (contract v0.2) | #7 (C2 item 3), #2 |
+| D15 | Every price, figure with a unit (minutes, days, visits, percent) and link in a reply must come from a record the reply cites; no exemption for a customer's own wrong figure (state the right one, never repeat it); one corrective retry, then a closed error | PR #22 |
+| D16 | A service whose name names a condition («باي باي قشرة») stays disabled in the model's knowledge until the owner and a qualified reviewer decide (row 18); annual membership carry-over is stated as unconfirmed (row 19) | PR #22, `MISSING-FACTS.md` |
 
 ## 4. Stream A brief — the Rakan brain (implementable by anyone)
 
