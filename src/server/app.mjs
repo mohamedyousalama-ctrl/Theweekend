@@ -376,7 +376,7 @@ export function createApp(config, deps = {}) {
     }
     return store.get(
       `SELECT * FROM briefs
-       WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
+       WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged', 'withdrawn')
        ORDER BY created_at DESC LIMIT 1`,
       [session.subject_id],
     );
@@ -574,6 +574,21 @@ export function createApp(config, deps = {}) {
     const now = iso(clock);
     store.run('UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ?', [now, receiptId]);
     if (row.kind === 'photo_analysis') purgeSubjectPhotoMaterial(session.subject_id);
+    if (row.kind === 'staff_sharing_text') {
+      store.run(
+        `UPDATE briefs SET status = 'withdrawn'
+         WHERE subject_id = ? AND status IN ('delivered', 'acknowledged')`,
+        [session.subject_id],
+      );
+    }
+    if (row.kind === 'staff_sharing_photo') {
+      store.run(
+        `UPDATE briefs
+         SET ref_kind = 'none', image_ref = NULL, receipt_id = NULL
+         WHERE subject_id = ?`,
+        [session.subject_id],
+      );
+    }
     return rowReceipt({ ...row, revoked_at: now });
   }
 
@@ -925,7 +940,7 @@ export function createApp(config, deps = {}) {
         if (brief.version !== row.object_version) return staleAction(actionId);
         const deliveredAt = iso(clock);
         store.run(
-          `UPDATE briefs SET status = 'delivered' WHERE brief_id = ? AND status IN ('approved', 'delivered')`,
+          `UPDATE briefs SET status = 'delivered' WHERE brief_id = ? AND status IN ('approved', 'delivered', 'withdrawn')`,
           [brief.brief_id],
         );
         store.run(

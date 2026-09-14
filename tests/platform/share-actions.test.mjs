@@ -371,6 +371,70 @@ test('share_photo_ref attaches stored observations to the staff brief, never byt
   app.close();
 });
 
+test('revoking staff_sharing_text withdraws delivered briefs from the inbox', () => {
+  const { app } = testApp();
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  const brief = app.createBrief(customer.token, { text_ar: 'يُسحب بعد الإلغاء', do_not: [] });
+  const receipt = app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  const share = app.issueShareActionsForBrief(customer.token, brief.brief_id)
+    .allowed_actions.find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, share.action_id).outcome, 'done');
+  assert.equal(app.staffBriefs(staff.token).length, 1);
+  const delivery = app.store.get('SELECT * FROM delivery_receipts WHERE brief_id = ?', [brief.brief_id]);
+  assert.ok(delivery);
+  app.revokeConsent(customer.token, receipt.receipt_id);
+  assert.equal(app.staffBriefs(staff.token).length, 0);
+  const row = app.store.get('SELECT * FROM briefs WHERE brief_id = ?', [brief.brief_id]);
+  assert.equal(row.status, 'withdrawn');
+  assert.ok(app.store.get('SELECT * FROM delivery_receipts WHERE brief_id = ?', [brief.brief_id]));
+  app.close();
+});
+
+test('revoking staff_sharing_photo clears the staff photo reference and observations', () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  app.grantConsent(customer.token, 'photo_analysis', 'customer_ui');
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  const photoReceipt = app.grantConsent(customer.token, 'staff_sharing_photo', 'customer_ui');
+  const brief = app.createBrief(customer.token, { text_ar: 'ملاحظات تُسحب', do_not: [] });
+  const up = app.registerUpload(customer.token, { byteLength: 12, contentType: 'image/jpeg' });
+  const observations = {
+    contract_version: '0.1.0',
+    image_ref: up.image_ref,
+    observed: {
+      hair_length: 'short',
+      hair_texture: 'wavy',
+      beard: 'stubble',
+      top_density_visible: 'uncertain',
+      face_visible: 'partial',
+    },
+    limitations: ['lighting'],
+    confidence: 'low',
+    not_inferred: ['identity', 'age', 'ethnicity', 'health', 'attractiveness', 'gender'],
+    retention: 'stored_with_receipt',
+  };
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, customer.context.session_id, customer.context.subject_id, JSON.stringify(observations), new Date().toISOString()],
+  );
+  const textShare = app.issueShareActionsForBrief(customer.token, brief.brief_id)
+    .allowed_actions.find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, textShare.action_id).outcome, 'done');
+  const photoShare = app.issueSharePhotoAction(customer.token, { image_ref: up.image_ref });
+  assert.equal(app.executeAction(customer.token, photoShare.action_id).outcome, 'done');
+  assert.deepEqual(app.staffBriefs(staff.token)[0].observations, observations);
+  app.revokeConsent(customer.token, photoReceipt.receipt_id);
+  const inbox = app.staffBriefs(staff.token);
+  assert.equal(inbox.length, 1);
+  assert.equal(inbox[0].reference.kind, 'none');
+  assert.equal(inbox[0].reference.image_ref, null);
+  assert.equal(inbox[0].observations, null);
+  app.close();
+});
+
 test('share photo for another subject is NOT_FOUND', () => {
   const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
   const a = app.createSession('customer', OWNER_PASS);

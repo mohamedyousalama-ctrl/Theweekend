@@ -60,7 +60,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 
 ## 9. BarberBrief and DeliveryReceipt
 
-`BarberBrief`: `brief_id`, `subject_id`, `branch_id`, `barber_preference` (string \| null — a preference, not an allocation), `requested_look: { option_id \| null, text_ar }`, `do_not` (string[] ≤ 5), `reference: { kind: none\|photo_ref, image_ref \| null, receipt_id \| null }`, `provenance: { approved_by_subject_at \| null, version }`, `status: draft\|approved\|delivered\|acknowledged`.
+`BarberBrief`: `brief_id`, `subject_id`, `branch_id`, `barber_preference` (string \| null — a preference, not an allocation), `requested_look: { option_id \| null, text_ar }`, `do_not` (string[] ≤ 5), `reference: { kind: none\|photo_ref, image_ref \| null, receipt_id \| null }`, `provenance: { approved_by_subject_at \| null, version }`, `status: draft\|approved\|delivered\|acknowledged\|withdrawn`. `withdrawn` is set when the subject revokes `staff_sharing_text`; the delivery receipt stays as audit and staff listings omit it.
 `DeliveryReceipt`: `brief_id`, `delivered_at`, `staff_view_id`, `acknowledged_at` \| null, `acknowledged_by` \| null. **Acknowledgement is not a booking.**
 
 ## 10. ErrorShape and HealthState
