@@ -57,6 +57,10 @@ test('post-merge review: product availability, treatment claims, annual expiry a
     assert.equal(r.status, 'verified_public');
   }
   const dandruff = pack.records.find((r) => r.knowledge_id.startsWith('kno_mrs_service_dandruff'));
+  assert.equal(dandruff.enabled, false, 'a service whose name names a condition waits for the owner');
+  for (const r of pack.records.filter((x) => x.enabled)) {
+    assert.doesNotMatch(`${r.text_ar}\n${r.text_en}`, /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema/iu, `${r.knowledge_id} names a condition`);
+  }
   assert.match(dandruff.text_en, /availability at Marsiya is unconfirmed/);
   assert.doesNotMatch(dandruff.text_en, /is confirmed/);
   assert.doesNotMatch(dandruff.text_ar, /إزالة القشرة|يقوي جذوره|تنظيف فروة/);
@@ -66,8 +70,9 @@ test('post-merge review: product availability, treatment claims, annual expiry a
     assert.doesNotMatch(r.text_ar, /مغذ|تعزز|يعزز|يقوي|يقوّي|يغذي|جذور|إزالة القشرة|يعالج/, `${r.knowledge_id} still carries a nourish/strengthen/treatment claim`);
   }
   for (const r of pack.records.filter((x) => x.kind === 'membership' && x.text_ar.includes('360 يوم') && !x.knowledge_id.includes('compare'))) {
-    assert.match(r.text_ar, /تنتهي مع نهاية فترة العضوية \(360 يوم\)/, r.knowledge_id);
-    assert.doesNotMatch(r.text_ar, /نهاية السنة/);
+    assert.match(r.text_ar, /مدة العضوية 360 يوم من التفعيل؛ ترحيل الزيارات غير المستخدمة بعد نهاية المدة غير مؤكد/, r.knowledge_id);
+    assert.doesNotMatch(r.text_ar, /نهاية السنة|تنتهي مع نهاية فترة العضوية/);
+    assert.match(r.text_en, /unconfirmed — ask the branch/);
   }
   const monthly = byId.get('kno_mrs_membership_compare_monthly_basic');
   assert.match(monthly.text_ar, /4 زيارات = 200 ريال، 5 زيارات = 250 ريال/);
@@ -77,8 +82,11 @@ test('post-merge review: product availability, treatment claims, annual expiry a
   assert.match(annual.text_ar, /40 زيارة/);
   assert.match(annual.text_ar, /1995 ÷ 50/);
   assert.doesNotMatch(annual.text_ar, /3000/);
-  assert.equal(annual.status, 'verified_public', 'annual break-even waits for the owner; the text says تقريباً');
-  assert.match(annual.text_ar, /تقريباً/);
+  assert.equal(annual.status, 'verified_public', 'annual break-even waits for the owner; the text says تقريبية');
+  assert.match(annual.text_ar, /^حسبة تقريبية من أسعار الموقع/);
+  assert.equal(annual.source, 'E03', 'storefront figures, not the owner answers');
+  assert.doesNotMatch(annual.text_ar, /تنتهي/);
+  assert.equal(monthly.source, 'OWNER-ANSWERS-2026-09-14');
 });
 
 test('nothing forbidden is in the pack: no ratings, review counts, stock, phone numbers, iCal', () => {

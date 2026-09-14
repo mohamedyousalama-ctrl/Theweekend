@@ -243,7 +243,7 @@ export function normalizeDigits(text) {
 
 // No \b after Arabic: JS word boundaries are ASCII-only, so use Unicode lookarounds instead.
 const CURRENCY = '(?:ريال|ريالاً|ريالات|ر\\.س|SAR|riyals?|SR)';
-const PRICE_RE = new RegExp(`(\\d[\\d,]*(?:\\.\\d+)?)\\s*${CURRENCY}(?![\\p{L}\\p{N}])`, 'giu');
+const PRICE_RE = new RegExp(`(?<![\\p{N}.,])(\\d[\\d,]*(?:\\.\\d+)?)\\s*${CURRENCY}(?![\\p{L}\\p{N}])`, 'giu');
 const PRICE_FIRST_RE = new RegExp(`(?<![\\p{L}\\p{N}])${CURRENCY}\\s*(\\d[\\d,]*(?:\\.\\d+)?)`, 'giu');
 
 /** "2,499" → "2499" (thousands), "2,5" → "2.5" (decimal comma), "30.50" → "30.5", "007" → "7". */
@@ -269,58 +269,73 @@ function citedText(refs, byId) {
 
 /**
  * Every amount quoted with a currency marker in the reply must appear, with a currency marker and the same
- * value (35 ≠ 35.5; a 35-minute duration is not 35 riyals), in a cited knowledge record. An amount the customer
- * wrote (exemptText) may be repeated only in a message that also states a grounded amount — a correction
- * («لا، مو 300 ريال — الحلاقة 30 ريال»), never an agreement («أيوه، 5 ريال»). Returns the unmatched amounts.
+ * value (35 ≠ 35.5; a 35-minute duration is not 35 riyals), in a cited knowledge record. There is no exemption
+ * for an amount the customer wrote: a wrong price is corrected by stating the right one, never by repeating it
+ * (a co-occurrence rule would let «أيوه 5 ريال … والدقن 20 ريال» through). Returns the unmatched amounts.
  */
-export function ungroundedPrices(messages, refs, byId, exemptText = '') {
+export function ungroundedPrices(messages, refs, byId) {
   const grounded = amountsIn(citedText(refs, byId));
-  const quoted = amountsIn(exemptText);
   const missing = [];
-  for (const m of messages) {
-    const amounts = amountsIn(m.text);
-    const corrects = [...amounts].some((a) => grounded.has(a));
-    for (const a of amounts) {
-      if (grounded.has(a) || (quoted.has(a) && corrects)) continue;
-      if (!missing.includes(a)) missing.push(a);
-    }
-  }
+  for (const m of messages) for (const a of amountsIn(m.text)) if (!grounded.has(a) && !missing.includes(a)) missing.push(a);
   return missing;
 }
 
 // Figures with a unit the shop's catalogue defines: they are merchant facts, so they follow the price rule.
+// A figure may be digits or a number word (خمس زيارات, two visits, زيارتين); hours are normalised to minutes.
+const NUMBER_WORDS = {
+  'واحد': 1, 'واحدة': 1, 'وحدة': 1, 'اثنين': 2, 'اثنتين': 2, 'ثنتين': 2, 'ثلاث': 3, 'ثلاثة': 3, 'ثلاثه': 3, 'أربع': 4, 'اربع': 4, 'أربعة': 4, 'اربعة': 4,
+  'خمس': 5, 'خمسة': 5, 'خمسه': 5, 'ست': 6, 'ستة': 6, 'سته': 6, 'سبع': 7, 'سبعة': 7, 'ثمان': 8, 'ثماني': 8, 'ثمانية': 8, 'تسع': 9, 'تسعة': 9, 'عشر': 10, 'عشرة': 10,
+  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+};
+const NUM = `(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\s+`;
+const UNIT_RE = (unit) => new RegExp(`(?<![\\p{L}])${NUM}(?:${unit})(?![\\p{L}])`, 'giu');
 const FACT_UNITS = [
-  ['minutes', /(\d+(?:\.\d+)?)\s*(?:دقيقة|دقيقه|دقايق|دقائق|min(?:ute)?s?)(?![\p{L}])/giu],
-  ['days', /(\d+)\s*(?:يوم|أيام|ايام|days?)(?![\p{L}])/giu],
-  ['visits', /(\d+)\s*(?:زيارة|زياره|زيارات|visits?)(?![\p{L}])/giu],
-  ['percent', /(\d+(?:\.\d+)?)\s*(?:%|٪|بالمئة|بالمية|بالمائة|percent)/giu],
+  ['minutes', UNIT_RE('دقيقة|دقيقه|دقايق|دقائق|min(?:ute)?s?'), 1],
+  ['minutes', UNIT_RE('ساعة|ساعه|ساعات|hours?|hrs?'), 60],
+  ['days', UNIT_RE('يوم|أيام|ايام|days?'), 1],
+  ['visits', UNIT_RE('زيارة|زياره|زيارات|visits?'), 1],
+  ['percent', new RegExp(`(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?)\\s*(?:%|٪|بالمئة|بالمية|بالمائة|percent)`, 'giu'), 1],
 ];
+// Duals and fixed phrases carry their own value.
+const FACT_PHRASES = [
+  ['minutes', /(?<![\p{L}])(?:دقيقتين|دقيقتان|two minutes)(?![\p{L}])/giu, 2],
+  ['minutes', /(?<![\p{L}])(?:ربع ساعة|ربع ساعه|quarter of an hour|quarter-hour)(?![\p{L}])/giu, 15],
+  ['minutes', /(?<![\p{L}])(?:ثلث ساعة|ثلث ساعه)(?![\p{L}])/giu, 20],
+  ['minutes', /(?<![\p{L}])(?:نصف ساعة|نص ساعة|نصف ساعه|نص ساعه|half an hour|half-hour|half hour)(?![\p{L}])/giu, 30],
+  ['minutes', /(?<![\p{L}])(?:ساعة ونص|ساعة ونصف|ساعه ونص|an hour and a half|one and a half hours)(?![\p{L}])/giu, 90],
+  ['minutes', /(?<![\p{L}])(?:ساعتين|ساعتان|two hours)(?![\p{L}])/giu, 120],
+  ['minutes', /(?<![\p{L}\p{N}])(?:ساعة|ساعه)(?![\p{L}])/giu, 60], // a bare «ساعة» = one hour; «الساعة 3» (o'clock) is excluded by the lookbehind
+  ['days', /(?<![\p{L}])(?:يومين|يومان|two days)(?![\p{L}])/giu, 2],
+  ['visits', /(?<![\p{L}])(?:زيارتين|زيارتان|two visits)(?![\p{L}])/giu, 2],
+];
+
+function numberOf(token) {
+  const key = token.toLowerCase();
+  if (key in NUMBER_WORDS) return NUMBER_WORDS[key];
+  return Number(canonicalAmount(token));
+}
 
 function factsIn(text) {
   const out = new Set();
-  const t = normalizeDigits(text);
-  for (const [kind, re] of FACT_UNITS) for (const m of t.matchAll(re)) out.add(`${kind}:${canonicalAmount(m[1])}`);
+  let t = normalizeDigits(text);
+  for (const [kind, re, value] of FACT_PHRASES) {
+    if (re.test(t)) out.add(`${kind}:${value}`);
+    t = t.replace(re, ' ');
+  }
+  for (const [kind, re, factor] of FACT_UNITS) {
+    for (const m of t.matchAll(re)) {
+      const n = numberOf(m[1]) * factor;
+      if (Number.isFinite(n)) out.add(`${kind}:${canonicalAmount(String(n))}`);
+    }
+  }
   return out;
 }
 
-/**
- * Durations, day counts, visit counts and percentages in the reply must come from a cited record; a figure the
- * customer wrote may be repeated only in a message that also states a grounded figure of the same kind (a correction).
- */
-export function ungroundedFacts(messages, refs, byId, exemptText = '') {
+/** Durations, day counts, visit counts and percentages in the reply must come from a cited record — no exemption for the customer's own figures. */
+export function ungroundedFacts(messages, refs, byId) {
   const grounded = factsIn(citedText(refs, byId));
-  const quoted = factsIn(exemptText);
   const missing = [];
-  for (const m of messages) {
-    const facts = factsIn(m.text);
-    const kindOf = (f) => f.split(':')[0];
-    for (const f of facts) {
-      if (grounded.has(f)) continue;
-      const corrects = [...facts].some((g) => g !== f && kindOf(g) === kindOf(f) && grounded.has(g));
-      if (quoted.has(f) && corrects) continue;
-      if (!missing.includes(f)) missing.push(f);
-    }
-  }
+  for (const m of messages) for (const f of factsIn(m.text)) if (!grounded.has(f) && !missing.includes(f)) missing.push(f);
   return missing;
 }
 
@@ -351,10 +366,9 @@ export function ungroundedLinks(messages, links) {
 }
 
 /** The deterministic checks a draft output must pass before it reaches the customer; each problem carries its retry hint. */
-export function groundingProblems(draft, input, knowledge) {
-  const exempt = input.text || '';
+export function groundingProblems(draft, knowledge) {
   const problems = [];
-  const prices = ungroundedPrices(draft.messages, draft.knowledge_refs, knowledge.byId, exempt);
+  const prices = ungroundedPrices(draft.messages, draft.knowledge_refs, knowledge.byId);
   if (prices.length) {
     problems.push({
       messageKey: 'agent.ungrounded_price',
@@ -362,7 +376,7 @@ export function groundingProblems(draft, input, knowledge) {
       correction: `You quoted amounts (${prices.join(', ')}) that are not in any knowledge record you cited. Quote only prices that appear in the records and list their ids in knowledge_refs; otherwise say the price is on the booking page.`,
     });
   }
-  const facts = ungroundedFacts(draft.messages, draft.knowledge_refs, knowledge.byId, exempt);
+  const facts = ungroundedFacts(draft.messages, draft.knowledge_refs, knowledge.byId);
   if (facts.length) {
     problems.push({
       messageKey: 'agent.ungrounded_fact',
@@ -370,12 +384,13 @@ export function groundingProblems(draft, input, knowledge) {
       correction: `You stated figures (${facts.map((f) => f.replace(':', ' ')).join(', ')}) that are not in any knowledge record you cited. State durations, days, visit counts and percentages only as the cited records give them, or leave them out.`,
     });
   }
-  const links = ungroundedLinks(draft.messages, knowledge.links || linksIn(knowledge.enabled || []));
+  const cited = draft.knowledge_refs.map((id) => knowledge.byId.get(id)).filter(Boolean);
+  const links = ungroundedLinks(draft.messages, linksIn(cited));
   if (links.length) {
     problems.push({
       messageKey: 'agent.ungrounded_link',
       text: 'ما عندي رابط مؤكد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
-      correction: `You included links (${links.join(', ')}) that are not in any knowledge record. Send only links that appear in a record, or none.`,
+      correction: `You included links (${links.join(', ')}) that are not in a knowledge record you cited. Send only links that appear in a record and list that record's id in knowledge_refs, or send none.`,
     });
   }
   return problems;
@@ -618,8 +633,6 @@ export function createRakanAdapter(config, deps = {}) {
     return signal ? client.messages.create(params, { signal }) : client.messages.create(params);
   }
 
-  const links = knowledge.links || linksIn(knowledge.enabled || []);
-
   /**
    * @param signal optional AbortSignal from the server's turn deadline: no retry starts after it fires and a late
    *   completion is never remembered as history. Provider work already done stays in the usage record.
@@ -682,7 +695,7 @@ export function createRakanAdapter(config, deps = {}) {
         continue;
       }
       const draft = mapModelOutput(raw, { context, input, usageId: 'use_pending', hasImage, byId: knowledge.byId, now });
-      const problems = groundingProblems(draft, input, { byId: knowledge.byId, links });
+      const problems = groundingProblems(draft, knowledge);
       if (!problems.length) break;
       raw = null;
       grounding = problems[0];

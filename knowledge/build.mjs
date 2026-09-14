@@ -259,6 +259,9 @@ export function buildPack() {
       enabled: true,
     });
   }
+  // A service whose name itself names a condition (dandruff, hair loss…) is kept in the pack but disabled: offering it by name
+  // is a treatment framing the persona forbids; the owner decides whether Rakan may name it (open question, 2026-09-14).
+  const CONDITION_NAME_RE = /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema|صدفية|psoriasis/iu;
   for (const s of services.filter((x) => x !== haircut && (atBranch(x) || noBranch(x)) && !(x.name.en || '').includes('(Copy)'))) {
     const where = atBranch(s) ? '' : ' معروضة في الموقع، وما أقدر أأكد إنها متوفرة بفرع مرسية — تبين لك في صفحة الحجز لما تختار الفرع.';
     const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is unconfirmed — the booking page shows it once the branch is selected.';
@@ -273,7 +276,7 @@ export function buildPack() {
       source: 'E03',
       source_hash: EVIDENCE.E03,
       status: atBranch(s) ? 'merchant_approved' : 'verified_public',
-      enabled: true,
+      enabled: !CONDITION_NAME_RE.test(`${s.name.ar} ${en}`),
     });
   }
 
@@ -310,8 +313,8 @@ export function buildPack() {
       knowledge_id: `kno_mrs_membership_${slug(en)}_${m.amount_sar}`,
       kind: 'membership',
       ref: m.id,
-      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. الزيارات غير المستخدمة تنتهي مع نهاية ${monthly ? 'الـ30 يوم' : `فترة العضوية (${m.billing_period_days} يوم)`}؛ ما فيه ترحيل. تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
-      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. Unused visits expire at the end of the period; no rollover. All branches.`,
+      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. ${monthly ? 'الزيارات غير المستخدمة تنتهي مع نهاية الـ30 يوم؛ ما فيه ترحيل.' : `مدة العضوية ${m.billing_period_days} يوم من التفعيل؛ ترحيل الزيارات غير المستخدمة بعد نهاية المدة غير مؤكد — يتأكد من الفرع.`} تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
+      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. ${monthly ? 'Unused visits expire at the end of the 30 days; no rollover.' : `The plan runs ${m.billing_period_days} days from activation; whether unused visits carry over after the period is unconfirmed — ask the branch.`} All branches.`,
       source: OWNER.source,
       source_hash: OWNER.hash,
       status: 'merchant_approved',
@@ -338,12 +341,12 @@ export function buildPack() {
     knowledge_id: 'kno_mrs_membership_compare_annual_basic',
     kind: 'membership',
     ref: annualBasic.id,
-    text_ar: `الاشتراك السنوي سولو بيسك (${annualBasic.amount_sar} ريال، ${annualBasic.package_total_quantity} زيارة خلال ${annualBasic.billing_period_days} يوم) يعادل تقريباً 40 زيارة بسعر 50 ريال (${annualBasic.amount_sar} ÷ 50 ≈ 40)؛ يبدأ يوفر بعد نحو 40 زيارة في السنة، وما يُحسب أبداً كـ${annualBasic.package_total_quantity} × 50. الزيارات غير المستخدمة تنتهي مع نهاية فترة العضوية. يُذكر فقط إذا سأل العميل عن السنوية.`,
-    text_en: `Solo Basic annual (${annualBasic.amount_sar} SAR, ${annualBasic.package_total_quantity} visits per ${annualBasic.billing_period_days} days) equals about 40 visits at 50 SAR (${annualBasic.amount_sar} ÷ 50 ≈ 40); it pays off after about 40 visits in the year and is never computed as ${annualBasic.package_total_quantity} × 50. Unused visits expire at the end of the membership period. Mentioned only when the customer asks about annual plans.`,
-    source: OWNER.source,
-    source_hash: OWNER.hash,
-    // Arithmetic on approved prices, but the owner's worked example covers the monthly plan only (OWNER-ANSWERS row 4):
-    // verified_public (the text says «تقريباً») until the owner confirms the annual wording.
+    text_ar: `حسبة تقريبية من أسعار الموقع: الاشتراك السنوي سولو بيسك (${annualBasic.amount_sar} ريال، ${annualBasic.package_total_quantity} زيارة خلال ${annualBasic.billing_period_days} يوم) يعادل تقريباً 40 زيارة بسعر 50 ريال (${annualBasic.amount_sar} ÷ 50 ≈ 40)؛ يبدأ يوفر بعد نحو 40 زيارة في السنة، وما يُحسب أبداً كـ${annualBasic.package_total_quantity} × 50. يُذكر فقط إذا سأل العميل عن السنوية.`,
+    text_en: `Approximate arithmetic from the storefront prices: Solo Basic annual (${annualBasic.amount_sar} SAR, ${annualBasic.package_total_quantity} visits per ${annualBasic.billing_period_days} days) equals about 40 visits at 50 SAR (${annualBasic.amount_sar} ÷ 50 ≈ 40); it pays off after about 40 visits in the year and is never computed as ${annualBasic.package_total_quantity} × 50. Mentioned only when the customer asks about annual plans.`,
+    // Storefront figures (E03) plus arithmetic; the owner's worked example (OWNER-ANSWERS row 4) covers the monthly plan only,
+    // so this is verified_public (its text says «تقريبية») until the owner confirms the annual wording.
+    source: 'E03',
+    source_hash: EVIDENCE.E03,
     status: 'verified_public',
     enabled: true,
   });

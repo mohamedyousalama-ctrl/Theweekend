@@ -221,6 +221,9 @@ test('post-merge review: amounts are compared as full values and only against cu
   const byId = new Map([
     ['kno_hair', { text_ar: 'قص الشعر: 30 ريال، المدة 35 دقيقة، السعر شامل الضريبة.', text_en: 'Haircut: 30 SAR, 35 minutes, VAT inclusive.' }],
     ['kno_dand', { text_ar: 'باي باي قشرة: 149 ريال شامل الضريبة، المدة 45 دقيقة.', text_en: 'Dandruff wash: 149 SAR, 45 minutes.' }],
+    ['kno_beard', { text_ar: 'تهذيب اللحية: 20 ريال', text_en: 'Beard trim: 20 SAR' }],
+    ['kno_half', { text_ar: 'عرض: 12.5 ريال', text_en: 'Offer: 12.5 SAR' }],
+    ['kno_plan', { text_ar: 'عضوية: 5 زيارات خلال 30 يوم؛ زيارتان = 100 ريال؛ الجلسة 30 دقيقة', text_en: 'Plan: 5 visits per 30 days; 2 visits = 100 SAR; a 30-minute session' }],
   ]);
   assert.equal(canonicalAmount('2,499'), '2499');
   assert.equal(canonicalAmount('2,5'), '2.5');
@@ -230,16 +233,28 @@ test('post-merge review: amounts are compared as full values and only against cu
   assert.deepEqual(ungroundedPrices([{ text: 'الحلاقة 30.5 ريال' }], ['kno_hair'], byId), ['30.5']);
   assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 30 today' }], ['kno_hair'], byId), [], 'currency-first amounts are matched');
   assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 300 today' }], ['kno_hair'], byId), ['300']);
-  assert.deepEqual(ungroundedPrices([{ text: 'لا، مو 300 ريال — الحلاقة 30 ريال' }], ['kno_hair'], byId, 'سمعت إنها 300 ريال صح؟'), [], 'an amount the customer wrote may be repeated to correct it');
-  assert.deepEqual(ungroundedPrices([{ text: 'أيوه صحيح، الحلاقة اليوم بـ5 ريال بس' }], [], byId, 'صح إن الحلاقة صارت 5 ريال؟'), ['5'], 'agreeing with the customer\'s wrong price is not a correction');
-  assert.deepEqual(ungroundedPrices([{ text: 'أيوه 5 ريال' }], ['kno_hair'], byId, '5 ريال؟'), ['5'], 'citing a record does not help when the message states no grounded amount');
-  assert.deepEqual(ungroundedPrices([{ text: 'لا مو 5 ريال' }, { text: 'الحلاقة 30 ريال' }], ['kno_hair'], byId, '5 ريال؟'), ['5'], 'the correction must be in the same message');
+  assert.deepEqual(ungroundedPrices([{ text: 'لا، مو 300 ريال — الحلاقة 30 ريال' }], ['kno_hair'], byId), ['300'], 'no exemption: a wrong price is not repeated, even to deny it');
+  assert.deepEqual(ungroundedPrices([{ text: 'لا، الحلاقة 30 ريال' }], ['kno_hair'], byId), [], 'the right way to correct: state the grounded price only');
+  assert.deepEqual(ungroundedPrices([{ text: 'أيوه صحيح، الحلاقة 5 ريال والدقن 20 ريال' }], ['kno_hair', 'kno_beard'], byId), ['5'], 'a grounded amount beside a wrong one does not launder it');
+  assert.deepEqual(ungroundedPrices([{ text: 'العرض 12.5 ريال' }], ['kno_half'], byId), [], 'decimal amounts are read whole');
+  assert.deepEqual(ungroundedPrices([{ text: 'العرض 2.5 ريال' }], ['kno_hair'], byId), ['2.5'], 'the digits after a decimal point never ground alone');
   assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair'], byId), ['minutes:45']);
   assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair', 'kno_dand'], byId), []);
   assert.deepEqual(ungroundedFacts([{ text: 'العضوية 5 زيارات خلال 30 يوم وفيها خصم 15%' }], ['kno_hair'], byId).sort(), ['days:30', 'percent:15', 'visits:5']);
-  assert.deepEqual(ungroundedFacts([{ text: 'لا، المدة ٣٥ دقيقة مو 45 دقيقة' }], ['kno_hair'], byId, 'المدة 45 دقيقة؟'), [], 'the customer\'s figure may be repeated in a correction, Arabic-Indic digits included');
-  assert.deepEqual(ungroundedFacts([{ text: 'أيوه 45 دقيقة' }], ['kno_hair'], byId, 'المدة 45 دقيقة؟'), ['minutes:45'], 'agreeing with the customer\'s wrong figure is not a correction');
-  assert.deepEqual(ungroundedFacts([{ text: 'خلال ٣٠ يوم' }], [], byId, 'أبي أعرف عن الـ30 يوم'), ['days:30']);
+  assert.deepEqual(ungroundedFacts([{ text: 'لا، المدة ٣٥ دقيقة مو 45 دقيقة' }], ['kno_hair'], byId), ['minutes:45'], 'no exemption for the customer\'s figure, Arabic-Indic digits read the same');
+  assert.deepEqual(ungroundedFacts([{ text: 'خلال ٣٠ يوم' }], [], byId), ['days:30']);
+  assert.deepEqual(ungroundedFacts([{ text: 'العضوية 2.5 زيارات' }], ['kno_plan'], byId), ['visits:2.5'], 'a fractional figure never grounds on its last digits');
+  assert.deepEqual(ungroundedFacts([{ text: 'تقريباً نص ساعة' }], ['kno_hair'], byId), ['minutes:30'], 'half an hour is a duration');
+  assert.deepEqual(ungroundedFacts([{ text: 'تقريباً نصف ساعة' }], ['kno_plan'], byId), [], 'half an hour equals a 30-minute record');
+  assert.deepEqual(ungroundedFacts([{ text: 'المدة ساعة' }], ['kno_hair'], byId), ['minutes:60']);
+  assert.deepEqual(ungroundedFacts([{ text: 'ساعتين تقريباً' }], ['kno_hair'], byId), ['minutes:120']);
+  assert.deepEqual(ungroundedFacts([{ text: 'about 2 hours' }], ['kno_hair'], byId), ['minutes:120']);
+  assert.deepEqual(ungroundedFacts([{ text: 'الساعة 3 العصر' }], ['kno_hair'], byId), [], 'o\'clock is not a duration');
+  assert.deepEqual(ungroundedFacts([{ text: 'خمس زيارات بالشهر' }], ['kno_plan'], byId), [], 'number words count');
+  assert.deepEqual(ungroundedFacts([{ text: 'زيارتين بالشهر' }], ['kno_plan'], byId), [], 'the dual form counts');
+  assert.deepEqual(ungroundedFacts([{ text: 'ثلاث زيارات بالشهر' }], ['kno_plan'], byId), ['visits:3']);
+  assert.deepEqual(ungroundedFacts([{ text: 'five visits a month' }], ['kno_plan'], byId), []);
+  assert.deepEqual(ungroundedFacts([{ text: 'a 35-minute cut' }], ['kno_hair'], byId), [], 'hyphenated English durations');
   assert.deepEqual(ungroundedFacts([{ text: 'تقريباً 35 دقيقة' }], ['kno_hair'], byId), []);
 });
 
@@ -255,6 +270,10 @@ test('post-merge review: links must come from a knowledge record', () => {
   assert.deepEqual(ungroundedLinks([{ text: 'https://t' }], links), ['https://t'], 'only the query string may be dropped, not an arbitrary tail');
   assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/boo' }], links), ['https://theweekendhairstyling.com/boo']);
   assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com.evil.tld/book' }], links), ['https://theweekendhairstyling.com.evil.tld/book']);
+  const cited = (ids) => linksIn(ids.map((id) => knowledge.byId.get(id)));
+  assert.deepEqual(ungroundedLinks([{ text: 'احجز من https://theweekendhairstyling.com/book' }], cited([])), ['https://theweekendhairstyling.com/book'], 'a pack link without its record cited is not grounded');
+  assert.deepEqual(ungroundedLinks([{ text: 'احجز من https://theweekendhairstyling.com/book' }], cited(['kno_mrs_booking_url'])), []);
+  assert.deepEqual(ungroundedLinks([{ text: 'احجز من https://theweekendhairstyling.com/book' }], cited([PRICE_REF])), ['https://theweekendhairstyling.com/book'], 'citing an unrelated record does not ground the link');
 });
 
 test('post-merge review: an ungrounded figure or link gets one corrective retry, then a closed error', async () => {
@@ -268,6 +287,11 @@ test('post-merge review: an ungrounded figure or link gets one corrective retry,
   assert.deepEqual(r.output.flags, ['unknown_fact']);
   assert.ok(validateContract('ChatTurnOutput', r.output).ok);
   assert.ok(validateContract('ModelUsageRecord', r.usage).ok);
+  const uncited = modelJson({ reply: [{ text: 'احجز من https://theweekendhairstyling.com/book', lang: 'ar' }], knowledge_refs: [PRICE_REF] });
+  const u = adapterWith([response(uncited), response(uncited)]);
+  const ru = await u.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(ru.output.error.message_key, 'agent.ungrounded_link', 'a real pack link still needs its record cited');
+  assert.match(u.client.calls[1].system.at(-1).text, /list that record's id in knowledge_refs/);
   const badLink = modelJson({ reply: [{ text: 'احجز من https://theweekendhairstyling.com/promo', lang: 'ar' }] });
   const b = adapterWith([response(badLink), response(modelJson())]);
   const r2 = await b.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
