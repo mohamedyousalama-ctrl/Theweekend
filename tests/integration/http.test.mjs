@@ -248,6 +248,27 @@ test('non-object JSON bodies are VALIDATION_ERROR 400', async () => {
       assert.equal(json.code, 'VALIDATION_ERROR');
       assert.equal(json.message_key, 'http.invalid_json');
     }
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const brief = await req(base, '/briefs', {
+      method: 'POST',
+      token: customer.json.token,
+      body: { text_ar: 'جسم غير كائن', do_not: [] },
+    });
+    const share = await fetch(`${base}/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${customer.json.token}`,
+      },
+      body: '[]',
+    });
+    assert.equal(share.status, 400);
+    const shareJson = await share.json();
+    assert.equal(shareJson.code, 'VALIDATION_ERROR');
+    assert.equal(shareJson.message_key, 'http.invalid_json');
   });
 });
 

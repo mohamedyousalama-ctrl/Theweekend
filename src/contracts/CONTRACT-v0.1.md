@@ -75,3 +75,9 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 ## 12. Failure shapes every consumer must handle
 
 Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, timeout, consent missing for photo, stale action, upload rejected, conflict on preference version, store unavailable. Fixtures for each are part of the #3 implementation.
+
+## 13. HTTP surfaces (C)
+
+`POST /briefs/:brief_id/share-actions` — customer or owner session only. Issues bound share controls for that owned brief. The body must be a JSON object (`{}` is allowed). A non-object body (`null`, array, scalar) is `400 VALIDATION_ERROR` (`http.invalid_json`). Staff receive `401 UNAUTHORIZED` (`brief.role`) without learning whether the brief exists. Another subject's brief is `404 NOT_FOUND` (`brief.not_found`). Success `200` envelope: `{ contract_version: "0.1.0", allowed_actions: AllowedAction[] }`. The list always includes `share_brief_text` bound to that `brief_id` and version; `share_photo_ref` is included only when the photo capability is enabled and this session already has an image. Displayed action IDs do not authorize execution.
+
+`GET /staff/briefs` — staff or owner session. Each item is a delivered or acknowledged `BarberBrief` for the configured branch plus `observations`: the stored `CosmeticObservations` for that brief's photo reference, or `null`. Never image bytes or URLs. `withdrawn` briefs are omitted. Observations older than the 24 h `ret_photo_v1` window are omitted.

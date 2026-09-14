@@ -121,6 +121,17 @@ test('assertContract throws on invalid input', () => {
   assert.throws(() => assertContract('ErrorShape', { contract_version: '0.1.0' }, registry));
 });
 
+test('CONTRACT documents share-actions and staff brief observations', () => {
+  const text = readFileSync(join(SCHEMA_DIR, 'CONTRACT-v0.1.md'), 'utf8');
+  assert.match(text, /POST \/briefs\/:brief_id\/share-actions/);
+  assert.match(text, /brief\.role/);
+  assert.match(text, /brief\.not_found/);
+  assert.match(text, /http\.invalid_json/);
+  assert.match(text, /\{ contract_version: "0\.1\.0", allowed_actions: AllowedAction\[\] \}/);
+  assert.match(text, /GET \/staff\/briefs/);
+  assert.match(text, /plus `observations`/);
+});
+
 test('arabic text length uses code points', () => {
   const input = readJson(join(FIX, 'valid', 'chat-turn-input.json'));
   assert.equal(validateContract('ChatTurnInput', input, registry).ok, true);

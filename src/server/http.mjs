@@ -171,16 +171,7 @@ export function createHttpServer(app, config) {
         return send(res, 200, app.createBrief(bearer(req), body));
       }
       if (method === 'POST' && /^\/briefs\/[^/]+\/share-actions$/.test(path)) {
-        const body = await readJson(req, 1024);
-        if (body === null || typeof body !== 'object' || Array.isArray(body)) {
-          throw new AppError({
-            contract_version: '0.1.0',
-            code: 'VALIDATION_ERROR',
-            message_key: 'http.invalid_json',
-            retryable: false,
-            details: { field: 'body' },
-          }, 400);
-        }
+        await readJson(req, 1024);
         const briefId = path.split('/')[2];
         return send(res, 200, app.issueShareActionsForBrief(bearer(req), briefId));
       }
