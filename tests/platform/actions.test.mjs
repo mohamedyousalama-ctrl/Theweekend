@@ -93,18 +93,30 @@ test('preference proposals are not listed until the customer executes the action
   app.close();
 });
 
-test('two concurrent clicks claim an action once', async () => {
+test('a second click on a claimed action is stale', () => {
   const { app } = testApp();
   const { token } = app.createSession('customer', OWNER_PASS);
   const action = app.issueBookingAction(token);
-  const results = await Promise.all([
-    Promise.resolve().then(() => app.executeAction(token, action.action_id)),
-    Promise.resolve().then(() => app.executeAction(token, action.action_id)),
-  ]);
-  const outcomes = results.map(r => r.outcome).sort();
-  assert.deepEqual(outcomes, ['external_handoff', 'stale']);
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'external_handoff');
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'stale');
   const consumed = app.store.get('SELECT consumed_at FROM allowed_actions WHERE action_id = ?', [action.action_id]);
   assert.ok(consumed.consumed_at);
   assert.equal(app.store.get('SELECT COUNT(*) AS n FROM action_results WHERE action_id = ?', [action.action_id]).n, 1);
+  app.close();
+});
+
+test('CONSENT_REQUIRED inside the claim leaves the action retriable', () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const brief = app.createBrief(token, { text_ar: 'موجز للموافقة', do_not: [] });
+  const action = app.issueShareBriefAction(token, { brief_id: brief.brief_id });
+  assert.throws(
+    () => app.executeAction(token, action.action_id),
+    err => err instanceof AppError && err.shape.code === 'CONSENT_REQUIRED',
+  );
+  const row = app.store.get('SELECT consumed_at FROM allowed_actions WHERE action_id = ?', [action.action_id]);
+  assert.equal(row.consumed_at, null);
+  app.grantConsent(token, 'staff_sharing_text', 'customer_ui');
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'done');
   app.close();
 });
