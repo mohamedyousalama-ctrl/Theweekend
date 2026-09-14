@@ -299,4 +299,6 @@ Also recorded by the auditor as correct: zero forbidden identifiers; all 31 SHA-
 
 ## Review of THIS handback — pass 3 (narrow re-check of the two residual fixes)
 
+**VERDICT: approve** (2026-09-14 ~04:58 UTC). Recomputed all 21 records from the raw team list with the active-schedule-only method: weekday sets, spans and flags match `EXCERPTS.md` §2 and `staff.sanitized.json` exactly; كرم = 6 days (Wednesday off), only فرقان and مبين carry the seven-day flag among named records; the only end-before-start rows are فرقان Sun 15:30–11:00 and سعيد Fri 15:00–13:00. `ONE-BRANCH-CANDIDATE.md` shows أسامة 8, no كرم claim, and a hygiene row consistent with the table.
 
+Scope note: passes 2 and 3 were narrow re-checks of the fixes, not repeats of pass 1. No native-speaker, barber, legal or merchant review has happened. These verdicts approve the *sanitization and factual consistency* of this folder against the retrieved public data on 2026-09-13; they do not approve any merchant fact for customer use (that needs `merchant-approved` status, issue #5 knowledge rules).
