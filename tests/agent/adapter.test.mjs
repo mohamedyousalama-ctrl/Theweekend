@@ -39,7 +39,7 @@ test('grounded price reply → valid contract output, actions kept, usage costed
   assert.equal(first.output.observations, null);
   assert.equal(first.usage.provider, 'anthropic');
   assert.equal(first.usage.model_id, 'claude-opus-5');
-  assert.equal(first.usage.prompt_version, 'rakan.system.v0.2');
+  assert.equal(first.usage.prompt_version, 'rakan.system.v0.3');
   assert.equal(first.usage.input_tokens, 1200);
   assert.equal(first.usage.cost_estimate_minor, estimateCostMinor('claude-opus-5', { input_tokens: 1200, output_tokens: 180, cache_read_input_tokens: 900 }));
   const req = client.calls[0];
@@ -119,6 +119,9 @@ test('proposed actions are filtered by capabilities and unknown refs are dropped
   const ctx = context({ capabilities: { model: 'real', photo: 'disabled', booking_handoff: 'unavailable', staff_inbox: 'enabled', preferences: 'unavailable' } });
   const { output } = await adapter({ context: ctx, input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
   assert.deepEqual(output.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+  const noInbox = adapterWith([response(json)]);
+  const r2 = await noInbox.adapter({ context: context({ capabilities: { model: 'real', photo: 'disabled', booking_handoff: 'unavailable', staff_inbox: 'unavailable', preferences: 'unavailable' } }), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.deepEqual(r2.output.proposed_actions, [], 'talk_to_staff is never offered without a staff inbox');
   assert.deepEqual(output.knowledge_refs, [PRICE_REF]);
   assert.ok(output.flags.includes('unknown_ref_dropped'));
 });

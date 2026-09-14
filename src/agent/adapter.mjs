@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.2';
+export const PROMPT_VERSION = 'rakan.system.v0.3';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -214,7 +214,8 @@ export function actionAllowed(kind, caps, hasImage) {
   switch (kind) {
     case 'open_official_booking': return caps.booking_handoff === 'official_link';
     case 'request_pending_booking': return caps.booking_handoff === 'pending_request';
-    case 'share_brief_text': return caps.staff_inbox === 'enabled';
+    case 'share_brief_text':
+    case 'talk_to_staff': return caps.staff_inbox === 'enabled';
     case 'share_photo_ref': return caps.staff_inbox === 'enabled' && caps.photo === 'enabled' && hasImage;
     case 'save_preference':
     case 'delete_preference': return caps.preferences === 'enabled';

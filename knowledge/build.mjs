@@ -53,8 +53,23 @@ function slug(s) {
 }
 
 function clip(text, max = 500) {
-  const t = String(text).replace(/\s+/g, ' ').trim();
-  return t.length <= max ? t : `${t.slice(0, max - 1)}…`;
+  const t = String(text).replace(/\s+/g, ' ').replace(/\s+([،,.:؛])/g, '$1').trim();
+  if (t.length <= max) return t;
+  const head = t.slice(0, max - 1);
+  const cut = Math.max(head.lastIndexOf('. '), head.lastIndexOf('؟ '), head.lastIndexOf('! '), head.lastIndexOf(' '));
+  return `${head.slice(0, cut > 40 ? cut : head.length).trim()}…`;
+}
+
+/** One short descriptive sentence from a storefront description, never a paragraph (persona review M10). */
+function firstSentence(text, max = 220) {
+  const t = String(text || '').replace(/\s+/g, ' ').replace(/^[-•"“”«»\s]+/, '').replace(/["“”]/g, '').replace(/^استمتع ب/u, '').trim();
+  const m = t.match(/^(.{20,}?[.!؟])(\s|$)/u);
+  const s = m ? m[1] : t;
+  return clip(s, max);
+}
+
+function displayName(name) {
+  return String(name).replace(/^اسامه$/u, 'أسامة').replace(/ و /g, ' و').trim();
 }
 
 export function buildPack() {
@@ -169,7 +184,7 @@ export function buildPack() {
   // 6. Staff (storefront team list for the branch; owner allowed names)
   const team = staff.records.filter((r) => r.branch_ids.includes(STOREFRONT_BRANCH_ID));
   if (team.length !== 7) throw new Error(`expected 7 staff records for the branch, got ${team.length}`);
-  const names = team.map((r) => r.name);
+  const names = team.map((r) => displayName(r.name));
   add({
     knowledge_id: 'kno_mrs_staff_list',
     kind: 'staff',
@@ -186,8 +201,8 @@ export function buildPack() {
       knowledge_id: `kno_mrs_staff_${slug(r.provider_id)}`,
       kind: 'staff',
       ref: r.provider_id,
-      text_ar: `${r.name} — حلاق في فرع النرجس (مرسية).`,
-      text_en: `${r.name} — barber at Al Narjis (Marsiya).`,
+      text_ar: `${displayName(r.name)} — حلاق في فرع النرجس (مرسية).`,
+      text_en: `${displayName(r.name)} — barber at Al Narjis (Marsiya).`,
       source: 'E02',
       source_hash: EVIDENCE.E02,
       status: 'merchant_approved',
@@ -226,7 +241,7 @@ export function buildPack() {
       knowledge_id: `kno_mrs_addon_${ADDON_KEYS[a.label] || sha256(a.label).slice(0, 8)}_${a.amount_sar}`,
       kind: 'addon',
       ref: haircut.id,
-      text_ar: `إضافة على الحلاقة — ${a.label}: ${a.amount_sar} ريال (اختيارية، شاملة الضريبة).`,
+      text_ar: `إضافة على الحلاقة — ${displayName(a.label)}: ${a.amount_sar} ريال (اختيارية، شاملة الضريبة).`,
       text_en: `Haircut add-on — ${a.label}: ${a.amount_sar} SAR (optional, VAT inclusive).`,
       source: 'E03',
       source_hash: EVIDENCE.E03,
@@ -235,14 +250,15 @@ export function buildPack() {
     });
   }
   for (const s of services.filter((x) => x !== haircut && (atBranch(x) || noBranch(x)) && !(x.name.en || '').includes('(Copy)'))) {
-    const where = atBranch(s) ? '' : ' متوفرة حسب الفرع — تأكد من توفرها في صفحة الحجز.';
-    const whereEn = atBranch(s) ? '' : ' Availability by branch is confirmed on the booking page.';
+    const where = atBranch(s) ? '' : ' معروضة في الموقع، وما أقدر أأكد إنها متوفرة بفرع مرسية — تبين لك في صفحة الحجز لما تختار الفرع.';
+    const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is confirmed on the booking page once the branch is selected.';
     const en = s.name.en || s.name.ar;
+    const durationNote = /concealer/i.test(en) ? ` (الوقت المحجوز ${s.duration_min} دقيقة؛ التطبيق نفسه دقائق حسب وصف الموقع)` : ` المدة ${s.duration_min} دقيقة`;
     add({
       knowledge_id: `kno_mrs_service_${slug(en)}_${s.amount_sar}`,
       kind: 'service',
       ref: s.id,
-      text_ar: `${s.name.ar}: ${s.amount_sar} ريال، المدة ${s.duration_min} دقيقة، شامل الضريبة.${where} ${s.description_text}`,
+      text_ar: `${s.name.ar}: ${s.amount_sar} ريال شامل الضريبة،${durationNote}.${where} ${firstSentence(s.description_text)}`,
       text_en: `${en}: ${s.amount_sar} SAR, ${s.duration_min} minutes, VAT inclusive.${whereEn}`,
       source: 'E03',
       source_hash: EVIDENCE.E03,
@@ -254,16 +270,18 @@ export function buildPack() {
   // 8. Merchandise with the shop's own wording (owner: "use the website claims"); no stock, delivery not offered
   for (const p of catalogue.merchandise) {
     const en = p.name.en || p.name.ar;
+    const duplicate = /\(Copy\)/i.test(en); // the site's duplicate 50 ml row (268 next to the 269 bundle) — kept, disabled
+    const desc = p.description_text.replace(/السعر لا يشمل رسوم التوصيل\.?.*$/, '').replace(/الفوائد الرئيسية/g, '').trim();
     add({
       knowledge_id: `kno_mrs_product_${slug(en)}`,
       kind: 'product',
       ref: p.id,
-      text_ar: `${p.name.ar}: ${p.amount_sar} ريال شامل الضريبة. ${p.description_text.replace(/السعر لا يشمل رسوم التوصيل\.?.*$/, '').trim()}`,
+      text_ar: `${p.name.ar.replace(/\s*\|\s*/g, ' — ')}: ${p.amount_sar} ريال شامل الضريبة. ${firstSentence(desc)} (يُباع في الفرع؛ التوصيل ما يُعرض عبر راكان.)`,
       text_en: `${en}: ${p.amount_sar} SAR VAT inclusive. Product page: https://theweekendhairstyling.com/products/${p.id}`,
       source: 'E03',
       source_hash: EVIDENCE.E03,
-      status: 'merchant_approved',
-      enabled: true,
+      status: duplicate ? 'retired' : 'merchant_approved',
+      enabled: !duplicate,
     });
   }
 
@@ -272,13 +290,13 @@ export function buildPack() {
     const en = m.name.en || m.name.ar;
     const monthly = m.billing_period_days === 30;
     const basket = en.includes('Full')
-      ? 'الزيارة = حلاقة شعر + تهذيب لحية + عناية أساسية بالوجه'
-      : 'الزيارة = حلاقة شعر + تهذيب لحية';
+      ? 'الزيارة = حلاقة شعر + تهذيب لحية + عناية أساسية بالوجه (تفاصيل عناية الوجه غير مؤكدة، فلا يُحسب توفير لها)'
+      : 'الزيارة = حلاقة شعر + تهذيب لحية (خدمة الشعر والدقن بـ50 ريال)';
     add({
       knowledge_id: `kno_mrs_membership_${slug(en)}_${m.amount_sar}`,
       kind: 'membership',
       ref: m.id,
-      text_ar: `${m.name.ar}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. الزيارات غير المستخدمة تنتهي مع نهاية ${monthly ? 'الشهر' : 'المدة'}؛ ما فيه ترحيل. تشمل جميع الفروع. صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
+      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. الزيارات غير المستخدمة تنتهي مع نهاية ${monthly ? 'الـ30 يوم' : 'السنة'}؛ ما فيه ترحيل. تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
       text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. Unused visits expire at the end of the period; no rollover. All branches.`,
       source: OWNER.source,
       source_hash: OWNER.hash,
@@ -292,8 +310,8 @@ export function buildPack() {
     knowledge_id: 'kno_mrs_unknown_availability',
     kind: 'faq',
     ref: 'unknown',
-    text_ar: 'راكان ما يعرف الأوقات الفاضية ولا توفر المنتجات بالمخزون ولا مدة الانتظار في الفرع. يقول ذلك بوضوح ويوجّه لصفحة الحجز.',
-    text_en: 'Rakan does not know free time slots, product stock or waiting time in the branch. It says so and points to the booking page.',
+    text_ar: 'راكان ما يعرف: الأوقات الفاضية، مدة الانتظار، ساعات الدوام، المواقف، الدخول بدون موعد، حلاقة الأطفال وأسعارها، بطاقات الهدايا، توفر المنتجات. يقول «ما عندي هذي المعلومة» ويوجّه لصفحة الحجز أو رابط الخريطة، وما يستنتجها من أي شي.',
+    text_en: 'Rakan does not know: free slots, waiting time, opening hours, parking, walk-ins, children haircuts and their prices, gift cards, product stock. It says so and points to the booking page or the map link; it never derives them.',
     source: OWNER.source,
     source_hash: OWNER.hash,
     status: 'merchant_approved',

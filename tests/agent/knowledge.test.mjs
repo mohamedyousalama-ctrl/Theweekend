@@ -33,7 +33,12 @@ test('the branch pack carries the owner decisions of 2026-09-14', () => {
   assert.match(byId.get('kno_mrs_price_haircut_beard_combo').text_ar, /50 ريال/);
   const basic = pack.records.find((r) => r.knowledge_id.startsWith('kno_mrs_membership_solo_basic_membership_169'));
   assert.match(basic.text_ar, /حلاقة شعر \+ تهذيب لحية/);
-  assert.match(basic.text_ar, /تنتهي مع نهاية الشهر/);
+  assert.match(basic.text_ar, /تنتهي مع نهاية الـ30 يوم/);
+  const copy = pack.records.find((r) => r.knowledge_id.endsWith('_copy'));
+  assert.equal(copy.enabled, false, 'the storefront duplicate product row stays disabled');
+  assert.match(byId.get('kno_mrs_staff_list').text_ar, /أسامة/);
+  for (const r of pack.records) assert.ok(!/…$/.test(r.text_ar) || r.text_ar.length >= 200, `${r.knowledge_id} clipped too early`);
+  assert.ok(pack.records.every((r) => !/^.{0,60}"[^"]*$/.test(r.text_ar) || !r.text_ar.includes('"')), 'no orphan quotes');
   assert.match(byId.get('kno_mrs_policy_changes').text_ar, /ما يوعد بتغيير/);
 });
 
