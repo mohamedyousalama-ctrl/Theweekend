@@ -1,0 +1,97 @@
+/**
+ * Fail-explicit Weekend configuration. No secret defaults. No Kivo fallback.
+ */
+const NAMES = [
+  'WEEKEND_ENV',
+  'WEEKEND_MODEL_MODE',
+  'WEEKEND_MODEL_PROVIDER',
+  'WEEKEND_MODEL_ID',
+  'WEEKEND_VISION_MODEL_ID',
+  'WEEKEND_MODEL_API_KEY',
+  'WEEKEND_SPEND_CAP_USD_PER_DAY',
+  'WEEKEND_MAX_CALLS_PER_SESSION',
+  'WEEKEND_REQUEST_TIMEOUT_MS',
+  'WEEKEND_PHOTO_ENABLED',
+  'WEEKEND_UPLOAD_MAX_BYTES',
+  'WEEKEND_BOOKING_HANDOFF_MODE',
+  'WEEKEND_OFFICIAL_BOOKING_URL',
+  'WEEKEND_DB_PATH',
+  'WEEKEND_SESSION_SECRET',
+  'WEEKEND_OWNER_PASSCODE_HASH',
+  'WEEKEND_STAFF_PASSCODE_HASH',
+  'WEEKEND_BRANCH_ID',
+];
+
+export class ConfigError extends Error {
+  constructor(name) {
+    super(`Missing required configuration: ${name}`);
+    this.name = 'ConfigError';
+    this.variable = name;
+  }
+}
+
+function present(value) {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function intField(env, name, min) {
+  if (!present(env[name])) throw new ConfigError(name);
+  const n = Number(env[name]);
+  if (!Number.isSafeInteger(n) || n < min) throw new ConfigError(name);
+  return n;
+}
+
+export function loadConfig(env) {
+  if (!env || typeof env !== 'object') throw new ConfigError('WEEKEND_ENV');
+  for (const name of NAMES) {
+    if (!present(env[name])) throw new ConfigError(name);
+  }
+  const weekendEnv = env.WEEKEND_ENV.trim();
+  const modelMode = env.WEEKEND_MODEL_MODE.trim();
+  const photoEnabled = env.WEEKEND_PHOTO_ENABLED.trim();
+  const handoff = env.WEEKEND_BOOKING_HANDOFF_MODE.trim();
+  const url = env.WEEKEND_OFFICIAL_BOOKING_URL.trim();
+  const branchId = env.WEEKEND_BRANCH_ID.trim();
+
+  if (!['local', 'owner-review'].includes(weekendEnv)) throw new ConfigError('WEEKEND_ENV');
+  if (!['real', 'mock'].includes(modelMode)) throw new ConfigError('WEEKEND_MODEL_MODE');
+  if (modelMode === 'mock' && weekendEnv !== 'local') throw new ConfigError('WEEKEND_MODEL_MODE');
+  if (!['true', 'false'].includes(photoEnabled)) throw new ConfigError('WEEKEND_PHOTO_ENABLED');
+  if (!['official_link', 'pending_request'].includes(handoff)) {
+    throw new ConfigError('WEEKEND_BOOKING_HANDOFF_MODE');
+  }
+  if (!/^https:\/\/[A-Za-z0-9][A-Za-z0-9.-]+(?:\/\S*)?$/.test(url)) {
+    throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  }
+  if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
+  if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
+  if (!/^[a-f0-9]{64}$/.test(env.WEEKEND_OWNER_PASSCODE_HASH.trim())) {
+    throw new ConfigError('WEEKEND_OWNER_PASSCODE_HASH');
+  }
+  if (!/^[a-f0-9]{64}$/.test(env.WEEKEND_STAFF_PASSCODE_HASH.trim())) {
+    throw new ConfigError('WEEKEND_STAFF_PASSCODE_HASH');
+  }
+
+  return {
+    WEEKEND_ENV: weekendEnv,
+    WEEKEND_MODEL_MODE: modelMode,
+    WEEKEND_MODEL_PROVIDER: env.WEEKEND_MODEL_PROVIDER.trim(),
+    WEEKEND_MODEL_ID: env.WEEKEND_MODEL_ID.trim(),
+    WEEKEND_VISION_MODEL_ID: env.WEEKEND_VISION_MODEL_ID.trim(),
+    WEEKEND_MODEL_API_KEY: env.WEEKEND_MODEL_API_KEY.trim(),
+    WEEKEND_SPEND_CAP_USD_PER_DAY: intField(env, 'WEEKEND_SPEND_CAP_USD_PER_DAY', 0),
+    WEEKEND_MAX_CALLS_PER_SESSION: intField(env, 'WEEKEND_MAX_CALLS_PER_SESSION', 1),
+    WEEKEND_REQUEST_TIMEOUT_MS: intField(env, 'WEEKEND_REQUEST_TIMEOUT_MS', 1),
+    WEEKEND_PHOTO_ENABLED: photoEnabled === 'true',
+    WEEKEND_UPLOAD_MAX_BYTES: intField(env, 'WEEKEND_UPLOAD_MAX_BYTES', 1),
+    WEEKEND_BOOKING_HANDOFF_MODE: handoff,
+    WEEKEND_OFFICIAL_BOOKING_URL: url,
+    WEEKEND_DB_PATH: env.WEEKEND_DB_PATH.trim(),
+    WEEKEND_SESSION_SECRET: env.WEEKEND_SESSION_SECRET.trim(),
+    WEEKEND_OWNER_PASSCODE_HASH: env.WEEKEND_OWNER_PASSCODE_HASH.trim(),
+    WEEKEND_STAFF_PASSCODE_HASH: env.WEEKEND_STAFF_PASSCODE_HASH.trim(),
+    WEEKEND_BRANCH_ID: branchId,
+  };
+}
+
+export const CONFIG_NAMES = NAMES;
