@@ -1004,6 +1004,48 @@ export function createApp(config, deps = {}) {
     return action;
   }
 
+  function latestSessionImage(session) {
+    return store.get(
+      `SELECT * FROM images
+       WHERE subject_id = ? AND session_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
+      [session.subject_id, session.session_id],
+    );
+  }
+
+  /**
+   * POST /briefs/:brief_id/share-actions — server-issued share controls for one owned brief.
+   * Staff never learn whether the brief exists. Photo share is omitted unless the capability is
+   * enabled and this session already has an image.
+   */
+  function issueShareActionsForBrief(token, briefId) {
+    const session = requireSession(token);
+    if (session.role !== 'customer' && session.role !== 'owner') {
+      fail('UNAUTHORIZED', 'brief.role', false, {}, 401);
+    }
+    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefId]);
+    if (!brief || brief.subject_id !== session.subject_id) {
+      fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+    }
+    const allowed = [
+      persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
+        requires_receipt_kind: 'staff_sharing_text',
+        payload: { brief_id: brief.brief_id },
+      }),
+    ];
+    const caps = capabilitiesFor(config, session.role, realAdapter);
+    if (caps.photo === 'enabled') {
+      const image = latestSessionImage(session);
+      if (image) {
+        allowed.push(persistAction(session, 'share_photo_ref', image.image_ref, 1, {
+          requires_receipt_kind: 'staff_sharing_photo',
+          payload: { image_ref: image.image_ref, brief_id: brief.brief_id },
+        }));
+      }
+    }
+    return { contract_version: '0.1.0', allowed_actions: allowed };
+  }
+
   function issueBookingAction(token) {
     const session = requireSession(token);
     return persistAction(
@@ -1049,6 +1091,7 @@ export function createApp(config, deps = {}) {
     issueDeletePreferenceAction,
     issueShareBriefAction,
     issueSharePhotoAction,
+    issueShareActionsForBrief,
     peekPhotoBytes(imageRef) {
       return photoBytes.has(imageRef);
     },

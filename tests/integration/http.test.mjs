@@ -46,6 +46,57 @@ test('health is honest about the model', async () => {
   });
 });
 
+test('POST /briefs/:id/share-actions issues bound actions and conceals other subjects', async () => {
+  await withServer({ WEEKEND_PHOTO_ENABLED: 'true' }, async ({ base }) => {
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const other = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const staff = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: STAFF_PASS },
+    });
+    const brief = await req(base, '/briefs', {
+      method: 'POST',
+      token: customer.json.token,
+      body: { text_ar: 'موجز للمشاركة', do_not: [] },
+    });
+    assert.equal(brief.status, 200);
+    const own = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: customer.json.token,
+      body: {},
+    });
+    assert.equal(own.status, 200);
+    assert.equal(own.json.contract_version, '0.1.0');
+    assert.equal(own.json.allowed_actions[0].kind, 'share_brief_text');
+    assert.equal(own.json.allowed_actions[0].bound.object_id, brief.json.brief_id);
+    assert.equal(own.json.allowed_actions.some(a => a.kind === 'share_photo_ref'), false);
+
+    const hidden = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: other.json.token,
+      body: {},
+    });
+    assert.equal(hidden.status, 404);
+    assert.equal(hidden.json.code, 'NOT_FOUND');
+    assert.equal(hidden.json.message_key, 'brief.not_found');
+
+    const staffDenied = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: staff.json.token,
+      body: {},
+    });
+    assert.equal(staffDenied.status, 401);
+    assert.equal(staffDenied.json.code, 'UNAUTHORIZED');
+    assert.equal(staffDenied.json.message_key, 'brief.role');
+  });
+});
+
 test('http session, brief sync, and booking handoff', async () => {
   await withServer({}, async ({ base, config }) => {
     const customer = await req(base, '/session', {
