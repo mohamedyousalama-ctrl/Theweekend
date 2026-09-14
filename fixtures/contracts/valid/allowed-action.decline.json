@@ -1,0 +1,16 @@
+{
+  "contract_version": "0.1.0",
+  "action_id": "act_syn_decline_a",
+  "kind": "decline",
+  "label_ar": "لا شكراً",
+  "label_en": "No thanks",
+  "bound": {
+    "session_id": "ses_syn_customer_a",
+    "subject_id": "sub_syn_guest_a",
+    "object_id": "offer_product_a",
+    "object_version": 1
+  },
+  "requires_receipt_kind": null,
+  "expires_at": "2026-09-14T11:05:00Z",
+  "url": null
+}

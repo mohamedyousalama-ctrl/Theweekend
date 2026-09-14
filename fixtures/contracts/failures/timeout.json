@@ -1,0 +1,28 @@
+{
+  "object": "ChatTurnOutput",
+  "instance": {
+    "contract_version": "0.1.0",
+    "turn_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee3",
+    "state": "error",
+    "messages": [
+      {
+        "text": "الطلب أخذ وقت أطول من المسموح ولم نُكمل الإجابة.",
+        "lang": "ar"
+      }
+    ],
+    "observations": null,
+    "style_options": [],
+    "proposed_actions": [],
+    "knowledge_refs": [],
+    "brief_draft": null,
+    "usage_ref": "use_syn_timeout",
+    "flags": [],
+    "error": {
+      "contract_version": "0.1.0",
+      "code": "TIMEOUT",
+      "message_key": "model.timeout",
+      "retryable": true,
+      "details": { "capability": "model" }
+    }
+  }
+}

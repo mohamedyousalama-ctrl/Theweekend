@@ -1,0 +1,15 @@
+{
+  "contract_version": "0.1.0",
+  "image_ref": "img_syn_session_a",
+  "observed": {
+    "hair_length": "short",
+    "hair_texture": "wavy",
+    "beard": "stubble",
+    "top_density_visible": "uncertain",
+    "face_visible": "partial"
+  },
+  "limitations": ["lighting", "angle"],
+  "confidence": "low",
+  "not_inferred": ["identity", "age", "ethnicity", "health", "attractiveness", "gender"],
+  "retention": "ephemeral"
+}

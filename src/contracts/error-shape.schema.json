@@ -1,0 +1,39 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "error-shape.schema.json",
+  "title": "ErrorShape",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "code", "message_key", "retryable", "details"],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "code": {
+      "type": "string",
+      "enum": [
+        "VALIDATION_ERROR",
+        "UNAUTHORIZED",
+        "NOT_FOUND",
+        "CONSENT_REQUIRED",
+        "CAPABILITY_UNAVAILABLE",
+        "MODEL_UNAVAILABLE",
+        "BUDGET_EXCEEDED",
+        "TIMEOUT",
+        "STALE_ACTION",
+        "CONFLICT",
+        "UPLOAD_REJECTED"
+      ]
+    },
+    "message_key": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{0,79}$" },
+    "retryable": { "type": "boolean" },
+    "details": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "capability": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,40}$" },
+        "field": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,40}$" },
+        "limit": { "type": "integer", "minimum": 0 },
+        "action_id": { "type": "string", "pattern": "^act_[A-Za-z0-9_-]{1,80}$" }
+      }
+    }
+  }
+}

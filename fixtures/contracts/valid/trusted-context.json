@@ -1,0 +1,30 @@
+{
+  "contract_version": "0.1.0",
+  "session_id": "ses_syn_customer_a",
+  "subject_id": "sub_syn_guest_a",
+  "role": "customer",
+  "verified": true,
+  "branch_id": "br_syn_m1",
+  "locale": "ar",
+  "capabilities": {
+    "model": "unavailable",
+    "photo": "disabled",
+    "booking_handoff": "official_link",
+    "staff_inbox": "unavailable",
+    "preferences": "enabled"
+  },
+  "consents": [
+    {
+      "contract_version": "0.1.0",
+      "receipt_id": "rcp_syn_prefs_a",
+      "subject_id": "sub_syn_guest_a",
+      "kind": "text_preferences",
+      "notice_version": "notice_prefs_v1",
+      "granted_at": "2026-09-14T10:00:00Z",
+      "revoked_at": null,
+      "retention_policy_key": "ret_text_prefs_v1",
+      "granted_via": "customer_ui"
+    }
+  ],
+  "issued_at": "2026-09-14T10:05:00Z"
+}

@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "permission-receipt.schema.json",
+  "title": "PermissionReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "receipt_id",
+    "subject_id",
+    "kind",
+    "notice_version",
+    "granted_at",
+    "revoked_at",
+    "retention_policy_key",
+    "granted_via"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "receipt_id": { "type": "string", "pattern": "^rcp_[A-Za-z0-9_-]{1,80}$" },
+    "subject_id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" },
+    "kind": {
+      "type": "string",
+      "enum": ["photo_analysis", "text_preferences", "staff_sharing_text", "staff_sharing_photo"]
+    },
+    "notice_version": { "type": "string", "pattern": "^notice_[A-Za-z0-9._-]{1,40}$" },
+    "granted_at": { "type": "string", "format": "date-time" },
+    "revoked_at": { "type": ["string", "null"], "format": "date-time" },
+    "retention_policy_key": { "type": "string", "pattern": "^ret_[A-Za-z0-9._-]{1,40}$" },
+    "granted_via": { "type": "string", "enum": ["customer_ui", "staff_ui"] }
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "preference.schema.json",
+  "title": "Preference",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "preference_id",
+    "subject_id",
+    "kind",
+    "value_text",
+    "source",
+    "provenance",
+    "version",
+    "created_at",
+    "revoked_at"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "preference_id": { "type": "string", "pattern": "^prf_[A-Za-z0-9_-]{1,80}$" },
+    "subject_id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" },
+    "kind": { "type": "string", "enum": ["style", "barber", "branch", "do_not", "note"] },
+    "value_text": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "source": { "type": "string", "enum": ["customer_typed", "customer_selected", "staff_recorded"] },
+    "provenance": { "type": "string", "enum": ["proposal", "approved_preference", "executed_result"] },
+    "version": { "type": "integer", "minimum": 1 },
+    "created_at": { "type": "string", "format": "date-time" },
+    "revoked_at": { "type": ["string", "null"], "format": "date-time" }
+  }
+}

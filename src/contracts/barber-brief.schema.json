@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "barber-brief.schema.json",
+  "title": "BarberBrief",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "brief_id",
+    "subject_id",
+    "branch_id",
+    "barber_preference",
+    "requested_look",
+    "do_not",
+    "reference",
+    "provenance",
+    "status"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "brief_id": { "type": "string", "pattern": "^brf_[A-Za-z0-9_-]{1,80}$" },
+    "subject_id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" },
+    "branch_id": { "type": "string", "pattern": "^br_[A-Za-z0-9_-]{1,80}$" },
+    "barber_preference": { "type": ["string", "null"], "maxLength": 80 },
+    "requested_look": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["option_id", "text_ar"],
+      "properties": {
+        "option_id": { "type": ["string", "null"], "pattern": "^opt_[A-Za-z0-9_-]{1,80}$" },
+        "text_ar": { "type": "string", "minLength": 1, "maxLength": 300 }
+      }
+    },
+    "do_not": {
+      "type": "array",
+      "maxItems": 5,
+      "items": { "type": "string", "minLength": 1, "maxLength": 80 }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "image_ref", "receipt_id"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["none", "photo_ref"] },
+        "image_ref": { "type": ["string", "null"], "pattern": "^img_[A-Za-z0-9_-]{1,80}$" },
+        "receipt_id": { "type": ["string", "null"], "pattern": "^rcp_[A-Za-z0-9_-]{1,80}$" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "none" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "image_ref": { "type": "null" },
+              "receipt_id": { "type": "null" }
+            }
+          },
+          "else": {
+            "properties": {
+              "image_ref": { "type": "string", "pattern": "^img_[A-Za-z0-9_-]{1,80}$" },
+              "receipt_id": { "type": "string", "pattern": "^rcp_[A-Za-z0-9_-]{1,80}$" }
+            }
+          }
+        }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approved_by_subject_at", "version"],
+      "properties": {
+        "approved_by_subject_at": { "type": ["string", "null"], "format": "date-time" },
+        "version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "status": { "type": "string", "enum": ["draft", "approved", "delivered", "acknowledged"] }
+  }
+}

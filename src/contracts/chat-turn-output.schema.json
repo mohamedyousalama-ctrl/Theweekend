@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chat-turn-output.schema.json",
+  "title": "ChatTurnOutput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "turn_id",
+    "state",
+    "messages",
+    "observations",
+    "style_options",
+    "proposed_actions",
+    "knowledge_refs",
+    "brief_draft",
+    "usage_ref",
+    "flags",
+    "error"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "turn_id": { "type": "string", "format": "uuid" },
+    "state": { "type": "string", "enum": ["ok", "unavailable", "error"] },
+    "messages": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["text", "lang"],
+        "properties": {
+          "text": { "type": "string", "minLength": 1, "maxLength": 2000 },
+          "lang": { "type": "string", "enum": ["ar", "en"] }
+        }
+      }
+    },
+    "observations": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "cosmetic-observations.schema.json" }
+      ]
+    },
+    "style_options": {
+      "type": "array",
+      "maxItems": 2,
+      "items": { "$ref": "#/$defs/StyleOption" }
+    },
+    "proposed_actions": {
+      "type": "array",
+      "maxItems": 3,
+      "items": { "$ref": "#/$defs/ProposedAction" }
+    },
+    "knowledge_refs": {
+      "type": "array",
+      "items": { "type": "string", "pattern": "^kno_[A-Za-z0-9_-]{1,80}$" }
+    },
+    "brief_draft": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "barber-brief.schema.json" }
+      ]
+    },
+    "usage_ref": { "type": "string", "pattern": "^use_[A-Za-z0-9_-]{1,80}$" },
+    "flags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{0,63}$" }
+    },
+    "error": {
+      "oneOf": [
+        { "type": "null" },
+        { "$ref": "error-shape.schema.json" }
+      ]
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "state": { "const": "ok" } },
+        "required": ["state"]
+      },
+      "then": { "properties": { "error": { "type": "null" } } },
+      "else": {
+        "properties": { "error": { "$ref": "error-shape.schema.json" } }
+      }
+    }
+  ],
+  "$defs": {
+    "StyleOption": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "option_id",
+        "name_ar",
+        "name_en",
+        "why_ar",
+        "upkeep_ar",
+        "feasible_in_person",
+        "reference_kind"
+      ],
+      "properties": {
+        "option_id": { "type": "string", "pattern": "^opt_[A-Za-z0-9_-]{1,80}$" },
+        "name_ar": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "name_en": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "why_ar": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "upkeep_ar": { "type": "string", "minLength": 1, "maxLength": 300 },
+        "feasible_in_person": { "oneOf": [{ "const": true }, { "const": "unknown" }] },
+        "reference_kind": { "type": "string", "enum": ["none", "public_style"] }
+      }
+    },
+    "ProposedAction": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "label_ar", "label_en", "payload"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "open_official_booking",
+            "request_pending_booking",
+            "share_brief_text",
+            "share_photo_ref",
+            "save_preference",
+            "delete_preference",
+            "talk_to_staff",
+            "decline",
+            "continue_without_photo"
+          ]
+        },
+        "label_ar": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "label_en": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "payload": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "option_id": { "type": "string", "pattern": "^opt_[A-Za-z0-9_-]{1,80}$" },
+            "preference_id": { "type": "string", "pattern": "^prf_[A-Za-z0-9_-]{1,80}$" },
+            "brief_id": { "type": "string", "pattern": "^brf_[A-Za-z0-9_-]{1,80}$" },
+            "image_ref": { "type": "string", "pattern": "^img_[A-Za-z0-9_-]{1,80}$" }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "object": "ErrorShape",
+  "instance": {
+    "contract_version": "0.1.0",
+    "code": "UPLOAD_REJECTED",
+    "message_key": "upload.rejected",
+    "retryable": false,
+    "details": { "field": "image_ref", "limit": 1048576 }
+  }
+}

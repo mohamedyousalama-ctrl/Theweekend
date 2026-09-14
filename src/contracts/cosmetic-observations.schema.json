@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "cosmetic-observations.schema.json",
+  "title": "CosmeticObservations",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "image_ref",
+    "observed",
+    "limitations",
+    "confidence",
+    "not_inferred",
+    "retention"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "image_ref": { "type": "string", "pattern": "^img_[A-Za-z0-9_-]{1,80}$" },
+    "observed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hair_length", "hair_texture", "beard", "top_density_visible", "face_visible"],
+      "properties": {
+        "hair_length": { "type": "string", "enum": ["short", "medium", "long", "uncertain"] },
+        "hair_texture": { "type": "string", "enum": ["straight", "wavy", "curly", "coily", "uncertain"] },
+        "beard": { "type": "string", "enum": ["none", "stubble", "short", "full", "uncertain"] },
+        "top_density_visible": { "type": "string", "enum": ["full", "thinning_visible", "uncertain"] },
+        "face_visible": { "type": "string", "enum": ["full", "partial", "covered"] }
+      }
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1, "maxLength": 80, "pattern": "^[a-z][a-z0-9_]{0,79}$" }
+    },
+    "confidence": { "type": "string", "enum": ["low", "medium", "high"] },
+    "not_inferred": {
+      "const": ["identity", "age", "ethnicity", "health", "attractiveness", "gender"]
+    },
+    "retention": { "type": "string", "enum": ["ephemeral", "stored_with_receipt"] }
+  }
+}

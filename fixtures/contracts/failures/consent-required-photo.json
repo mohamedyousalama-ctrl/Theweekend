@@ -1,0 +1,35 @@
+{
+  "object": "ChatTurnOutput",
+  "instance": {
+    "contract_version": "0.1.0",
+    "turn_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee4",
+    "state": "error",
+    "messages": [
+      {
+        "text": "ما نقرأ الصورة إلا بعد موافقتك الصريحة.",
+        "lang": "ar"
+      }
+    ],
+    "observations": null,
+    "style_options": [],
+    "proposed_actions": [
+      {
+        "kind": "continue_without_photo",
+        "label_ar": "نكمل بدون صورة",
+        "label_en": "Continue without a photo",
+        "payload": {}
+      }
+    ],
+    "knowledge_refs": [],
+    "brief_draft": null,
+    "usage_ref": "use_syn_consent",
+    "flags": [],
+    "error": {
+      "contract_version": "0.1.0",
+      "code": "CONSENT_REQUIRED",
+      "message_key": "photo.consent_required",
+      "retryable": false,
+      "details": { "capability": "photo" }
+    }
+  }
+}

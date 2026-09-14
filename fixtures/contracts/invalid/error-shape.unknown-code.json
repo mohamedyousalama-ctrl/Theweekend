@@ -1,0 +1,7 @@
+{
+  "contract_version": "0.1.0",
+  "code": "CONFIRMED",
+  "message_key": "booking.confirmed",
+  "retryable": false,
+  "details": {}
+}

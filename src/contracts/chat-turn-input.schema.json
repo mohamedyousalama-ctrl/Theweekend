@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "chat-turn-input.schema.json",
+  "title": "ChatTurnInput",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "session_id",
+    "turn_id",
+    "text",
+    "image_ref",
+    "client_action_id",
+    "locale_hint"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "session_id": { "type": "string", "pattern": "^ses_[A-Za-z0-9_-]{1,80}$" },
+    "turn_id": { "type": "string", "format": "uuid" },
+    "text": { "type": "string", "maxLength": 2000 },
+    "image_ref": { "type": ["string", "null"], "pattern": "^img_[A-Za-z0-9_-]{1,80}$" },
+    "client_action_id": { "type": ["string", "null"], "pattern": "^act_[A-Za-z0-9_-]{1,80}$" },
+    "locale_hint": { "type": "string", "enum": ["ar", "en", "auto"] }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "text": { "type": "string", "maxLength": 0 } },
+        "required": ["text"]
+      },
+      "then": {
+        "anyOf": [
+          { "properties": { "client_action_id": { "type": "string", "minLength": 1 } } },
+          { "properties": { "image_ref": { "type": "string", "minLength": 1 } } }
+        ]
+      },
+      "else": {
+        "properties": { "text": { "type": "string", "minLength": 1, "maxLength": 2000 } }
+      }
+    }
+  ]
+}

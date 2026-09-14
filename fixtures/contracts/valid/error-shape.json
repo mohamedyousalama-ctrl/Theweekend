@@ -1,0 +1,7 @@
+{
+  "contract_version": "0.1.0",
+  "code": "VALIDATION_ERROR",
+  "message_key": "input.invalid",
+  "retryable": false,
+  "details": { "field": "text" }
+}
