@@ -140,3 +140,28 @@ test('local mock turn over http is not a booking confirmation', async () => {
     assert.ok(!JSON.stringify(turn.json).toLowerCase().includes('confirm'));
   });
 });
+
+test('a client-supplied X-Forwarded-For cannot bypass or misdirect the passcode limiter', async () => {
+  await withServer({}, async ({ base }) => {
+    for (let i = 0; i < 5; i += 1) {
+      const { status } = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: 'nope' }, headers: { 'x-forwarded-for': `203.0.113.${i}` } });
+      assert.equal(status, 401);
+    }
+    const { status, json } = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: STAFF_PASS }, headers: { 'x-forwarded-for': '203.0.113.99' } });
+    assert.equal(status, 401, 'the socket address is the key when no proxy is trusted');
+    assert.equal(json.message_key, 'session.throttled');
+  });
+});
+
+test('behind a trusted proxy only the rightmost X-Forwarded-For entry is the client key', async () => {
+  await withServer({ WEEKEND_TRUST_PROXY: '1' }, async ({ base }) => {
+    for (let i = 0; i < 5; i += 1) {
+      const { status } = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: 'nope' }, headers: { 'x-forwarded-for': `10.0.0.${i}, 198.51.100.7` } });
+      assert.equal(status, 401);
+    }
+    const spoofed = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: STAFF_PASS }, headers: { 'x-forwarded-for': '10.0.0.200, 198.51.100.7' } });
+    assert.equal(spoofed.status, 401, 'rotating the client-supplied entry does not escape the throttle');
+    const other = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: STAFF_PASS }, headers: { 'x-forwarded-for': '10.0.0.1, 198.51.100.8' } });
+    assert.equal(other.status, 200, 'a different real client address is not locked out');
+  });
+});

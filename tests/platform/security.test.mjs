@@ -71,3 +71,17 @@ test('five failed passcodes from one client are throttled', () => {
   assert.equal(other.context.role, 'staff');
   app.close();
 });
+
+test('a global failure budget stops address rotation from buying unlimited tries', () => {
+  const limiter = new AttemptLimiter(() => Date.now(), { globalMaxFailures: 30, globalWindowMs: 60_000 });
+  const { app } = testApp({}, { limiter });
+  for (let i = 0; i < 30; i += 1) {
+    assert.throws(() => app.createSession('staff', 'nope', { clientKey: `198.51.100.${i}` }), err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED');
+  }
+  assert.throws(
+    () => app.createSession('staff', STAFF_PASS, { clientKey: '198.51.100.250' }),
+    err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED' && err.shape.retryable === true,
+    'a fresh address is throttled once the global budget is spent',
+  );
+  app.close();
+});
