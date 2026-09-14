@@ -16,7 +16,8 @@ export function renderActionRow({
   disabled = false,
   reconnectInvalidates = false,
 } = {}) {
-  const allowed = filterAllowedActions(allowedActions);
+  // continue_without_photo has its own control in optional-image.js; rendering it here too gave one click two listeners.
+  const allowed = filterAllowedActions(allowedActions).filter((a) => a.kind !== 'continue_without_photo');
   const invented = (allowedActions || []).filter((a) => a && !isAllowedActionKind(a.kind));
   const buttons = allowed.map((action) => {
     const enabled = !(disabled || reconnectInvalidates);
@@ -31,7 +32,7 @@ export function renderActionRow({
     const label = escapeHtml(bookingLabel(action.kind, locale, action.label_ar, action.label_en));
     // The server's own URL (external handoff) is a real link so the click opens it directly; app.js still posts the action.
     if (enabled && typeof action.url === 'string' && /^https:\/\//.test(action.url)) {
-      return el('a', { ...common, href: action.url, target: '_blank', rel: 'noopener', role: 'button', 'data-opens-itself': 'true' }, label);
+      return el('a', { ...common, href: action.url, target: '_blank', rel: 'noopener noreferrer', role: 'button', 'data-opens-itself': 'true' }, label);
     }
     return el('button', { type: 'button', ...common, disabled: !enabled }, label);
   });

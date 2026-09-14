@@ -318,7 +318,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       state.error = null;
       if (result.outcome === 'external_handoff' && !opensItself) {
         const action = state.allowedActions.find((a) => a.action_id === actionId);
-        if (action?.url) window.open(action.url, '_blank', 'noopener');
+        if (action?.url) window.open(action.url, '_blank', 'noopener,noreferrer');
       }
       if (result.outcome === 'stale' || result.outcome === 'rejected' || result.outcome === 'expired') {
         /* keep previous domain objects; do not flip success */

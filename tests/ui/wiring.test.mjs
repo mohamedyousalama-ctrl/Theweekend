@@ -28,7 +28,7 @@ test('an action with the server URL is a real link that opens on the click; with
   const row = renderActionRow({ allowedActions: [booking] });
   assert.match(row.html, /<a [^>]*href="https:\/\/theweekendhairstyling\.com\/book\?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"/);
   assert.match(row.html, /target="_blank"/);
-  assert.match(row.html, /rel="noopener"/);
+  assert.match(row.html, /rel="noopener noreferrer"/);
   assert.match(row.html, /data-opens-itself="true"/);
   assert.match(row.html, /data-executable="true"/);
   assert.equal(row.meta.bookingConfirmed, false);
@@ -42,6 +42,9 @@ test('an action with the server URL is a real link that opens on the click; with
   assert.doesNotMatch(http.html, /<a /, 'only https links become anchors');
   const src = readFileSync(join(ROOT, 'src/ui/app.js'), 'utf8');
   assert.ok(src.includes("result.outcome === 'external_handoff' && !opensItself"), 'no window.open after the awaited POST for a link');
+  const both = renderActionRow({ allowedActions: [action('talk_to_staff'), action('continue_without_photo')] });
+  assert.doesNotMatch(both.html, /data-action-kind="continue_without_photo"/, 'the optional-image control owns continue_without_photo');
+  assert.deepEqual(both.meta.kinds, ['talk_to_staff']);
 });
 
 test('every message key the server or the adapter can emit has copy in both languages', () => {
