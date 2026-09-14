@@ -349,12 +349,22 @@ export function createApp(config, deps = {}) {
   }
 
   function persistShareBriefProposal(session, payload) {
-    if (typeof payload.brief_id !== 'string') return null;
-    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
-    if (!brief || brief.subject_id !== session.subject_id) return null;
+    let brief = null;
+    if (typeof payload.brief_id === 'string') {
+      brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
+      if (!brief || brief.subject_id !== session.subject_id) return null;
+    } else {
+      brief = store.get(
+        `SELECT * FROM briefs
+         WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
+         ORDER BY created_at DESC LIMIT 1`,
+        [session.subject_id],
+      );
+      if (!brief) return null;
+    }
     return persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
       requires_receipt_kind: 'staff_sharing_text',
-      payload,
+      payload: { ...payload, brief_id: brief.brief_id },
     });
   }
 

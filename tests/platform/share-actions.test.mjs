@@ -76,6 +76,88 @@ test('staff inbox lists a brief only after an executed text share with an active
   app.close();
 });
 
+test('model share_brief_text without brief_id binds to the latest approved brief', async () => {
+  const { app } = testApp({}, {
+    adapter: ({ context, input, now }) => {
+      const usageId = `use_syn_bind_${input.turn_id.slice(-12)}`;
+      return {
+        usage: {
+          contract_version: '0.1.0',
+          usage_id: usageId,
+          session_id: context.session_id,
+          turn_id: input.turn_id,
+          provider: 'mock',
+          model_id: 'local-script',
+          prompt_version: 'local.mock.0',
+          input_tokens: 1,
+          output_tokens: 1,
+          latency_ms: 1,
+          cost_estimate_minor: null,
+          outcome: 'ok',
+          created_at: now,
+        },
+        output: {
+          contract_version: '0.1.0',
+          turn_id: input.turn_id,
+          state: 'ok',
+          messages: [{ text: 'هذا رد محلي للاختبار فقط، وليس استشارة حقيقية.', lang: 'ar' }],
+          observations: null,
+          style_options: [],
+          proposed_actions: [
+            {
+              kind: 'share_brief_text',
+              label_ar: 'مشاركة الموجز',
+              label_en: 'Share the brief',
+              payload: {},
+            },
+            {
+              kind: 'share_photo_ref',
+              label_ar: 'مشاركة ملاحظات الصورة',
+              label_en: 'Share photo notes',
+              payload: {},
+            },
+          ],
+          knowledge_refs: [],
+          brief_draft: null,
+          usage_ref: usageId,
+          flags: [],
+          error: null,
+        },
+      };
+    },
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const none = await app.submitTurn(token, {
+    contract_version: '0.1.0',
+    session_id: context.session_id,
+    turn_id: '11111111-2222-4333-8444-555555555601',
+    text: 'شارك الموجز',
+    image_ref: null,
+    client_action_id: null,
+    locale_hint: 'ar',
+  });
+  assert.equal(none.allowed_actions.some(a => a.kind === 'share_brief_text'), false);
+  assert.equal(none.allowed_actions.some(a => a.kind === 'share_photo_ref'), false);
+
+  const brief = app.createBrief(token, { text_ar: 'الموجز الأخير', do_not: [] });
+  const bound = await app.submitTurn(token, {
+    contract_version: '0.1.0',
+    session_id: context.session_id,
+    turn_id: '11111111-2222-4333-8444-555555555602',
+    text: 'شارك الموجز',
+    image_ref: null,
+    client_action_id: null,
+    locale_hint: 'ar',
+  });
+  const text = bound.allowed_actions.find(a => a.kind === 'share_brief_text');
+  assert.ok(text);
+  assert.equal(text.bound.object_id, brief.brief_id);
+  assert.equal(text.bound.object_version, brief.provenance.version);
+  assert.match(text.bound.object_id, /^brf_/);
+  assert.equal(bound.allowed_actions.some(a => a.kind === 'share_photo_ref'), false);
+  app.close();
+});
+
 test('share-actions for an owned brief returns a bound text share', () => {
   const { app } = testApp();
   const { token } = app.createSession('customer', OWNER_PASS);
