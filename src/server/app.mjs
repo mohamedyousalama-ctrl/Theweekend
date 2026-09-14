@@ -179,6 +179,12 @@ export function createApp(config, deps = {}) {
   const store = deps.store || openStore(config.WEEKEND_DB_PATH);
   const adapter = deps.adapter || runModelTurn;
   const realAdapter = Boolean(deps.adapter) && config.WEEKEND_MODEL_MODE === 'real';
+  // Upper bound of one turn's provider cost (minor units), reserved in the day ledger BEFORE the paid call and replaced
+  // by the real cost afterwards; 0 when nothing is injected (mock mode, tests). The in-flight count per session lives in
+  // memory: this application runs as one process on one instance (docs/16 §6), so the synchronous check-and-increment
+  // is atomic for concurrent turns.
+  const costCeilingMinor = Number.isInteger(deps.costCeilingMinor) && deps.costCeilingMinor > 0 ? deps.costCeilingMinor : 0;
+  const inflight = new Map();
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
 
@@ -384,15 +390,14 @@ export function createApp(config, deps = {}) {
     return store.get('SELECT COUNT(*) AS n FROM usage_records WHERE session_id = ?', [sessionId]).n;
   }
 
-  function daySpend(day) {
-    return store.get('SELECT * FROM daily_spend WHERE day = ?', [day])
-      || { day, calls: 0, cost_minor: 0 };
-  }
-
   function spendCapMinor() {
     return config.WEEKEND_SPEND_CAP_USD_PER_DAY * 100;
   }
 
+  /**
+   * Claims one call and `costMinor` of today's cap in a single UPDATE: the row must still be under the cap and the
+   * addition must fit. Returns false when the cap is reached, so two concurrent turns can never both pass the gate.
+   */
   function reserveSpend(now, costMinor = 0) {
     const day = now.slice(0, 10);
     const add = Number.isInteger(costMinor) && costMinor > 0 ? costMinor : 0;
@@ -405,10 +410,20 @@ export function createApp(config, deps = {}) {
     const result = store.run(
       `UPDATE daily_spend
        SET calls = calls + 1, cost_minor = cost_minor + ?
-       WHERE day = ? AND cost_minor + ? <= ?`,
-      [add, day, add, cap],
+       WHERE day = ? AND cost_minor < ? AND cost_minor + ? <= ?`,
+      [add, day, cap, add, cap],
     );
     return result.changes === 1;
+  }
+
+  /** After the call: the reserved ceiling is replaced by the real cost — a real cost is always recorded, even past the cap. */
+  function settleSpend(now, reservedMinor, actualMinor) {
+    const day = now.slice(0, 10);
+    const actual = Number.isInteger(actualMinor) && actualMinor > 0 ? actualMinor : 0;
+    store.run(
+      'UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?) WHERE day = ?',
+      [reservedMinor, actual, day],
+    );
   }
 
   function rejectPasscode(clientKey) {
@@ -868,19 +883,29 @@ export function createApp(config, deps = {}) {
     }
 
     const now = iso(clock);
-    if (sessionCalls(session.session_id) >= config.WEEKEND_MAX_CALLS_PER_SESSION) {
-      fail('BUDGET_EXCEEDED', 'model.session_cap', false, { capability: 'model', limit: config.WEEKEND_MAX_CALLS_PER_SESSION }, 429);
+    // Both caps are claimed BEFORE the paid call: the session slot counts finished calls plus turns still in flight
+    // (synchronous, so concurrent turns cannot both pass), and the day ledger reserves the cost ceiling atomically.
+    const sessionCap = config.WEEKEND_MAX_CALLS_PER_SESSION;
+    const inFlight = inflight.get(session.session_id) || 0;
+    if (sessionCalls(session.session_id) + inFlight >= sessionCap) {
+      fail('BUDGET_EXCEEDED', 'model.session_cap', false, { capability: 'model', limit: sessionCap }, 429);
     }
-    const spend = daySpend(now.slice(0, 10));
-    if (spend.cost_minor >= spendCapMinor()) {
+    if (!reserveSpend(now, costCeilingMinor)) {
       fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
         capability: 'model',
         limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,
       }, 429);
     }
+    inflight.set(session.session_id, inFlight + 1);
 
     let output;
     let usage;
+    let settled = false;
+    const settle = (actualMinor) => {
+      if (settled) return;
+      settled = true;
+      settleSpend(now, costCeilingMinor, actualMinor);
+    };
     try {
       const result = await withTimeout(
         () => adapter({ context, input, now, image_bytes: imageBytes }),
@@ -889,6 +914,7 @@ export function createApp(config, deps = {}) {
       output = result.output;
       usage = result.usage;
     } catch (err) {
+      settle(0); // nothing billable is known; the reservation is released, the claimed call stays counted
       if (err instanceof AppError) throw err;
       if (err?.code !== 'TIMEOUT') throw err;
       usage = {
@@ -907,17 +933,15 @@ export function createApp(config, deps = {}) {
         created_at: now,
       };
       persistUsage(usage);
-      reserveSpend(now, 0);
       fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+    } finally {
+      const left = (inflight.get(session.session_id) || 1) - 1;
+      if (left > 0) inflight.set(session.session_id, left);
+      else inflight.delete(session.session_id);
     }
     assertContract('ChatTurnOutput', output);
-    if (!reserveSpend(now, usage.cost_estimate_minor ?? 0)) {
-      persistUsage({ ...usage, outcome: 'budget' });
-      fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
-        capability: 'model',
-        limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,
-      }, 429);
-    }
+    // The real cost always lands in the ledger, even when it exceeds what was reserved; only later turns are refused.
+    settle(usage.cost_estimate_minor ?? 0);
     persistUsage(usage);
     if (input.image_ref && output.observations) {
       store.run(
