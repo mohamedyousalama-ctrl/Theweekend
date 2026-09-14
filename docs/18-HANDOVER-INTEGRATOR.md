@@ -16,21 +16,20 @@ Truth order: (1) latest comments on issue #2 and on open PRs, (2) this file, (3)
 
 Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merges, no force pushes, no secrets in Git or chat.
 
-## 2. State snapshot (2026-09-14, ~11:45 UTC) — verify against #2 before trusting
+## 2. State snapshot (2026-09-14, ~20:40 UTC) — verify against #2 before trusting
 
 | Item | State |
 |---|---|
-| `main` = `7385247` | contracts + server (PR #14), the Rakan brain (PR #19: prompt v0.3, knowledge pack, Claude adapter with photo path), hosting decision, evidence handback, owner answers, this handover; 228 tests |
-| PR #22 (integrator, stream A) | **open, clean** — hardening after the post-merge bot reviews: exact price/figure/link grounding against cited records, citable membership arithmetic, cost rounded up and retries summed, abort-aware turns (`adapter({ …, signal })`), knowledge pack revision 2 (47 records, 45 enabled), prompt v0.4, MISSING-FACTS rows 18–19; two two-agent rounds applied; Qodo re-review 0 findings; 235 tests |
-| PR #21 (Grok, stream B) | **open, approve-with-fixes** — required: wire the share/delete buttons, merge `main`, booking link as a real anchor (popup blocked after the awaited call); next handback: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:id/share-actions`, hide M2 ids, copy keys for every `message_key` |
-| PR #20 (Cursor, stream C) | **open, approve-with-fixes** — required: reserve spend and the session call slot atomically *before* the model call (with a two-concurrent-turns test) |
-| Package C2 (Cursor, after #20; issue #7 comment of 11:30 UTC) | 15 items from the Qodo reviews of #14/#19: preference drafts, consent-gated staff inbox, photo share = observations, server-side brief binding, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the adapter call, body shape → 400, error logging, abort signal to the adapter, `POST /briefs/:id/share-actions`, `tests/ui` glob |
-| Merge order (owner) | #21 (after fixes) → #20 (after fix) → #22 → small C commit adding `tests/ui/*.test.mjs` to `npm test`. Verified 11:45 UTC: the three PRs merged together on `main` pass 293 tests |
-| #8 owner walkthrough | after the merges, C2, the first Railway deploy and one `npm run eval:agent` run with the owner's key (results to #5) |
+| `main` = `6658d71` | PR #21 (Grok UI + integrator fixes), PR #20 (Cursor platform + pre-call reservations), PR #22 (A hardening: exact grounding, cost/retry accounting, abort-aware turns, pack revision 2, prompt v0.4) merged by the integrator on the owner's instruction (order #21 → #20 → #22); 259 tests on `main` |
+| PR #23 (integrator, C config) | open: `tests/ui/*.test.mjs` under `npm test`, smoke file removed; 297 tests |
+| Package C2 (Cursor, issue #7) | READY from `main`: 15 items (order: share-actions endpoint, consent-gated staff inbox, photo share = observations, server-side brief binding, abort signal, then preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape, logging) |
+| Next UI handback (Grok, issue #6) | READY from `main`: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:id/share-actions`, direct preference save, hide M2 ids, photo upload path |
+| #8 owner walkthrough | after C2 item 14 + the consent/brief UI, the first Railway deploy and one `npm run eval:agent` run with the owner's key (results to #5) |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
 | Hosting | Railway decided (`docs/17-HOSTING.md`); owner signed up; project not created yet; `WEEKEND_TRUST_PROXY=1`; the dedicated Claude key goes into Railway as `WEEKEND_MODEL_API_KEY` only |
 | Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
 | Bot reviews | Qodo and Codex review every PR (also after merge): read them on each check-in; a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
+| Idle agents | if Cursor or Grok stay idle, the integrator may do small, in-scope required fixes on their branches after an adversarial audit (done on #20 and #21 on 2026-09-14); larger packages stay theirs |
 
 ## 3. Decisions log (all recorded; do not reopen without the owner)
 
