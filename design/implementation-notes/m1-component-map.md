@@ -1,10 +1,10 @@
 # M1 component map — Rakan customer / staff UI
 
 **Issue:** [#6](https://github.com/mohamedyousalama-ctrl/Theweekend/issues/6) first handback (design mapping only).
-**Stream:** B (Grok). **Status label:** `proposal` — mapped, not implemented, not visually compared, not released.
-**Base pin:** `4bc182900eca196d8f9bd40d72a7f5e9822c4ddf` (`main` after PR #12).
+**Stream:** B (Grok). **Status label:** `proposal` for this map; second-handback components are `implemented` (not visually compared, not released) — see `m1-ui-second-handback.md`.
+**Base pin:** `4bc182900eca196d8f9bd40d72a7f5e9822c4ddf` (`main` after PR #12). Second handback branched from `795f09a78093899fc01b80a0d688fe00de366e34`.
 **Branch:** `work/b-rakan-ui`.
-**Second handback:** components under `src/ui/**`, `styles/**`, `tests/ui/**` after #3 schemas/fixtures exist. This file does not implement them.
+**Second handback:** components under `src/ui/**`, `styles/**`, `tests/ui/**` after #3 schemas/fixtures exist. Implementation notes: `design/implementation-notes/m1-ui-second-handback.md`.
 
 This note consumes `src/contracts/CONTRACT-v0.1.md` **definitions** only. JSON schemas, valid/invalid fixtures and `tests/contracts.test.mjs` are still pending under #3. No fields are invented here. Displayed action IDs never authorize execution.
 
@@ -303,7 +303,7 @@ B does not add a framework or bundler (that is a #3 request per `docs/16-C-BASEL
 
 ---
 
-## 8. Proposed file layout (second handback — do not create in this run)
+## 8. Proposed file layout (second handback — created in `m1-ui-second-handback.md`)
 
 Components only. **No** `package.json`, routes, server, or root config. C owns composition/serving.
 
@@ -425,8 +425,8 @@ DCLogic in the file is useful only as a specification of simulated states (`kios
 
 | Item | State |
 |---|---|
-| #3 JSON schemas, fixtures, contract tests | **Pending.** Map is against markdown definitions only. Second handback waits for them. |
-| Executable UI (`src/ui/**`) | **Not this PR.** |
+| #3 JSON schemas, fixtures, contract tests | **Landed** on `main` (`795f09a`, PR #14). Map was written against markdown definitions; second handback consumes schemas/fixtures. |
+| Executable UI (`src/ui/**`) | **Second handback** — see `m1-ui-second-handback.md`. |
 | Routes, root config, API credentials, private media | Out of scope (C / owner). |
 | Real model / vision / provider | **NOT RUN.** A prompt/fixture pack elsewhere does not count. |
 | Visual comparison at matching sizes | **NOT RUN** (no components yet). Acceptance checkboxes on #6 stay unticked. |

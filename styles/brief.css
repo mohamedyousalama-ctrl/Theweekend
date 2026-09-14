@@ -1,0 +1,40 @@
+.wk-brief {
+  background: var(--wk-card);
+  border: 1px solid var(--wk-hairline-soft);
+  border-radius: var(--wk-radius-card);
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wk-brief-row {
+  background: var(--wk-card);
+  border-radius: 14px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--wk-hairline-soft);
+}
+
+.wk-brief-label {
+  font-size: 11px;
+  letter-spacing: 0.8px;
+  color: var(--wk-red);
+  margin-bottom: 4px;
+}
+
+.wk-brief-value {
+  font-size: 14px;
+  color: var(--wk-ink);
+}
+
+.wk-share {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.wk-note {
+  font-size: 13px;
+  color: var(--wk-muted-4);
+}
