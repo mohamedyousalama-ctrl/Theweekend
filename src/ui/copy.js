@@ -44,8 +44,29 @@ export const COPY = {
     handoff: 'تسليم خارجي لصفحة الحجز الرسمية — ليس تأكيداً لموعد',
     booking_unconfirmed: 'الحجز الرسمي تسليم خارجي، وليس موعداً مؤكداً.',
     share_text: 'مشاركة نص الموجز',
-    share_photo: 'مشاركة مرجع الصورة',
-    share_separate: 'مشاركة النص ومشاركة الصورة إجراءان منفصلان.',
+    share_photo: 'مشاركة ملاحظات الصورة',
+    share_separate: 'مشاركة النص ومشاركة ملاحظات الصورة إجراءان منفصلان. المشاركة ترسل ملاحظات مكتوبة وليست صورة.',
+    value_text: 'نص التفضيل',
+    booking_handoff: 'الحجز',
+    photo_analysis: 'تحليل الصورة',
+    text_preferences: 'التفضيلات النصية',
+    staff_sharing_text: 'مشاركة نص الموجز',
+    staff_sharing_photo: 'مشاركة ملاحظات الصورة',
+    pref_kind_style: 'القصة',
+    pref_kind_barber: 'الحلاق',
+    pref_kind_branch: 'الفرع',
+    pref_kind_do_not: 'تجنّب',
+    pref_kind_note: 'ملاحظة',
+    consent_grant: 'أوافق',
+    consent_revoke: 'سحب الموافقة',
+    consent_later: 'لاحقاً',
+    consent_optional: 'هذا الإذن اختياري.',
+    approve_brief: 'اعتماد الموجز',
+    photo_upload: 'رفع صورة (اختياري)',
+    notice_photo_analysis: 'تحليل الصورة اختياري. نستخدمها لهذه الجلسة لملاحظات تجميلية عن الشعر واللحية والمظهر الظاهر فقط. لا تعرّف بالوجه ولا تشخيص. يمكنك المتابعة بدون صورة.',
+    notice_text_preferences: 'حفظ التفضيلات النصية اختياري. تُحفظ حتى تسحب الموافقة أو حتى انتهاء مدة الاحتفاظ، ويمكن حذفها.',
+    notice_staff_sharing_text: 'مشاركة نص الموجز مع فريق الفرع تحتاج موافقتك. المشاركة ليست حجزاً ولا تأكيداً لموعد.',
+    notice_staff_sharing_photo: 'مشاركة ملاحظات الصورة تعطي الفريق ملاحظات مكتوبة عن الصورة، وليست إرسال الصورة نفسها.',
     barber_pref: 'تفضيل الحلاق — ليس تخصيص كرسي أو موعد',
     branch_pref: 'تفضيل الفرع — فرع واحد في هذه المرحلة',
     provenance: 'الأصل',
@@ -136,8 +157,29 @@ export const COPY = {
     handoff: 'External handoff to the official booking page — not a confirmed appointment',
     booking_unconfirmed: 'Official booking is an external handoff, not a confirmed slot.',
     share_text: 'Share brief text',
-    share_photo: 'Share photo reference',
-    share_separate: 'Text share and photo share are separate actions.',
+    share_photo: 'Share photo notes',
+    share_separate: 'Text share and photo-note share are separate actions. Sharing sends written observations, never an image.',
+    value_text: 'Preference text',
+    booking_handoff: 'Booking',
+    photo_analysis: 'Photo analysis',
+    text_preferences: 'Text preferences',
+    staff_sharing_text: 'Share brief text',
+    staff_sharing_photo: 'Share photo notes',
+    pref_kind_style: 'Style',
+    pref_kind_barber: 'Barber',
+    pref_kind_branch: 'Branch',
+    pref_kind_do_not: 'Do not',
+    pref_kind_note: 'Note',
+    consent_grant: 'I agree',
+    consent_revoke: 'Withdraw consent',
+    consent_later: 'Later',
+    consent_optional: 'This permission is optional.',
+    approve_brief: 'Approve the brief',
+    photo_upload: 'Upload a photo (optional)',
+    notice_photo_analysis: 'Photo analysis is optional. We use it in this session for cosmetic notes about hair, beard and visible appearance only. No face recognition and no diagnosis. You can continue without a photo.',
+    notice_text_preferences: 'Saving text preferences is optional. They are kept until you withdraw consent or the retention period ends, and you can delete them.',
+    notice_staff_sharing_text: 'Sharing the brief text with branch staff needs your consent. Sharing is not a booking or a confirmed appointment.',
+    notice_staff_sharing_photo: 'Sharing photo notes gives staff written observations of the photo, not the image itself.',
     barber_pref: 'Barber preference — not a chair or slot allocation',
     branch_pref: 'Branch preference — one branch in this milestone',
     provenance: 'Provenance',
@@ -213,6 +255,10 @@ const MESSAGE_KEYS = {
   'agent.contract_invalid': { ar: 'صار خلل بسيط. أعد رسالتك.', en: 'A small glitch happened. Send your message again.' },
   'agent.refused': { ar: 'ما أقدر أساعد بهذا الطلب.', en: 'This request cannot be helped with.' },
   'photo.consent_required': { ar: 'الصورة تحتاج موافقة صريحة. يمكن المتابعة بالنص.', en: 'A photo needs explicit consent. You can continue with text.' },
+  'preference.consent_required': { ar: COPY.ar.notice_text_preferences, en: COPY.en.notice_text_preferences },
+  'action.consent_required': { ar: 'هذا الإجراء يحتاج موافقة صريحة أولاً.', en: 'This action needs explicit consent first.' },
+  'brief.share_consent': { ar: COPY.ar.notice_staff_sharing_text, en: COPY.en.notice_staff_sharing_text },
+  'brief.photo_consent': { ar: COPY.ar.notice_staff_sharing_photo, en: COPY.en.notice_staff_sharing_photo },
   'store.unavailable': { ar: 'التخزين غير متاح.', en: 'The store is unavailable.' },
   'upload.rejected': { ar: 'رُفض الرفع. المسار النصي ما زال متاحاً.', en: 'Upload rejected. The text path remains.' },
   'input.invalid': { ar: COPY.ar.validation, en: COPY.en.validation },
@@ -243,8 +289,32 @@ export function capabilityLabel(name, value, locale = 'ar') {
     ok: t(locale, 'cap_ok'),
     degraded: t(locale, 'cap_degraded'),
   };
-  const title = t(locale, name === 'preferences' ? 'prefs_cap' : name === 'staff_inbox' ? 'staff_inbox' : name);
+  let titleKey = name;
+  switch (name) {
+    case 'preferences':
+    case 'prefs_cap':
+      titleKey = 'prefs_cap';
+      break;
+    case 'staff_inbox':
+      titleKey = 'staff_inbox';
+      break;
+    case 'booking_handoff':
+    case 'booking':
+      titleKey = 'booking';
+      break;
+    default:
+      titleKey = name;
+  }
+  const title = t(locale, titleKey);
   return `${title}: ${labels[value] ?? value}`;
+}
+
+export function receiptKindLabel(kind, locale = 'ar') {
+  return t(locale, kind);
+}
+
+export function preferenceKindLabel(kind, locale = 'ar') {
+  return t(locale, `pref_kind_${kind}`);
 }
 
 export function notInferredLabel(token, locale = 'ar') {

@@ -16,6 +16,7 @@ export function renderAppHeader({
   health = null,
   active = 'capability',
   locale = 'ar',
+  gallery = false,
 } = {}) {
   const items = navForContext(context, health);
   const m2 = M2_SURFACES;
@@ -31,7 +32,10 @@ export function renderAppHeader({
     'aria-pressed': String(active === item.id),
   }, t(locale, LABELS[item.id] ?? item.id))));
 
-  const html = el('header', { class: 'wk-header', 'data-m2-surfaces': m2.join(',') }, [
+  const html = el('header', {
+    class: 'wk-header',
+    ...(gallery ? { 'data-m2-surfaces': m2.join(',') } : {}),
+  }, [
     renderWordmark(),
     el('div', { class: 'wk-header-rule', 'aria-hidden': 'true' }, ''),
     nav,

@@ -1,7 +1,7 @@
 # M1 component map — Rakan customer / staff UI
 
 **Issue:** [#6](https://github.com/mohamedyousalama-ctrl/Theweekend/issues/6) first handback (design mapping only).
-**Stream:** B (Grok). **Status label:** `proposal` for this map; second-handback components are `implemented` (not visually compared, not released) — see `m1-ui-second-handback.md`.
+**Stream:** B (Grok). **Status label:** `proposal` for this map; second-handback components are `implemented` (not visually compared, not released) — see `m1-ui-second-handback.md`. Third handback (consent, brief approve/share, direct prefs, polish, upload) is `implemented` in `m1-ui-third-handback.md`.
 **Base pin:** `4bc182900eca196d8f9bd40d72a7f5e9822c4ddf` (`main` after PR #12). Second handback branched from `795f09a78093899fc01b80a0d688fe00de366e34`.
 **Branch:** `work/b-rakan-ui`.
 **Second handback:** components under `src/ui/**`, `styles/**`, `tests/ui/**` after #3 schemas/fixtures exist. Implementation notes: `design/implementation-notes/m1-ui-second-handback.md`.
@@ -433,6 +433,6 @@ DCLogic in the file is useful only as a specification of simulated states (`kios
 | Merchant-approved catalog / branch pack | Not in the UI. Do not scrape the HTML. |
 | Claim on #6 | Required comment text is in the issue thread when posting is possible; this map does not tick READY→ACCEPTED. |
 
-**Next gate:** after #3 publishes schemas/fixtures, implement the layout in §8, consume fixtures without adding fields, demonstrate the §6 states, keep `design/reference/**` hash unchanged.
+**Next gate:** third handback (consent / brief approve / share-actions / prefs / polish / upload) — see `m1-ui-third-handback.md`. Owner walkthrough (#8) is after that and C2 item 14.
 
 **This handback is not** G01–G13, not owner-review acceptance (#8), and not a customer release.

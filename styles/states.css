@@ -81,10 +81,29 @@
   text-wrap: balance;
 }
 
-.wk-lead {
-  margin: 0 0 24px;
-  max-width: 56ch;
-  font-size: 17px;
-  line-height: 1.85;
+.wk-consent {
+  background: var(--wk-card-2);
+  border: 1px solid rgba(225, 29, 46, 0.45);
+  border-radius: var(--wk-radius-lg);
+  padding: 18px 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wk-consent-title {
+  margin: 0;
+  font-size: 18px;
+}
+
+.wk-photo-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wk-photo-upload input[type="file"] {
   color: var(--wk-muted-2);
+  font-size: 13px;
 }

@@ -6,6 +6,7 @@ import { renderStyleOptionCards } from './style-option-card.js';
 import { renderActionRow } from './action-row.js';
 import { renderObservationLimits } from './observation-limits.js';
 import { renderOptionalImage } from './optional-image.js';
+import { renderBriefDraft } from '../brief/brief-draft.js';
 import { renderError } from '../states/error.js';
 import { renderActionResult } from '../states/action-result.js';
 
@@ -20,6 +21,7 @@ export function renderConversation({
   actionResult = null,
   error = null,
   reconnectInvalidates = false,
+  briefApproving = false,
 } = {}) {
   const messages = output?.messages || [];
   const transcript = renderTranscript({ messages, locale, loading });
@@ -47,6 +49,11 @@ export function renderConversation({
     locale,
     allowedActions,
   });
+  const briefDraft = renderBriefDraft({
+    draft: output?.brief_draft,
+    locale,
+    approving: briefApproving,
+  });
   const err = error || (output && output.state !== 'ok' ? output.error : null);
   const errorBlock = err ? renderError({ error: err, locale, keepDraft: Boolean(draft) }) : { html: '', meta: {} };
   const result = renderActionResult({ actionResult, locale });
@@ -62,6 +69,7 @@ export function renderConversation({
     styles.html,
     limits.html,
     photo.html,
+    briefDraft.html,
     actions.html,
     result.html,
     errorBlock.html,

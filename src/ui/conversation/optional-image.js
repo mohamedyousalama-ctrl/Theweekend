@@ -45,9 +45,24 @@ export function renderOptionalImage({
     }, t(locale, 'continue_without_photo'))
     : '';
 
+  const uploadEnabled = context?.capabilities?.photo === 'enabled';
+  const upload = uploadEnabled
+    ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
+      el('label', { for: 'wk-photo-upload' }, t(locale, 'photo_upload')),
+      el('input', {
+        id: 'wk-photo-upload',
+        name: 'photo',
+        type: 'file',
+        accept: 'image/jpeg,image/png,image/webp',
+        'data-photo-input': 'true',
+      }, ''),
+    ])
+    : '';
+
   return {
     html: el('section', { 'data-component': 'optional-image' }, [
       well,
+      upload,
       el('p', { class: 'wk-note' }, t(locale, 'photo_optional')),
       continueBtn,
     ]),
@@ -56,6 +71,7 @@ export function renderOptionalImage({
       photoOptional: true,
       continueOffered: offerContinue,
       continueExecutable: Boolean(continueAction),
+      uploadShown: uploadEnabled,
     },
   };
 }

@@ -40,6 +40,7 @@ test('share_brief_text and share_photo_ref are separate controls', () => {
   assert.equal(controls.meta.hasPhoto, true);
   assert.match(controls.html, /data-action-kind="share_brief_text"/);
   assert.match(controls.html, /data-action-kind="share_photo_ref"/);
+  assert.match(controls.html, /مشاركة ملاحظات الصورة/);
   assert.equal(controls.html.includes('data-share-bundled="false"'), true);
 });
 

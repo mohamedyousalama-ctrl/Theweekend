@@ -1,5 +1,5 @@
 import { el, escapeHtml } from '../html.js';
-import { t } from '../copy.js';
+import { preferenceKindLabel, t } from '../copy.js';
 import { preferenceVisibleInM1 } from '../policy.js';
 import { renderEmpty } from '../states/empty.js';
 
@@ -26,7 +26,7 @@ export function renderPreferenceList({ preferences = [], locale = 'ar' } = {}) {
       'data-provenance': pref.provenance,
       'data-version': String(pref.version),
     }, [
-      el('div', { class: 'wk-pref-kind' }, escapeHtml(pref.kind)),
+      el('div', { class: 'wk-pref-kind' }, escapeHtml(preferenceKindLabel(pref.kind, locale))),
       el('div', {}, escapeHtml(pref.value_text)),
       el('div', { class: 'wk-chip' }, pref.provenance === 'proposal' ? t(locale, 'preference_proposal') : t(locale, 'preference_approved')),
       el('div', { class: 'wk-note' }, `${t(locale, 'version')} ${pref.version}`),

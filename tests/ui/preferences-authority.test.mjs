@@ -42,11 +42,16 @@ test('proposal vs approved_preference are distinct; executed_result is not M1 tr
   assertNoForbiddenCopy(list.html, assert);
 });
 
-test('save/delete only via AllowedActions; no success before ActionResult', () => {
+test('save is offered when preferences are enabled even without a server save action; no success before ActionResult', () => {
   const idle = renderPreferenceEditor({ allowedActions: [save], selected: pref });
   assert.equal(idle.meta.canSave, true);
   assert.equal(idle.meta.success, false);
   assert.equal(idle.meta.executedWritten, false);
+  const direct = renderPreferenceEditor({ allowedActions: [], capabilitiesEnabled: true });
+  assert.equal(direct.meta.canSave, true);
+  assert.match(direct.html, /data-direct-save="true"/);
+  assert.match(direct.html, /نص التفضيل|Preference text/);
+  assert.doesNotMatch(direct.html, />value_text</);
   const after = renderPreferenceEditor({
     allowedActions: [save],
     selected: pref,

@@ -1,6 +1,6 @@
 # M1 UI second handback — Stream B (issue #6)
 
-**Status:** `implemented` in this repository (plain HTML/CSS/JS, synthetic fixtures only). **Not** visually compared at gold sizes, **not** model/vision tested, **not** released, **not** G01–G13.
+**Status:** `implemented` in this repository (plain HTML/CSS/JS, synthetic fixtures only). **Not** visually compared at gold sizes, **not** model/vision tested, **not** released, **not** G01–G13. Superseded as the latest Stream B package by `m1-ui-third-handback.md`; this file remains the record of the second handback.
 
 **Base:** `795f09a78093899fc01b80a0d688fe00de366e34` (`main` after PR #14).
 **Branch:** `work/b-rakan-ui`.

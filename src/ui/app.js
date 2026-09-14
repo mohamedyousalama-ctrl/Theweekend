@@ -1,6 +1,13 @@
 import { el } from './html.js';
 import { t } from './copy.js';
-import { previousActionsInvalidAfterReconnect } from './policy.js';
+import {
+  isConsentRequired,
+  lookupReceiptKindForAction,
+  previousActionsInvalidAfterReconnect,
+  receiptKindFromConsentError,
+  isReceiptKind,
+} from './policy.js';
+import { captureFocusKey, restoreFocus } from './focus.js';
 import { renderAppHeader } from './chrome/app-header.js';
 import { renderConversation } from './conversation/view.js';
 import { composeTurn } from './conversation/composer.js';
@@ -10,18 +17,27 @@ import { renderBriefPanel } from './staff/brief-panel.js';
 import { renderPreferenceList } from './preferences/preference-list.js';
 import { renderPreferenceEditor } from './preferences/preference-editor.js';
 import { renderCapabilityCopy } from './capability/capability-copy.js';
+import { renderConsentStep } from './consent/consent-step.js';
 import { renderError } from './states/error.js';
 import { galleryIndex } from './gallery-states.js';
 
-async function api(path, { method = 'GET', token, body, fetchImpl } = {}) {
+async function api(path, { method = 'GET', token, body, fetchImpl, raw = false, contentType } = {}) {
   const doFetch = fetchImpl || fetch;
+  const headers = {
+    ...(token ? { authorization: `Bearer ${token}` } : {}),
+  };
+  let payload;
+  if (raw) {
+    if (contentType) headers['content-type'] = contentType;
+    payload = body;
+  } else if (body !== undefined) {
+    headers['content-type'] = 'application/json';
+    payload = JSON.stringify(body);
+  }
   const res = await doFetch(path, {
     method,
-    headers: {
-      ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
-    },
-    body: body !== undefined ? JSON.stringify(body) : undefined,
+    headers,
+    body: payload,
   });
   const json = await res.json();
   if (!res.ok) {
@@ -30,6 +46,14 @@ async function api(path, { method = 'GET', token, body, fetchImpl } = {}) {
     throw err;
   }
   return json;
+}
+
+function uploadBytes(source) {
+  if (!source) return { bytes: null, contentType: 'application/octet-stream' };
+  if (source.bytes instanceof Uint8Array) {
+    return { bytes: source.bytes, contentType: source.contentType || source.type || 'application/octet-stream' };
+  }
+  return null;
 }
 
 export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
@@ -43,6 +67,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     reconnectInvalidates: false,
     output: null,
     allowedActions: [],
+    shareActions: [],
     actionResult: null,
     error: null,
     draft: '',
@@ -57,6 +82,9 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     inboxLoading: false,
     inboxError: null,
     gallery: false,
+    consent: null,
+    pendingRetry: null,
+    briefApproving: false,
   };
 
   function locale() {
@@ -65,23 +93,34 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
 
   function paint() {
     const loc = locale();
+    const focusKey = captureFocusKey(root);
     const header = renderAppHeader({
       context: state.context,
       health: state.health,
       active: state.surface,
       locale: loc,
+      gallery: state.gallery,
     });
     const main = renderSurface(loc);
     const session = renderSession(loc);
+    const consent = state.consent?.kind
+      ? renderConsentStep({
+        kind: state.consent.kind,
+        locale: loc,
+        receipts: state.context?.consents,
+      }).html
+      : '';
     root.innerHTML = [
       el('a', { class: 'skip-link', href: '#wk-main' }, t(loc, 'skip')),
       header.html,
       el('div', { class: 'wk-page', id: 'wk-main', tabindex: '-1' }, [
+        consent,
         session,
         main,
       ]),
     ].join('');
     bind();
+    restoreFocus(root, focusKey);
   }
 
   function renderSession(loc) {
@@ -101,6 +140,11 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     ]);
   }
 
+  function briefShareActions() {
+    if (Array.isArray(state.shareActions) && state.shareActions.length) return state.shareActions;
+    return state.allowedActions;
+  }
+
   function renderSurface(loc) {
     switch (state.surface) {
       case 'conversation':
@@ -113,13 +157,14 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
           draft: state.draft,
           imageRef: state.imageRef,
           actionResult: state.actionResult,
-          error: state.error,
+          error: state.consent ? null : state.error,
           reconnectInvalidates: state.reconnectInvalidates,
+          briefApproving: state.briefApproving,
         }).html;
       case 'approved_brief':
         return renderApprovedBrief({
           brief: state.brief,
-          allowedActions: state.allowedActions,
+          allowedActions: briefShareActions(),
           locale: loc,
           actionResult: state.actionResult,
         }).html;
@@ -157,13 +202,23 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         ].join('');
       case 'capability':
         return [
-          renderCapabilityCopy({ context: state.context, health: state.health, locale: loc }).html,
+          renderCapabilityCopy({
+            context: state.context,
+            health: state.health,
+            locale: loc,
+            gallery: state.gallery,
+          }).html,
           state.gallery ? el('p', { class: 'wk-note' }, `${t(loc, 'gallery')}: ${galleryIndex().join(', ')}`) : '',
         ].join('');
       default: {
         const _never = state.surface;
         void _never;
-        return renderCapabilityCopy({ context: state.context, health: state.health, locale: loc }).html;
+        return renderCapabilityCopy({
+          context: state.context,
+          health: state.health,
+          locale: loc,
+          gallery: state.gallery,
+        }).html;
       }
     }
   }
@@ -174,6 +229,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         state.surface = btn.getAttribute('data-surface');
         if (state.surface === 'staff_inbox') void loadInbox();
         if (state.surface === 'preferences') void loadPreferences();
+        if (state.surface === 'approved_brief') void loadShareActions();
         paint();
       });
     });
@@ -184,7 +240,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         const role = sessionForm.querySelector('[name="role"]').value;
         const passcode = sessionForm.querySelector('[name="passcode"]').value;
         try {
-            const out = await api('/session', { method: 'POST', body: { role, passcode }, fetchImpl });
+          const out = await api('/session', { method: 'POST', body: { role, passcode }, fetchImpl });
           state.token = out.token;
           state.context = out.context;
           state.error = null;
@@ -201,34 +257,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       composer.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const text = composer.querySelector('textarea').value;
-        state.draft = text;
-        if (!state.context) return;
-        state.loadingTurn = true;
-        state.error = null;
-        paint();
-        try {
-          const input = composeTurn({
-            sessionId: state.context.session_id,
-            text,
-            imageRef: state.imageRef,
-            localeHint: locale() === 'en' ? 'en' : 'ar',
-          });
-          const out = await api('/turns', { method: 'POST', token: state.token, body: input, fetchImpl });
-          state.output = out.output;
-          state.allowedActions = out.allowed_actions || [];
-          state.actionResult = out.action_result;
-          state.context = out.context || state.context;
-          state.draft = '';
-        } catch (err) {
-          state.error = err;
-        } finally {
-          state.loadingTurn = false;
-          paint();
-        }
+        await submitTurn(text);
       });
     }
     root.querySelectorAll('[data-action-id][data-executable="true"]').forEach((btn) => {
-      // A link opens its own page on the click (no popup to block); the action is posted for the record either way.
       const opensItself = btn.getAttribute('data-opens-itself') === 'true';
       btn.addEventListener('click', () => void clickAction(btn.getAttribute('data-action-id'), { opensItself }));
     });
@@ -285,28 +317,171 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         const kind = prefForm.querySelector('[name="kind"]').value;
         const value_text = prefForm.querySelector('[name="value_text"]').value;
         const versionField = prefForm.querySelector('[name="version"]');
-        try {
-          await api('/preferences', {
-            method: 'POST',
-            token: state.token,
-            body: {
-              kind,
-              value_text,
-              source: 'customer_typed',
-              ...(versionField ? { version: Number(versionField.value) } : {}),
-            },
-            fetchImpl,
-          });
-          await loadPreferences();
-        } catch (err) {
-          state.prefError = err;
-          paint();
-        }
+        const body = {
+          kind,
+          value_text,
+          source: 'customer_typed',
+          ...(versionField ? { version: Number(versionField.value) } : {}),
+        };
+        await savePreferenceDirect(body);
+      });
+    }
+    const approve = root.querySelector('[data-action="approve-brief"]');
+    if (approve) {
+      approve.addEventListener('click', () => void approveBriefDraft());
+    }
+    const photoInput = root.querySelector('[data-photo-input="true"]');
+    if (photoInput) {
+      photoInput.addEventListener('change', async () => {
+        const file = photoInput.files && photoInput.files[0];
+        if (!file) return;
+        await sendUpload(file);
+      });
+    }
+    const grant = root.querySelector('[data-consent-grant="true"]');
+    if (grant) {
+      grant.addEventListener('click', () => void grantConsent(grant.getAttribute('data-consent-kind')));
+    }
+    const revoke = root.querySelector('[data-consent-revoke="true"]');
+    if (revoke) {
+      revoke.addEventListener('click', () => void revokeConsent(revoke.getAttribute('data-receipt-id')));
+    }
+    const dismiss = root.querySelector('[data-consent-dismiss="true"]');
+    if (dismiss) {
+      dismiss.addEventListener('click', () => {
+        state.consent = null;
+        state.pendingRetry = null;
+        paint();
       });
     }
     if (state.error && !root.querySelector('[data-error-code]')) {
       const extra = renderError({ error: state.error, locale: locale(), keepDraft: Boolean(state.draft) });
       root.querySelector('#wk-main')?.insertAdjacentHTML('afterbegin', extra.html);
+    }
+  }
+
+  function attachReceipt(receipt) {
+    if (!receipt || !state.context) return;
+    const rest = (state.context.consents || []).filter((row) => row.kind !== receipt.kind || row.revoked_at);
+    state.context = {
+      ...state.context,
+      consents: receipt.revoked_at ? rest : [...rest, receipt],
+    };
+  }
+
+  function beginConsent(err, pending, fallbackKind) {
+    const kind = receiptKindFromConsentError(err, fallbackKind || pending?.receiptKind);
+    state.pendingRetry = pending;
+    if (isReceiptKind(kind)) {
+      state.consent = { kind, error: err };
+      state.error = null;
+    } else {
+      state.consent = null;
+      state.error = err;
+    }
+    paint();
+  }
+
+  async function runPending(pending) {
+    if (!pending) {
+      paint();
+      return;
+    }
+    switch (pending.type) {
+      case 'action':
+        await clickAction(pending.actionId, { opensItself: pending.opensItself });
+        break;
+      case 'preference':
+        await savePreferenceDirect(pending.body);
+        break;
+      case 'upload':
+        await sendUpload({ bytes: pending.bytes, contentType: pending.contentType });
+        break;
+      case 'approve_brief':
+        await approveBriefDraft();
+        break;
+      case 'share_actions':
+        await loadShareActions();
+        break;
+      case 'turn':
+        await submitTurn(pending.text || state.draft);
+        break;
+      default: {
+        const _never = pending.type;
+        void _never;
+        paint();
+      }
+    }
+  }
+
+  async function grantConsent(kind) {
+    if (!isReceiptKind(kind)) return;
+    try {
+      const receipt = await api('/consents', {
+        method: 'POST',
+        token: state.token,
+        body: { kind, granted_via: 'customer_ui' },
+        fetchImpl,
+      });
+      attachReceipt(receipt);
+      state.consent = null;
+      state.error = null;
+      const pending = state.pendingRetry;
+      state.pendingRetry = null;
+      await runPending(pending);
+    } catch (err) {
+      state.error = err;
+      paint();
+    }
+  }
+
+  async function revokeConsent(receiptId) {
+    if (!receiptId) return;
+    try {
+      const receipt = await api(`/consents/${receiptId}/revoke`, {
+        method: 'POST',
+        token: state.token,
+        body: {},
+        fetchImpl,
+      });
+      attachReceipt(receipt);
+      state.consent = null;
+      state.pendingRetry = null;
+    } catch (err) {
+      state.error = err;
+    }
+    paint();
+  }
+
+  async function submitTurn(text) {
+    state.draft = text;
+    if (!state.context) return;
+    state.loadingTurn = true;
+    state.error = null;
+    paint();
+    try {
+      const input = composeTurn({
+        sessionId: state.context.session_id,
+        text,
+        imageRef: state.imageRef,
+        localeHint: locale() === 'en' ? 'en' : 'ar',
+      });
+      const out = await api('/turns', { method: 'POST', token: state.token, body: input, fetchImpl });
+      state.output = out.output;
+      state.allowedActions = out.allowed_actions || [];
+      state.actionResult = out.action_result;
+      state.context = out.context || state.context;
+      state.draft = '';
+    } catch (err) {
+      if (isConsentRequired(err)) {
+        state.loadingTurn = false;
+        beginConsent(err, { type: 'turn', text }, 'photo_analysis');
+        return;
+      }
+      state.error = err;
+    } finally {
+      state.loadingTurn = false;
+      if (!state.consent) paint();
     }
   }
 
@@ -317,7 +492,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       state.actionResult = result;
       state.error = null;
       if (result.outcome === 'external_handoff' && !opensItself) {
-        const action = state.allowedActions.find((a) => a.action_id === actionId);
+        const action = [...state.allowedActions, ...state.shareActions].find((a) => a.action_id === actionId);
         if (action?.url) window.open(action.url, '_blank', 'noopener,noreferrer');
       }
       if (result.outcome === 'stale' || result.outcome === 'rejected' || result.outcome === 'expired') {
@@ -325,8 +500,121 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       }
       if (state.surface === 'preferences') await loadPreferences();
     } catch (err) {
+      if (isConsentRequired(err)) {
+        const receiptKind = lookupReceiptKindForAction(actionId, [state.allowedActions, state.shareActions]);
+        beginConsent(err, { type: 'action', actionId, opensItself, receiptKind }, receiptKind);
+        state.actionResult = null;
+        return;
+      }
       state.error = err;
       state.actionResult = null;
+    }
+    paint();
+  }
+
+  async function savePreferenceDirect(body) {
+    try {
+      await api('/preferences', {
+        method: 'POST',
+        token: state.token,
+        body,
+        fetchImpl,
+      });
+      state.prefError = null;
+      await loadPreferences();
+    } catch (err) {
+      if (isConsentRequired(err)) {
+        beginConsent(err, { type: 'preference', body }, 'text_preferences');
+        return;
+      }
+      state.prefError = err;
+      paint();
+    }
+  }
+
+  async function sendUpload(source) {
+    if (state.context?.capabilities?.photo !== 'enabled') return;
+    let packed = uploadBytes(source);
+    if (!packed && source && typeof source.arrayBuffer === 'function') {
+      packed = {
+        bytes: new Uint8Array(await source.arrayBuffer()),
+        contentType: source.type || 'application/octet-stream',
+      };
+    }
+    if (!packed?.bytes) return;
+    try {
+      const out = await api('/uploads', {
+        method: 'POST',
+        token: state.token,
+        body: packed.bytes,
+        raw: true,
+        contentType: packed.contentType,
+        fetchImpl,
+      });
+      if (out && typeof out.image_ref === 'string') state.imageRef = out.image_ref;
+      state.error = null;
+    } catch (err) {
+      if (isConsentRequired(err)) {
+        beginConsent(err, {
+          type: 'upload',
+          bytes: packed.bytes,
+          contentType: packed.contentType,
+        }, 'photo_analysis');
+        return;
+      }
+      state.error = err;
+      if (err.code === 'UPLOAD_REJECTED') state.imageRef = null;
+    }
+    paint();
+  }
+
+  async function approveBriefDraft() {
+    const draft = state.output?.brief_draft;
+    if (!draft?.requested_look?.text_ar) return;
+    state.briefApproving = true;
+    paint();
+    try {
+      const brief = await api('/briefs', {
+        method: 'POST',
+        token: state.token,
+        body: {
+          text_ar: draft.requested_look.text_ar,
+          do_not: Array.isArray(draft.do_not) ? draft.do_not : [],
+          option_id: draft.requested_look.option_id ?? null,
+          barber_preference: draft.barber_preference ?? null,
+        },
+        fetchImpl,
+      });
+      state.brief = brief;
+      state.error = null;
+      state.shareActions = [];
+      try {
+        const share = await api(`/briefs/${brief.brief_id}/share-actions`, {
+          method: 'POST',
+          token: state.token,
+          body: {},
+          fetchImpl,
+        });
+        state.shareActions = Array.isArray(share.allowed_actions) ? share.allowed_actions : [];
+      } catch (shareErr) {
+        if (isConsentRequired(shareErr)) {
+          state.surface = 'approved_brief';
+          state.briefApproving = false;
+          beginConsent(shareErr, { type: 'share_actions' });
+          return;
+        }
+        state.shareActions = [];
+      }
+      state.surface = 'approved_brief';
+    } catch (err) {
+      if (isConsentRequired(err)) {
+        state.briefApproving = false;
+        beginConsent(err, { type: 'approve_brief' });
+        return;
+      }
+      state.error = err;
+    } finally {
+      state.briefApproving = false;
     }
     paint();
   }
@@ -352,7 +640,31 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       state.preferences = out.preferences || [];
       state.prefError = null;
     } catch (err) {
+      if (isConsentRequired(err)) {
+        beginConsent(err, null, 'text_preferences');
+        return;
+      }
       state.prefError = err;
+    }
+    paint();
+  }
+
+  async function loadShareActions() {
+    if (!state.brief?.brief_id || !state.token) return;
+    try {
+      const out = await api(`/briefs/${state.brief.brief_id}/share-actions`, {
+        method: 'POST',
+        token: state.token,
+        body: {},
+        fetchImpl,
+      });
+      state.shareActions = Array.isArray(out.allowed_actions) ? out.allowed_actions : [];
+    } catch (err) {
+      if (isConsentRequired(err)) {
+        beginConsent(err, { type: 'share_actions' });
+        return;
+      }
+      state.shareActions = [];
     }
     paint();
   }

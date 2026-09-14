@@ -37,7 +37,9 @@ test('M2 screens are not mounted in M1 chrome or conversation', () => {
   assert.equal(header.meta.m2Mounted, false);
   assert.equal(cap.meta.m2Mounted, false);
   assert.equal(html.includes('data-m2-mounted="false"'), true);
-  assert.equal(html.includes('reception_kiosk') && html.includes('data-available="false"'), true);
+  assert.equal(html.includes('reception_kiosk'), false, 'customer capability does not print M2 ids');
+  const gallery = renderCapabilityCopy({ context, health, gallery: true });
+  assert.equal(gallery.html.includes('reception_kiosk') && gallery.html.includes('data-available="false"'), true);
   for (const id of ['isS1', 'kDetect', 'scanline', 'guest-directory']) {
     assert.equal(html.includes(id), false, id);
   }
