@@ -7,7 +7,7 @@ import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
 import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
 import { AttemptLimiter } from './limiter.mjs';
 import { openStore } from './store.mjs';
-import { withTimeout } from './timeout.mjs';
+import { settledOrSoon, withTimeout } from './timeout.mjs';
 
 const PREFERENCE_KINDS = new Set(['style', 'barber', 'branch', 'do_not', 'note']);
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -970,11 +970,21 @@ export function createApp(config, deps = {}) {
       settled = true;
       settleSpend(now, costCeilingMinor, actualMinor);
     };
+    let adapterSettled = null;
+    let adapterPromise = null;
     try {
-      const result = await withTimeout(
-        () => adapter({ context, input, now, image_bytes: imageBytes }),
-        config.WEEKEND_REQUEST_TIMEOUT_MS,
-      );
+      const controller = new AbortController();
+      adapterPromise = Promise.resolve(adapter({
+        context,
+        input,
+        now,
+        image_bytes: imageBytes,
+        signal: controller.signal,
+      })).then((result) => {
+        adapterSettled = result;
+        return result;
+      });
+      const result = await withTimeout(() => adapterPromise, config.WEEKEND_REQUEST_TIMEOUT_MS, { controller });
       output = result.output;
       usage = result.usage;
       assertContract('ChatTurnOutput', output); // inside the guard: a malformed output must release the reservation too
@@ -982,21 +992,25 @@ export function createApp(config, deps = {}) {
       settle(0); // nothing billable is known; the reservation is released, the claimed call stays counted
       if (err instanceof AppError) throw err;
       if (err?.code !== 'TIMEOUT') throw err;
-      usage = {
-        contract_version: '0.1.0',
-        usage_id: newId('use_'),
-        session_id: session.session_id,
-        turn_id: input.turn_id,
-        provider: 'none',
-        model_id: 'unavailable',
-        prompt_version: 'none',
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
-        cost_estimate_minor: null,
-        outcome: 'timeout',
-        created_at: now,
-      };
+      const late = await settledOrSoon(adapterSettled, adapterPromise);
+      const adapterUsage = late?.usage?.outcome === 'timeout' ? late.usage : null;
+      usage = adapterUsage && validateContract('ModelUsageRecord', adapterUsage).ok
+        ? adapterUsage
+        : {
+          contract_version: '0.1.0',
+          usage_id: newId('use_'),
+          session_id: session.session_id,
+          turn_id: input.turn_id,
+          provider: 'none',
+          model_id: 'unavailable',
+          prompt_version: 'none',
+          input_tokens: 0,
+          output_tokens: 0,
+          latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
+          cost_estimate_minor: null,
+          outcome: 'timeout',
+          created_at: now,
+        };
       persistUsage(usage);
       fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
     } finally {

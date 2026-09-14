@@ -15,6 +15,45 @@ const turn = (sessionId, turnId = '11111111-2222-4333-8444-555555555555') => ({
   locale_hint: 'ar',
 });
 
+test('turn abort passes a signal and persists adapter timeout usage when it settles', async () => {
+  const { app } = testApp({ WEEKEND_REQUEST_TIMEOUT_MS: '40' }, {
+    adapter: ({ context, input, now, signal }) => new Promise((resolve) => {
+      if (!signal) throw new Error('missing abort signal');
+      signal.addEventListener('abort', () => {
+        resolve({
+          usage: {
+            contract_version: '0.1.0',
+            usage_id: 'use_adapter_timeout01',
+            session_id: context.session_id,
+            turn_id: input.turn_id,
+            provider: 'anthropic',
+            model_id: 'claude-opus-5',
+            prompt_version: 'rakan.system.v0.4',
+            input_tokens: 12,
+            output_tokens: 0,
+            latency_ms: 40,
+            cost_estimate_minor: 1,
+            outcome: 'timeout',
+            created_at: now,
+          },
+          output: null,
+        });
+      });
+    }),
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(
+    () => app.submitTurn(token, turn(context.session_id)),
+    err => err instanceof AppError && err.shape.code === 'TIMEOUT',
+  );
+  const row = app.store.get('SELECT * FROM usage_records WHERE session_id = ?', [context.session_id]);
+  assert.equal(row.outcome, 'timeout');
+  assert.equal(row.provider, 'anthropic');
+  assert.equal(row.usage_id, 'use_adapter_timeout01');
+  assert.equal(row.input_tokens, 12);
+  app.close();
+});
+
 test('adapter timeout is TIMEOUT and records usage outcome timeout', async () => {
   const { app } = testApp({ WEEKEND_REQUEST_TIMEOUT_MS: '40' }, {
     adapter: () => new Promise(() => {}),
