@@ -250,3 +250,41 @@ test('non-object JSON bodies are VALIDATION_ERROR 400', async () => {
     }
   });
 });
+
+test('unexpected errors log method, normalized route, request id and stack', async () => {
+  const { app, config } = testApp();
+  app.executeAction = () => {
+    throw new Error('boom-internal');
+  };
+  const lines = [];
+  const orig = console.error;
+  console.error = (msg) => { lines.push(String(msg)); };
+  const server = createHttpServer(app, config);
+  const port = await listen(server);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/actions/act_syn_x`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer secret-token',
+      },
+      body: JSON.stringify({ passcode: 'should-not-be-logged' }),
+    });
+    assert.equal(res.status, 500);
+    const json = await res.json();
+    assert.equal(json.message_key, 'http.internal');
+    assert.equal(lines.length, 1);
+    const payload = JSON.parse(lines[0]);
+    assert.equal(payload.method, 'POST');
+    assert.equal(payload.route, '/actions/:action_id');
+    assert.match(payload.request_id, /^rid_/);
+    assert.match(payload.stack, /boom-internal/);
+    assert.equal(JSON.stringify(payload).includes('secret-token'), false);
+    assert.equal(JSON.stringify(payload).includes('should-not-be-logged'), false);
+    assert.equal(JSON.stringify(payload).includes('authorization'), false);
+  } finally {
+    console.error = orig;
+    await new Promise(resolve => server.close(resolve));
+    app.close();
+  }
+});
