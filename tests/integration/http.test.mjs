@@ -234,3 +234,19 @@ test('behind a trusted proxy only the rightmost X-Forwarded-For entry is the cli
     assert.equal(other.status, 200, 'a different real client address is not locked out');
   });
 });
+
+test('non-object JSON bodies are VALIDATION_ERROR 400', async () => {
+  await withServer({}, async ({ base }) => {
+    for (const raw of ['null', '[]', '"x"']) {
+      const res = await fetch(`${base}/session`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: raw,
+      });
+      assert.equal(res.status, 400, raw);
+      const json = await res.json();
+      assert.equal(json.code, 'VALIDATION_ERROR');
+      assert.equal(json.message_key, 'http.invalid_json');
+    }
+  });
+});

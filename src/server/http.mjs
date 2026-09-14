@@ -69,8 +69,9 @@ async function readJson(req, maxBytes) {
     details: { limit },
   }, 413));
   if (buf.length === 0) return {};
+  let value;
   try {
-    return JSON.parse(buf.toString('utf8'));
+    value = JSON.parse(buf.toString('utf8'));
   } catch {
     throw new AppError({
       contract_version: '0.1.0',
@@ -80,6 +81,16 @@ async function readJson(req, maxBytes) {
       details: { field: 'body' },
     }, 400);
   }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new AppError({
+      contract_version: '0.1.0',
+      code: 'VALIDATION_ERROR',
+      message_key: 'http.invalid_json',
+      retryable: false,
+      details: { field: 'body' },
+    }, 400);
+  }
+  return value;
 }
 
 function tryServeUi(req, res, pathname) {
