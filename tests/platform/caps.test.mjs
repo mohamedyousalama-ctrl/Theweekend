@@ -46,3 +46,22 @@ test('daily spend cap uses cost_estimate_minor', async () => {
   );
   app.close();
 });
+
+test('a single call that would exceed the daily cap is reserved and does not overshoot', async () => {
+  const costly = ({ context, input, now }) => {
+    const result = runModelTurn({ context, input, now });
+    result.usage.cost_estimate_minor = 150;
+    return result;
+  };
+  const { app } = testApp({ WEEKEND_SPEND_CAP_USD_PER_DAY: '1' }, { adapter: costly });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(
+    () => app.submitTurn(token, turn(context.session_id, '11111111-2222-4333-8444-555555555553')),
+    err => err instanceof AppError && err.shape.code === 'BUDGET_EXCEEDED',
+  );
+  const spend = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spend.cost_minor, 0);
+  const usage = app.store.get('SELECT * FROM usage_records WHERE session_id = ?', [context.session_id]);
+  assert.equal(usage.outcome, 'budget');
+  app.close();
+});

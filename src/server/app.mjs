@@ -316,6 +316,26 @@ export function createApp(config, deps = {}) {
     return persistAction(session, 'delete_preference', pref.preference_id, pref.version, { payload });
   }
 
+  function persistShareBriefProposal(session, payload) {
+    if (typeof payload.brief_id !== 'string') return null;
+    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
+    if (!brief || brief.subject_id !== session.subject_id) return null;
+    return persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
+      requires_receipt_kind: 'staff_sharing_text',
+      payload,
+    });
+  }
+
+  function persistSharePhotoProposal(session, payload) {
+    if (typeof payload.image_ref !== 'string') return null;
+    const image = store.get('SELECT * FROM images WHERE image_ref = ?', [payload.image_ref]);
+    if (!image || image.subject_id !== session.subject_id) return null;
+    return persistAction(session, 'share_photo_ref', image.image_ref, 1, {
+      requires_receipt_kind: 'staff_sharing_photo',
+      payload,
+    });
+  }
+
   function persistProposedAction(session, proposed) {
     const payload = proposed.payload && typeof proposed.payload === 'object' ? proposed.payload : {};
     switch (proposed.kind) {
@@ -323,34 +343,10 @@ export function createApp(config, deps = {}) {
         return persistSavePreferenceProposal(session, payload);
       case 'delete_preference':
         return persistDeletePreferenceProposal(session, payload);
-      case 'share_brief_text': {
-        if (typeof payload.brief_id === 'string') {
-          const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
-          if (!brief || brief.subject_id !== session.subject_id) return null;
-          return persistAction(session, proposed.kind, brief.brief_id, brief.version, {
-            requires_receipt_kind: 'staff_sharing_text',
-            payload,
-          });
-        }
-        return persistAction(session, proposed.kind, 'share_brief_text', 1, {
-          requires_receipt_kind: 'staff_sharing_text',
-          payload,
-        });
-      }
-      case 'share_photo_ref': {
-        if (typeof payload.image_ref === 'string') {
-          const image = store.get('SELECT * FROM images WHERE image_ref = ?', [payload.image_ref]);
-          if (!image || image.subject_id !== session.subject_id) return null;
-          return persistAction(session, proposed.kind, image.image_ref, 1, {
-            requires_receipt_kind: 'staff_sharing_photo',
-            payload,
-          });
-        }
-        return persistAction(session, proposed.kind, 'share_photo_ref', 1, {
-          requires_receipt_kind: 'staff_sharing_photo',
-          payload,
-        });
-      }
+      case 'share_brief_text':
+        return persistShareBriefProposal(session, payload);
+      case 'share_photo_ref':
+        return persistSharePhotoProposal(session, payload);
       case 'open_official_booking':
         return persistAction(session, proposed.kind, 'handoff_official_booking', 1, { payload });
       case 'request_pending_booking':
@@ -393,16 +389,26 @@ export function createApp(config, deps = {}) {
       || { day, calls: 0, cost_minor: 0 };
   }
 
-  function addSpend(now, costMinor = 0) {
+  function spendCapMinor() {
+    return config.WEEKEND_SPEND_CAP_USD_PER_DAY * 100;
+  }
+
+  function reserveSpend(now, costMinor = 0) {
     const day = now.slice(0, 10);
     const add = Number.isInteger(costMinor) && costMinor > 0 ? costMinor : 0;
+    const cap = spendCapMinor();
     store.run(
-      `INSERT INTO daily_spend (day, calls, cost_minor) VALUES (?, 1, ?)
-       ON CONFLICT(day) DO UPDATE SET
-         calls = calls + 1,
-         cost_minor = cost_minor + excluded.cost_minor`,
-      [day, add],
+      `INSERT INTO daily_spend (day, calls, cost_minor) VALUES (?, 0, 0)
+       ON CONFLICT(day) DO NOTHING`,
+      [day],
     );
+    const result = store.run(
+      `UPDATE daily_spend
+       SET calls = calls + 1, cost_minor = cost_minor + ?
+       WHERE day = ? AND cost_minor + ? <= ?`,
+      [add, day, add, cap],
+    );
+    return result.changes === 1;
   }
 
   function rejectPasscode(clientKey) {
@@ -780,20 +786,31 @@ export function createApp(config, deps = {}) {
         outcome = 'done';
         messageKey = `action.${row.kind}`;
         break;
-      case 'share_brief_text':
+      case 'share_brief_text': {
         if (!activeReceipt(session.subject_id, 'staff_sharing_text')) {
           fail('CONSENT_REQUIRED', 'brief.share_consent', false, { capability: 'staff_inbox' }, 403);
         }
+        const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [row.object_id]);
+        if (!brief || brief.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+        }
+        if (brief.version !== row.object_version) return staleAction(actionId);
         outcome = 'done';
         messageKey = 'brief.shared_text';
         break;
-      case 'share_photo_ref':
+      }
+      case 'share_photo_ref': {
         if (!activeReceipt(session.subject_id, 'staff_sharing_photo')) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
+        }
+        const image = store.get('SELECT * FROM images WHERE image_ref = ?', [row.object_id]);
+        if (!image || image.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
         }
         outcome = 'done';
         messageKey = 'brief.shared_photo';
         break;
+      }
       default: {
         const _never = row.kind;
         fail('VALIDATION_ERROR', 'action.kind', false, { field: 'kind' });
@@ -855,7 +872,7 @@ export function createApp(config, deps = {}) {
       fail('BUDGET_EXCEEDED', 'model.session_cap', false, { capability: 'model', limit: config.WEEKEND_MAX_CALLS_PER_SESSION }, 429);
     }
     const spend = daySpend(now.slice(0, 10));
-    if (spend.cost_minor >= config.WEEKEND_SPEND_CAP_USD_PER_DAY * 100) {
+    if (spend.cost_minor >= spendCapMinor()) {
       fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
         capability: 'model',
         limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,
@@ -890,12 +907,18 @@ export function createApp(config, deps = {}) {
         created_at: now,
       };
       persistUsage(usage);
-      addSpend(now, 0);
+      reserveSpend(now, 0);
       fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
     }
     assertContract('ChatTurnOutput', output);
+    if (!reserveSpend(now, usage.cost_estimate_minor ?? 0)) {
+      persistUsage({ ...usage, outcome: 'budget' });
+      fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
+        capability: 'model',
+        limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,
+      }, 429);
+    }
     persistUsage(usage);
-    addSpend(now, usage.cost_estimate_minor ?? 0);
     if (input.image_ref && output.observations) {
       store.run(
         `INSERT OR REPLACE INTO photo_observations
@@ -924,6 +947,20 @@ export function createApp(config, deps = {}) {
     const session = requireSession(token);
     const action = persistDeletePreferenceProposal(session, payload);
     if (!action) fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
+    return action;
+  }
+
+  function issueShareBriefAction(token, payload = {}) {
+    const session = requireSession(token);
+    const action = persistShareBriefProposal(session, payload);
+    if (!action) fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+    return action;
+  }
+
+  function issueSharePhotoAction(token, payload = {}) {
+    const session = requireSession(token);
+    const action = persistSharePhotoProposal(session, payload);
+    if (!action) fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
     return action;
   }
 
@@ -970,6 +1007,8 @@ export function createApp(config, deps = {}) {
     issueBookingAction,
     issueSavePreferenceAction,
     issueDeletePreferenceAction,
+    issueShareBriefAction,
+    issueSharePhotoAction,
     peekPhotoBytes(imageRef) {
       return photoBytes.has(imageRef);
     },
