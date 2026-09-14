@@ -289,30 +289,6 @@ export function createApp(config, deps = {}) {
     return action;
   }
 
-  function insertDraftPreference(session, kind, valueText) {
-    const pref = {
-      contract_version: '0.1.0',
-      preference_id: newId('prf_'),
-      subject_id: session.subject_id,
-      kind,
-      value_text: valueText,
-      source: 'customer_selected',
-      provenance: 'proposal',
-      version: 1,
-      created_at: iso(clock),
-      revoked_at: null,
-    };
-    assertContract('Preference', pref);
-    store.run(
-      `INSERT INTO preferences (
-         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-      [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
-        pref.provenance, pref.version, pref.created_at],
-    );
-    return pref;
-  }
-
   function ownedPreference(session, preferenceId) {
     if (typeof preferenceId !== 'string') return null;
     const pref = store.get(
@@ -329,16 +305,16 @@ export function createApp(config, deps = {}) {
       if (!pref) return null;
       return persistAction(session, 'save_preference', pref.preference_id, pref.version, {
         requires_receipt_kind: 'text_preferences',
-        payload,
+        payload: { ...payload, preference_id: pref.preference_id, value_text: payload.value_text ?? pref.value_text },
       });
     }
     const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
     const value = typeof payload.value_text === 'string' ? payload.value_text.trim() : '';
     if (!value) return null;
-    const draft = insertDraftPreference(session, kind, value);
-    return persistAction(session, 'save_preference', draft.preference_id, draft.version, {
+    const preferenceId = newId('prf_');
+    return persistAction(session, 'save_preference', preferenceId, 1, {
       requires_receipt_kind: 'text_preferences',
-      payload: { ...payload, preference_id: draft.preference_id, preference_kind: kind, value_text: value },
+      payload: { ...payload, preference_id: preferenceId, preference_kind: kind, value_text: value },
     });
   }
 
@@ -800,23 +776,47 @@ export function createApp(config, deps = {}) {
         messageKey = 'handoff.queued';
         break;
       case 'save_preference': {
-        const pref = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
-        if (!pref || pref.subject_id !== session.subject_id) {
+        const existing = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
+        if (existing && existing.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
         }
-        if (pref.revoked_at || pref.version !== row.object_version) {
+        if (existing && (existing.revoked_at || existing.version !== row.object_version)) {
           return staleAction(actionId);
         }
         const value = typeof payload.value_text === 'string' && payload.value_text.trim()
           ? payload.value_text.trim()
-          : pref.value_text;
-        const nextVersion = pref.version + 1;
-        store.run(
-          `UPDATE preferences
-           SET value_text = ?, source = ?, provenance = ?, version = ?
-           WHERE preference_id = ?`,
-          [value, 'customer_selected', 'approved_preference', nextVersion, pref.preference_id],
-        );
+          : existing?.value_text;
+        if (!value) return staleAction(actionId);
+        if (existing) {
+          store.run(
+            `UPDATE preferences
+             SET value_text = ?, source = ?, provenance = ?, version = ?
+             WHERE preference_id = ?`,
+            [value, 'customer_selected', 'approved_preference', existing.version + 1, existing.preference_id],
+          );
+        } else {
+          const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
+          const pref = {
+            contract_version: '0.1.0',
+            preference_id: row.object_id,
+            subject_id: session.subject_id,
+            kind,
+            value_text: value,
+            source: 'customer_selected',
+            provenance: 'approved_preference',
+            version: 1,
+            created_at: iso(clock),
+            revoked_at: null,
+          };
+          assertContract('Preference', pref);
+          store.run(
+            `INSERT INTO preferences (
+               preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+            [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
+              pref.provenance, pref.version, pref.created_at],
+          );
+        }
         outcome = 'done';
         messageKey = 'action.save_preference';
         break;
