@@ -16,6 +16,9 @@ function migrate(db) {
   if (!cols.some((c) => c.name === 'payload_json')) {
     db.exec('ALTER TABLE allowed_actions ADD COLUMN payload_json TEXT');
   }
+  db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS permission_receipts_one_active
+    ON permission_receipts (subject_id, kind)
+    WHERE revoked_at IS NULL`);
 }
 
 export function openStore(dbPath) {

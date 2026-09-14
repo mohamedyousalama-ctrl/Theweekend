@@ -171,3 +171,21 @@ test('wrong staff passcode fails', () => {
   );
   app.close();
 });
+
+test('granting the same consent twice returns the active receipt; one revoke clears it', () => {
+  const { app } = testApp();
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const first = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const second = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  assert.equal(second.receipt_id, first.receipt_id);
+  const rows = app.store.all(
+    'SELECT * FROM permission_receipts WHERE subject_id = ? AND kind = ? AND revoked_at IS NULL',
+    [context.subject_id, 'text_preferences'],
+  );
+  assert.equal(rows.length, 1);
+  app.revokeConsent(token, first.receipt_id);
+  assert.equal(app.context(token).consents.length, 0);
+  const third = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  assert.notEqual(third.receipt_id, first.receipt_id);
+  app.close();
+});

@@ -529,6 +529,8 @@ export function createApp(config, deps = {}) {
     if (via === 'staff_ui' && session.role === 'customer') {
       fail('UNAUTHORIZED', 'consent.via', false, {}, 401);
     }
+    const existing = activeReceipt(session.subject_id, kind);
+    if (existing) return rowReceipt(existing);
     const now = iso(clock);
     const receipt = {
       contract_version: '0.1.0',
@@ -542,15 +544,21 @@ export function createApp(config, deps = {}) {
       granted_via: via === 'staff_ui' ? 'staff_ui' : 'customer_ui',
     };
     assertContract('PermissionReceipt', receipt);
-    store.run(
-      `INSERT INTO permission_receipts (
-         receipt_id, subject_id, kind, notice_version, granted_at, revoked_at,
-         retention_policy_key, granted_via
-       ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
-      [receipt.receipt_id, receipt.subject_id, receipt.kind, receipt.notice_version,
-        receipt.granted_at, receipt.retention_policy_key, receipt.granted_via],
-    );
-    return receipt;
+    try {
+      store.run(
+        `INSERT INTO permission_receipts (
+           receipt_id, subject_id, kind, notice_version, granted_at, revoked_at,
+           retention_policy_key, granted_via
+         ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+        [receipt.receipt_id, receipt.subject_id, receipt.kind, receipt.notice_version,
+          receipt.granted_at, receipt.retention_policy_key, receipt.granted_via],
+      );
+      return receipt;
+    } catch (err) {
+      const raced = activeReceipt(session.subject_id, kind);
+      if (raced) return rowReceipt(raced);
+      throw err;
+    }
   }
 
   function revokeConsent(token, receiptId) {
