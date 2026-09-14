@@ -1,7 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createApp } from '../../src/server/app.mjs';
+import { loadConfig } from '../../src/server/config.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
-import { OWNER_PASS, testApp } from './helpers.mjs';
+import { OWNER_PASS, testApp, testEnv } from './helpers.mjs';
 
 const turn = (sessionId, turnId = '11111111-2222-4333-8444-555555555701') => ({
   contract_version: '0.1.0',
@@ -48,4 +50,37 @@ test('a concurrent duplicate turn_id observes the original in-flight call', asyn
   assert.equal(results[0].output.usage_ref, results[1].output.usage_ref);
   assert.equal(app.store.get('SELECT COUNT(*) AS n FROM usage_records WHERE session_id = ?', [context.session_id]).n, 1);
   app.close();
+});
+
+test('a pending turn abandoned across restart is reclaimed; complete still replays', async () => {
+  let calls = 0;
+  const adapter = ({ context, input, now }) => {
+    calls += 1;
+    return runModelTurn({ context, input, now });
+  };
+  const env = testEnv();
+  const config = loadConfig(env);
+  const first = createApp(config, { adapter });
+  const { token, context } = first.createSession('customer', OWNER_PASS);
+  const turnId = '11111111-2222-4333-8444-555555555703';
+  first.store.run(
+    `INSERT INTO turns (session_id, turn_id, status, response_json, created_at)
+     VALUES (?, ?, 'pending', NULL, ?)`,
+    [context.session_id, turnId, new Date().toISOString()],
+  );
+  first.close();
+
+  const second = createApp(config, { adapter });
+  const abandoned = second.store.get(
+    'SELECT status FROM turns WHERE session_id = ? AND turn_id = ?',
+    [context.session_id, turnId],
+  );
+  assert.equal(abandoned.status, 'failed');
+  const out = await second.submitTurn(token, turn(context.session_id, turnId));
+  assert.equal(out.output.state, 'ok');
+  assert.equal(calls, 1);
+  const replay = await second.submitTurn(token, turn(context.session_id, turnId));
+  assert.equal(calls, 1);
+  assert.equal(replay.output.usage_ref, out.output.usage_ref);
+  second.close();
 });

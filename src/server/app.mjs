@@ -216,6 +216,7 @@ export function createApp(config, deps = {}) {
   const costCeilingMinor = costCeilingFor(config, deps);
   const inflight = new Map();
   const inflightTurns = new Map();
+  store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -1071,11 +1072,22 @@ export function createApp(config, deps = {}) {
       return replayStoredTurn(existing);
     }
     if (inflightTurns.has(key)) return inflightTurns.get(key);
-    const claimed = store.run(
-      `INSERT OR IGNORE INTO turns (session_id, turn_id, status, response_json, created_at)
-       VALUES (?, ?, 'pending', NULL, ?)`,
-      [session.session_id, input.turn_id, iso(clock)],
-    );
+    let claimed;
+    if (existing?.status === 'failed') {
+      claimed = store.run(
+        `UPDATE turns SET status = 'pending', response_json = NULL, created_at = ?
+         WHERE session_id = ? AND turn_id = ? AND status = 'failed'`,
+        [iso(clock), session.session_id, input.turn_id],
+      );
+    } else if (!existing) {
+      claimed = store.run(
+        `INSERT OR IGNORE INTO turns (session_id, turn_id, status, response_json, created_at)
+         VALUES (?, ?, 'pending', NULL, ?)`,
+        [session.session_id, input.turn_id, iso(clock)],
+      );
+    } else {
+      fail('CONFLICT', 'turn.in_progress', true, {}, 409);
+    }
     if (claimed.changes !== 1) {
       const row = store.get(
         'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
