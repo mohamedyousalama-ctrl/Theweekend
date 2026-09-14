@@ -29,7 +29,34 @@
 1. Sign up at railway.com with the GitHub account that owns this repository; choose the Hobby plan.
 2. New Project → Deploy from GitHub repo → `mohamedyousalama-ctrl/Theweekend`, branch `main`.
 3. Add a Volume to the service, mount path `/data`.
-4. Variables: copy the names from `.env.example` and enter the values (the Claude API key, passcodes, branch id, booking URL, caps), and set `WEEKEND_TRUST_PROXY=1` so the login limiter keys on the real client address behind Railway's proxy. Never paste values anywhere else.
+4. Variables: paste the names below into the Railway service (values stay in the Railway UI; never in Git, issues or PR text). Set `WEEKEND_TRUST_PROXY=1` so the login limiter keys on the real client address behind Railway's proxy.
+
+Names the owner pastes (values are private):
+
+| Name | Owner-review value (description only) |
+|---|---|
+| `WEEKEND_ENV` | `owner-review` |
+| `WEEKEND_MODEL_MODE` | `real` |
+| `WEEKEND_MODEL_PROVIDER` | `anthropic` |
+| `WEEKEND_MODEL_ID` | current Claude id from `src/contracts/MODEL-CANDIDATES.md` |
+| `WEEKEND_VISION_MODEL_ID` | same id as `WEEKEND_MODEL_ID` |
+| `WEEKEND_MODEL_API_KEY` | project-only Anthropic key (never a Kivo key) |
+| `WEEKEND_SPEND_CAP_USD_PER_DAY` | integer USD ceiling |
+| `WEEKEND_MAX_CALLS_PER_SESSION` | integer per-session ceiling |
+| `WEEKEND_REQUEST_TIMEOUT_MS` | integer milliseconds |
+| `WEEKEND_PHOTO_ENABLED` | `true` or `false` |
+| `WEEKEND_UPLOAD_MAX_BYTES` | integer byte limit |
+| `WEEKEND_BOOKING_HANDOFF_MODE` | `official_link` (M1) |
+| `WEEKEND_OFFICIAL_BOOKING_URL` | allowlisted `https://…` booking page |
+| `WEEKEND_DB_PATH` | `/data/weekend.sqlite` (volume mount) |
+| `WEEKEND_SESSION_SECRET` | ≥16 characters |
+| `WEEKEND_OWNER_PASSCODE` or `WEEKEND_OWNER_PASSCODE_HASH` | plain (hashed at start) or `scrypt$…` |
+| `WEEKEND_STAFF_PASSCODE` or `WEEKEND_STAFF_PASSCODE_HASH` | plain or `scrypt$…` |
+| `WEEKEND_BRANCH_ID` | `br_…` for فرع النرجس (مرسية) |
+| `WEEKEND_TRUST_PROXY` | `1` |
+| `PORT` | set by Railway; do not invent a value |
+
+`WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). Deploy under the owner's Railway account is **not released** by this document.
 5. Settings → Networking → Generate Domain. Share that URL and the owner passcode with Khalid.
 
 Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied.
