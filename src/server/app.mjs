@@ -222,6 +222,38 @@ export function createApp(config, deps = {}) {
     ? deps.photoBytesMax
     : PHOTO_BYTES_MAX_ENTRIES;
 
+  function redactTurnObservations({ subjectId = null, olderThan = null } = {}) {
+    let sql = 'SELECT t.session_id, t.turn_id, t.response_json FROM turns t';
+    const params = [];
+    const where = [];
+    if (subjectId) {
+      sql += ' INNER JOIN sessions s ON s.session_id = t.session_id';
+      where.push('s.subject_id = ?');
+      params.push(subjectId);
+    }
+    if (olderThan) {
+      where.push('t.created_at < ?');
+      params.push(olderThan);
+    }
+    if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
+    for (const row of store.all(sql, params)) {
+      if (!row.response_json) continue;
+      let stored;
+      try {
+        stored = JSON.parse(row.response_json);
+      } catch {
+        continue;
+      }
+      if (!stored?.ok || stored.body?.output == null) continue;
+      if (stored.body.output.observations == null) continue;
+      stored.body.output.observations = null;
+      store.run(
+        'UPDATE turns SET response_json = ? WHERE session_id = ? AND turn_id = ?',
+        [JSON.stringify(stored), row.session_id, row.turn_id],
+      );
+    }
+  }
+
   function sweepPhotoRetention() {
     const nowMs = Date.parse(iso(clock));
     const byteCutoff = nowMs - PHOTO_BYTES_TTL_MS;
@@ -249,6 +281,7 @@ export function createApp(config, deps = {}) {
       store.run('DELETE FROM photo_observations WHERE image_ref = ?', [row.image_ref]);
       store.run('DELETE FROM images WHERE image_ref = ?', [row.image_ref]);
     }
+    redactTurnObservations({ olderThan: obsCutoff });
   }
 
   function purgeSubjectPhotoMaterial(subjectId) {
@@ -256,6 +289,7 @@ export function createApp(config, deps = {}) {
     for (const row of rows) photoBytes.delete(row.image_ref);
     store.run('DELETE FROM photo_observations WHERE subject_id = ?', [subjectId]);
     store.run('DELETE FROM images WHERE subject_id = ?', [subjectId]);
+    redactTurnObservations({ subjectId });
   }
 
   function activeReceipt(subjectId, kind) {
@@ -1023,6 +1057,7 @@ export function createApp(config, deps = {}) {
     if (input.session_id !== session.session_id) {
       fail('UNAUTHORIZED', 'turn.session', false, {}, 401);
     }
+    sweepPhotoRetention();
     const key = `${session.session_id}:${input.turn_id}`;
     const existing = store.get(
       'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
