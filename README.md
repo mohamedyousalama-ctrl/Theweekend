@@ -1,5 +1,7 @@
 # The Weekend / Rakan
 
+> **Any agent told to “continue The Weekend project” starts at [`CONTINUE.md`](CONTINUE.md).** Status lives in GitHub issue #2 and the open issues; file text is older than issue comments.
+
 Rakan (راكان) is The Weekend's proposed digital grooming concierge: practical style choices, trustworthy booking assistance and a customer-approved barber brief.
 
 ## Status — 13 September 2026

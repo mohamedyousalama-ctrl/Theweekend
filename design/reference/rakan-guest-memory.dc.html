@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Archivo+Black&display=swap" rel="stylesheet">
+<style>
+  body { margin:0; background:#07090F; font-family:'IBM Plex Sans Arabic', system-ui, sans-serif; -webkit-font-smoothing:antialiased; }
+  a { color:#E11D2E; text-decoration:none; }
+  a:hover { color:#FF5062; }
+  ::-webkit-scrollbar { width:6px; height:6px; }
+  ::-webkit-scrollbar-thumb { background:rgba(255,255,255,.14); border-radius:99px; }
+  input, button, textarea { font-family:inherit; }
+  @keyframes scanline { 0%{ transform:translateY(-100%);} 100%{ transform:translateY(1400%);} }
+  @keyframes pulseDot { 0%,100%{ opacity:.25; transform:scale(.8);} 50%{ opacity:1; transform:scale(1.15);} }
+  @keyframes slideDown { from{ transform:translateY(-140%); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+  @keyframes fadeUp { from{ transform:translateY(14px); opacity:0;} to{ transform:translateY(0); opacity:1;} }
+</style>
+</helmet>
+<div dir="rtl" style="min-height:100vh; background:#07090F; color:#F4F6FA; padding-bottom:64px">
+
+  <div style="position:sticky; top:0; z-index:50; display:flex; align-items:center; gap:16px; flex-wrap:wrap; padding:12px 20px; background:rgba(8,11,20,.92); backdrop-filter:blur(14px); border-bottom:1px solid rgba(255,255,255,.08)">
+    <div dir="ltr" style="display:flex; align-items:baseline; gap:6px; font-family:'Archivo Black', sans-serif; font-size:15px; letter-spacing:.5px; line-height:1">
+      <span style="color:#FFFFFF">THE WEEK</span><span style="color:#E11D2E">END</span>
+    </div>
+    <div style="width:1px; height:20px; background:rgba(255,255,255,.12)"></div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap">
+      <sc-for list="{{ nav }}" as="n" hint-placeholder-count="6">
+        <button onClick="{{ n.go }}" style="{{ n.style }}">{{ n.label }}</button>
+      </sc-for>
+    </div>
+  </div>
+
+  <sc-if value="{{ isS0 }}" hint-placeholder-val="{{ true }}">
+    <div style="max-width:1100px; margin:0 auto; padding:56px 24px 0">
+      <div style="font-size:13px; letter-spacing:2px; color:#E11D2E; margin-bottom:14px">نظام ذاكرة الضيف</div>
+      <h1 style="margin:0 0 16px; font-size:clamp(30px,5vw,50px); font-weight:700; line-height:1.25; max-width:22ch; text-wrap:balance">الضيف يدخل أي فرع، فيبدأ فريقنا من حيث انتهت آخر زيارة.</h1>
+      <p style="margin:0 0 44px; max-width:56ch; font-size:17px; line-height:1.85; color:#9AA3B5">نموذج تفاعلي لرحلة الضيف داخل فروع THE WEEKEND: التعرّف عند المدخل، إشعار الحلاق، بطاقة الضيف الكاملة، وتوثيق الزيارة بعد الخدمة. كل البيانات هنا تجريبية والتعرّف بالوجه محاكاة فقط.</p>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:48px">
+        <sc-for list="{{ journey }}" as="j" hint-placeholder-count="4">
+          <button onClick="{{ j.go }}" style="text-align:right; cursor:pointer; background:#0E131F; border:1px solid rgba(255,255,255,.09); border-left:none; border-radius:18px; padding:22px 20px 24px; color:#F4F6FA; display:flex; flex-direction:column; gap:10px; transition:border-color .18s, transform .18s" style-hover="border-color:rgba(225,29,46,.55); transform:translateY(-3px)">
+            <div style="display:flex; align-items:center; justify-content:space-between">
+              <span style="font-family:'Archivo Black',sans-serif; font-size:26px; color:rgba(255,255,255,.12)">{{ j.num }}</span>
+              <span style="font-size:11px; padding:5px 10px; border-radius:99px; background:rgba(225,29,46,.12); color:#FF6C7A">{{ j.actor }}</span>
+            </div>
+            <div style="font-size:18px; font-weight:600">{{ j.title }}</div>
+            <div style="font-size:13.5px; line-height:1.75; color:#8F98AB">{{ j.desc }}</div>
+            <div style="margin-top:6px; font-size:13px; color:#E11D2E">افتح الشاشة ←</div>
+          </button>
+        </sc-for>
+      </div>
+
+      <div style="display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; padding-bottom:40px">
+        <sc-for list="{{ extraScreens }}" as="e" hint-placeholder-count="2">
+          <button onClick="{{ e.go }}" style="text-align:right; cursor:pointer; background:transparent; border:1px dashed rgba(255,255,255,.16); border-radius:14px; padding:16px 18px; color:#C9D0DE; font-size:14px" style-hover="border-color:#E11D2E; color:#fff">{{ e.label }}</button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isS1 }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; align-items:center; padding:28px 20px 0; gap:18px">
+      <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center">
+        <sc-for list="{{ kioskStates }}" as="k" hint-placeholder-count="4">
+          <button onClick="{{ k.go }}" style="{{ k.style }}">{{ k.label }}</button>
+        </sc-for>
+      </div>
+      <div style="font-size:12.5px; color:#767F92">شاشة عمودية 1080×1920 — معروضة بمقياس مصغّر</div>
+
+      <div style="width:378px; height:672px; position:relative">
+        <div style="position:absolute; inset:0; transform:scale(.35); transform-origin:top right; width:1080px; height:1920px; background:linear-gradient(180deg,#0A0D16 0%,#12161F 55%,#0A0D16 100%); border-radius:40px; overflow:hidden; border:6px solid #191D28; display:flex; flex-direction:column; align-items:center; padding:110px 80px; box-sizing:border-box">
+
+          <div style="display:flex; flex-direction:column; align-items:center; gap:18px">
+            <div dir="ltr" style="display:flex; align-items:baseline; gap:10px; font-family:'Archivo Black',sans-serif; font-size:72px; letter-spacing:2px">
+              <span style="color:#FFFFFF">THE WEEK</span><span style="color:#E11D2E">END</span>
+            </div>
+            <div style="font-size:26px; letter-spacing:14px; color:rgba(255,255,255,.42)">LOOKS &amp; BEANS</div>
+          </div>
+
+          <sc-if value="{{ kIdle }}" hint-placeholder-val="{{ true }}">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:56px; text-align:center">
+              <div style="font-size:92px; font-weight:600; line-height:1.4">أهلًا بك في فرع العليا</div>
+              <div style="font-size:52px; color:#9AA3B5; line-height:1.6; max-width:22ch">انظر إلى الشاشة لنتعرّف عليك ونجهّز موعدك</div>
+              <div style="font-family:'Archivo Black',sans-serif; font-size:150px; color:#fff; letter-spacing:4px">{{ clock }}</div>
+              <div style="font-size:40px; color:#6E7689">{{ today }}</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ kDetect }}">
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:60px">
+              <div style="position:relative; width:460px; height:460px; border-radius:32px; border:4px solid rgba(225,29,46,.55); overflow:hidden; background:rgba(255,255,255,.03); display:flex; align-items:center; justify-content:center">
+                <div style="width:200px; height:200px; border-radius:99px; background:rgba(255,255,255,.07)"></div>
+                <div style="position:absolute; left:0; right:0; height:6px; background:linear-gradient(90deg,transparent,#E11D2E,transparent); animation:scanline 1.8s ease-in-out infinite"></div>
+              </div>
+              <div style="display:flex; align-items:center; gap:20px">
+                <div style="width:22px; height:22px; border-radius:99px; background:#E11D2E; animation:pulseDot 1.1s infinite"></div>
+                <div style="font-size:64px; font-weight:500">جارٍ التعرّف…</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ kFound }}">
+            <div style="flex:1; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:48px; animation:fadeUp .5s ease both">
+              <div style="width:300px; height:300px; border-radius:99px; border:6px solid rgba(225,29,46,.6); background:#161B27; display:flex; align-items:center; justify-content:center; font-size:120px; font-weight:600; color:#E11D2E">ع</div>
+              <div style="text-align:center; display:flex; flex-direction:column; gap:22px">
+                <div style="font-size:88px; font-weight:700; line-height:1.3">أهلًا وسهلًا أستاذ عبدالله</div>
+                <div style="font-size:52px; color:#9AA3B5">سعداء برؤيتك مجددًا</div>
+                <div style="font-size:44px; color:#E11D2E">زيارتك رقم 14</div>
+              </div>
+              <div style="width:100%; background:rgba(255,255,255,.05); border:2px solid rgba(255,255,255,.1); border-radius:32px; padding:52px 56px; display:flex; flex-direction:column; gap:40px; box-sizing:border-box">
+                <div style="display:flex; align-items:center; gap:32px">
+                  <div style="width:130px; height:130px; border-radius:99px; background:#22293A; display:flex; align-items:center; justify-content:center; font-size:56px; font-weight:600; color:#fff">ف</div>
+                  <div style="display:flex; flex-direction:column; gap:10px">
+                    <div style="font-size:36px; color:#8F98AB">حلاقك اليوم</div>
+                    <div style="font-size:56px; font-weight:600">فهد</div>
+                  </div>
+                  <div style="margin-right:auto; text-align:left">
+                    <div style="font-size:36px; color:#8F98AB">الموعد</div>
+                    <div style="font-family:'Archivo Black',sans-serif; font-size:64px">4:30</div>
+                  </div>
+                </div>
+                <div style="height:2px; background:rgba(255,255,255,.1)"></div>
+                <div style="display:flex; justify-content:space-between; font-size:42px">
+                  <div style="color:#8F98AB">الكرسي <span style="color:#fff; font-weight:600">3</span></div>
+                  <div style="color:#8F98AB">الانتظار المتوقّع <span style="color:#fff; font-weight:600">5 دقائق</span></div>
+                </div>
+              </div>
+              <div style="font-size:54px; font-weight:500; text-align:center; line-height:1.5">تفضّل بالجلوس، سيكون فهد معك خلال 5 دقائق</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ kNew }}">
+            <div style="flex:1; width:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:52px; animation:fadeUp .5s ease both">
+              <div style="width:260px; height:260px; border-radius:99px; border:6px solid rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center">
+                <div style="width:120px; height:120px; border-radius:99px; background:rgba(255,255,255,.14)"></div>
+              </div>
+              <div style="text-align:center; display:flex; flex-direction:column; gap:26px">
+                <div style="font-size:86px; font-weight:700">أهلًا وسهلًا بك</div>
+                <div style="font-size:52px; color:#9AA3B5; line-height:1.6">سيستقبلك أحد أعضاء الفريق الآن</div>
+              </div>
+              <div style="width:100%; background:rgba(255,255,255,.04); border:2px dashed rgba(255,255,255,.14); border-radius:28px; padding:48px; box-sizing:border-box; display:flex; flex-direction:column; gap:28px; align-items:center">
+                <div style="font-size:40px; color:#9AA3B5">لديك حساب لدينا؟ أدخل رقم جوالك لربط الزيارة</div>
+                <div style="display:flex; gap:24px; width:100%">
+                  <div style="flex:1; height:120px; border-radius:20px; background:rgba(255,255,255,.06); display:flex; align-items:center; padding:0 34px; font-size:44px; color:#5F6779">05X XXX XXXX</div>
+                  <div style="width:240px; height:120px; border-radius:20px; background:#E11D2E; display:flex; align-items:center; justify-content:center; font-size:44px; font-weight:600">ربط</div>
+                </div>
+                <div style="font-size:34px; color:#6E7689">اختياري — يمكنك تجاهل هذه الخطوة</div>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="font-size:30px; color:#5D6478; text-align:center; line-height:1.6; max-width:34ch">تُستخدم الكاميرا للتعرّف على ضيوفنا الدائمين لتحسين الخدمة فقط، ولا تُعرض أي بيانات شخصية على هذه الشاشة.</div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isS2 }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-wrap:wrap; gap:40px; justify-content:center; padding:32px 20px 0">
+      <div style="display:flex; flex-direction:column; gap:14px; align-items:center">
+        <div style="font-size:12.5px; color:#767F92">إشعار على شاشة القفل — جهاز فهد</div>
+        <div style="width:390px; height:844px; border-radius:44px; border:8px solid #171B24; background:linear-gradient(180deg,#141926,#0A0D15); overflow:hidden; position:relative; box-sizing:border-box; padding:24px 16px; display:flex; flex-direction:column; align-items:center">
+          <div style="font-family:'Archivo Black',sans-serif; font-size:64px; margin-top:56px; color:#fff">{{ clock }}</div>
+          <div style="font-size:14px; color:#8F98AB; margin-bottom:36px">{{ today }}</div>
+          <sc-if value="{{ pushVisible }}" hint-placeholder-val="{{ true }}">
+            <button onClick="{{ openProfileFromPush }}" style="width:100%; text-align:right; cursor:pointer; animation:slideDown .45s cubic-bezier(.2,.9,.3,1) both; background:rgba(28,33,45,.92); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.1); border-radius:22px; padding:14px 16px; color:#F4F6FA; display:flex; flex-direction:column; gap:8px">
+              <div style="display:flex; align-items:center; gap:8px; font-size:12px; color:#9AA3B5">
+                <span style="width:18px; height:18px; border-radius:5px; background:#E11D2E; display:inline-block"></span>
+                <span>THE WEEKEND</span><span style="margin-right:auto">الآن</span>
+              </div>
+              <div style="font-size:15px; font-weight:600">وصل ضيفك: عبدالله</div>
+              <div style="font-size:13.5px; color:#A8B0C0; line-height:1.6">موعد 4:30 — الكرسي 3 — فرع العليا</div>
+            </button>
+          </sc-if>
+          <div style="margin-top:auto; display:flex; flex-direction:column; align-items:center; gap:12px">
+            <button onClick="{{ replayPush }}" style="cursor:pointer; background:rgba(255,255,255,.08); border:none; border-radius:99px; padding:9px 18px; color:#C9D0DE; font-size:12.5px">إعادة محاكاة الإشعار</button>
+            <div style="width:120px; height:4px; border-radius:99px; background:rgba(255,255,255,.25)"></div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:14px; align-items:center">
+        <div style="font-size:12.5px; color:#767F92">مركز الإشعارات داخل التطبيق</div>
+        <div style="width:390px; height:844px; border-radius:44px; border:8px solid #171B24; background:#0A0D15; overflow-y:auto; box-sizing:border-box">
+          <div style="position:sticky; top:0; background:rgba(10,13,21,.94); backdrop-filter:blur(10px); padding:20px 18px 14px; border-bottom:1px solid rgba(255,255,255,.07)">
+            <div style="font-size:12px; color:#767F92">فرع العليا — فهد</div>
+            <div style="font-size:22px; font-weight:700; margin-top:4px">الإشعارات</div>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:10px; padding:16px 14px 32px">
+            <sc-for list="{{ notifications }}" as="n" hint-placeholder-count="4">
+              <button onClick="{{ n.go }}" style="{{ n.style }}">
+                <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px">
+                  <span style="{{ n.dot }}"></span>
+                  <span style="font-size:11.5px; color:#9AA3B5">{{ n.kind }}</span>
+                  <span style="margin-right:auto; font-size:11.5px; color:#6E7689">{{ n.time }}</span>
+                </div>
+                <div style="font-size:15px; font-weight:600; margin-bottom:6px">{{ n.title }}</div>
+                <div style="font-size:13px; color:#98A0B1; line-height:1.7">{{ n.body }}</div>
+              </button>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isS3 }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; align-items:center; padding:28px 16px 0; gap:14px">
+      <div style="display:flex; gap:8px">
+        <sc-for list="{{ guestTabs }}" as="g" hint-placeholder-count="2">
+          <button onClick="{{ g.go }}" style="{{ g.style }}">{{ g.label }}</button>
+        </sc-for>
+      </div>
+      <div style="width:100%; max-width:430px; height:844px; border-radius:44px; border:8px solid #171B24; background:#0A0D15; overflow-y:auto; position:relative; box-sizing:border-box">
+
+        <sc-if value="{{ crossBranch }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:14px 14px 0; background:rgba(242,176,61,.1); border:1px solid rgba(242,176,61,.35); border-radius:14px; padding:13px 14px; display:flex; gap:10px; align-items:flex-start">
+            <span style="width:8px; height:8px; border-radius:99px; background:#F2B03D; margin-top:7px; flex:none"></span>
+            <div style="font-size:13px; line-height:1.75; color:#F5D9A4">هذا الضيف يزور عادةً <strong style="color:#FFE9BE">فرع العليا مع فهد</strong> — إليك ما يفضّله.</div>
+          </div>
+        </sc-if>
+
+        <div style="padding:18px 16px 10px; display:flex; gap:14px; align-items:flex-start">
+          <div style="width:92px; height:112px; border-radius:16px; background:linear-gradient(160deg,#1E2432,#11151F); border:1px solid rgba(255,255,255,.09); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; flex:none">
+            <div style="font-size:34px; font-weight:600; color:#E11D2E">{{ guest.initial }}</div>
+            <div style="font-size:9.5px; color:#6E7689">آخر زيارة</div>
+          </div>
+          <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:7px">
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap">
+              <div style="font-size:20px; font-weight:700">{{ guest.name }}</div>
+              <span style="{{ guest.tagStyle }}">{{ guest.tag }}</span>
+            </div>
+            <div style="font-size:13px; color:#9AA3B5">يحب أن يُنادى بـ «{{ guest.nickname }}»</div>
+            <div dir="ltr" style="font-size:12.5px; color:#767F92; letter-spacing:.5px; text-align:right">{{ guest.phone }}</div>
+            <div style="display:flex; gap:14px; flex-wrap:wrap; font-size:12.5px; color:#9AA3B5; margin-top:2px">
+              <span>{{ guest.branch }}</span><span>الحلاق {{ guest.barber }}</span>
+            </div>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:rgba(255,255,255,.07); margin:8px 16px 0; border:1px solid rgba(255,255,255,.07); border-radius:14px; overflow:hidden">
+          <sc-for list="{{ guest.stats }}" as="s" hint-placeholder-count="3">
+            <div style="background:#0E121C; padding:12px 8px; text-align:center">
+              <div style="font-size:17px; font-weight:700">{{ s.v }}</div>
+              <div style="font-size:11px; color:#767F92; margin-top:3px">{{ s.k }}</div>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ guest.hasAlert }}" hint-placeholder-val="{{ true }}">
+          <div style="margin:16px; background:rgba(225,29,46,.1); border:1px solid rgba(225,29,46,.4); border-radius:14px; padding:13px 14px">
+            <div style="font-size:12px; color:#FF8A95; margin-bottom:8px; letter-spacing:.5px">حساسيات وتنبيهات</div>
+            <div style="display:flex; flex-direction:column; gap:7px">
+              <sc-for list="{{ guest.alerts }}" as="a" hint-placeholder-count="2">
+                <div style="font-size:13.5px; color:#FFD5D9; line-height:1.6">{{ a }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </sc-if>
+
+        <div style="padding:6px 16px 0">
+          <div style="display:flex; align-items:baseline; justify-content:space-between; margin:14px 0 10px">
+            <div style="font-size:14px; font-weight:600">آخر 6 زيارات</div>
+            <button onClick="{{ toggleCompare }}" style="cursor:pointer; background:none; border:none; color:#E11D2E; font-size:12.5px; padding:0">{{ compareLabel }}</button>
+          </div>
+          <sc-if value="{{ comparing }}">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px">
+              <sc-for list="{{ comparePair }}" as="c" hint-placeholder-count="2">
+                <div>
+                  <div style="aspect-ratio:3/4; border-radius:12px; background:linear-gradient(160deg,#1E2432,#10141D); border:1px solid rgba(225,29,46,.35); display:flex; align-items:center; justify-content:center; font-size:11px; color:#6E7689">صورة الزيارة</div>
+                  <div style="font-size:11px; color:#9AA3B5; margin-top:6px">{{ c.date }} — {{ c.barber }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </sc-if>
+          <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:9px">
+            <sc-for list="{{ guest.gallery }}" as="g" hint-placeholder-count="6">
+              <div>
+                <div style="aspect-ratio:3/4; border-radius:11px; background:linear-gradient(160deg,#1B202C,#0F131C); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; font-size:10px; color:#5D6478">صورة</div>
+                <div style="font-size:10px; color:#8F98AB; margin-top:5px; line-height:1.5">{{ g.date }}<br>{{ g.branch }} — {{ g.barber }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:8px 16px 0">
+          <sc-for list="{{ guest.prefGroups }}" as="p" hint-placeholder-count="5">
+            <div style="margin-top:20px">
+              <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">{{ p.title }}</div>
+              <div style="display:flex; flex-direction:column; gap:1px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.07); border-radius:14px; overflow:hidden">
+                <sc-for list="{{ p.items }}" as="i" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; background:#0E121C; padding:11px 13px">
+                    <span style="font-size:13px; color:#8F98AB">{{ i.k }}</span>
+                    <span style="font-size:13px; font-weight:600; text-align:left">{{ i.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="padding:20px 16px 0">
+          <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">ملاحظات الفريق</div>
+          <div style="display:flex; flex-direction:column; gap:9px">
+            <sc-for list="{{ guest.notes }}" as="n" hint-placeholder-count="3">
+              <div style="background:#0E121C; border:1px solid rgba(255,255,255,.07); border-radius:13px; padding:12px 13px">
+                <div style="font-size:13.5px; line-height:1.75">{{ n.text }}</div>
+                <div style="font-size:11px; color:#6E7689; margin-top:7px">{{ n.by }} — {{ n.date }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:20px 16px 120px">
+          <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">سجل الزيارات</div>
+          <div style="display:flex; flex-direction:column; gap:1px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.07); border-radius:14px; overflow:hidden">
+            <sc-for list="{{ guest.visits }}" as="v" hint-placeholder-count="4">
+              <div style="background:#0E121C; padding:12px 13px; display:flex; flex-direction:column; gap:6px">
+                <div style="display:flex; justify-content:space-between; font-size:13px">
+                  <span style="font-weight:600">{{ v.date }}</span>
+                  <span style="color:#9AA3B5">{{ v.branch }} — {{ v.barber }}</span>
+                </div>
+                <div style="font-size:12px; color:#8F98AB; line-height:1.6">{{ v.services }}</div>
+                <div style="display:flex; gap:14px; font-size:11.5px; color:#6E7689">
+                  <span>{{ v.duration }}</span><span>{{ v.amount }}</span><span style="margin-right:auto; color:#F2B03D">{{ v.rating }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="position:sticky; bottom:0; display:flex; gap:9px; padding:12px 14px 16px; background:linear-gradient(180deg,rgba(10,13,21,0),rgba(10,13,21,.96) 34%)">
+          <button onClick="{{ startService }}" style="flex:1; cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:14px 10px; color:#fff; font-size:14px; font-weight:600" style-hover="background:#C4162A">بدء الخدمة — نفس التفضيلات</button>
+          <button onClick="{{ goCapture }}" style="cursor:pointer; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 16px; color:#E4E8F0; font-size:14px">تعديل</button>
+        </div>
+
+        <sc-if value="{{ confirmOpen }}">
+          <div style="position:absolute; inset:0; background:rgba(5,7,12,.82); backdrop-filter:blur(6px); display:flex; align-items:flex-end">
+            <div style="width:100%; background:#121723; border-top:1px solid rgba(255,255,255,.1); border-radius:26px 26px 36px 36px; padding:20px 18px 22px; animation:slideDown .3s ease both">
+              <div style="font-size:17px; font-weight:700; margin-bottom:6px">تأكيد سريع مع الضيف</div>
+              <div style="font-size:12.5px; color:#8F98AB; margin-bottom:16px">اقرأها بصوتك قبل البدء</div>
+              <div style="display:flex; flex-direction:column; gap:9px; margin-bottom:18px">
+                <sc-for list="{{ checklist }}" as="c" hint-placeholder-count="4">
+                  <div style="display:flex; align-items:center; gap:10px; background:#0D111A; border:1px solid rgba(255,255,255,.08); border-radius:13px; padding:11px 12px">
+                    <span style="flex:1; font-size:13.5px">{{ c.q }}</span>
+                    <button onClick="{{ c.yes }}" style="{{ c.yesStyle }}">نعم</button>
+                    <button onClick="{{ c.no }}" style="{{ c.noStyle }}">لا</button>
+                  </div>
+                </sc-for>
+              </div>
+              <div style="display:flex; gap:9px">
+                <button onClick="{{ goCapture }}" style="flex:1; cursor:pointer; background:#E11D2E; border:none; border-radius:13px; padding:13px; color:#fff; font-size:14px; font-weight:600">ابدأ الخدمة</button>
+                <button onClick="{{ closeConfirm }}" style="cursor:pointer; background:rgba(255,255,255,.07); border:none; border-radius:13px; padding:13px 18px; color:#C9D0DE; font-size:14px">إلغاء</button>
+              </div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isS4 }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; align-items:center; padding:28px 16px 0; gap:14px">
+      <div style="font-size:12.5px; color:#767F92">توثيق ما بعد الخدمة — أقل من 90 ثانية</div>
+      <div style="width:100%; max-width:430px; height:844px; border-radius:44px; border:8px solid #171B24; background:#0A0D15; overflow-y:auto; position:relative; box-sizing:border-box; display:flex; flex-direction:column">
+        <div style="position:sticky; top:0; z-index:5; background:rgba(10,13,21,.95); backdrop-filter:blur(10px); padding:18px 16px 12px; border-bottom:1px solid rgba(255,255,255,.07)">
+          <div style="display:flex; justify-content:space-between; align-items:baseline; margin-bottom:10px">
+            <div style="font-size:15px; font-weight:700">{{ capStepTitle }}</div>
+            <div style="font-size:11.5px; color:#767F92">{{ capStepLabel }}</div>
+          </div>
+          <div style="height:4px; border-radius:99px; background:rgba(255,255,255,.1); overflow:hidden">
+            <div style="{{ capProgress }}"></div>
+          </div>
+        </div>
+
+        <div style="flex:1; padding:16px">
+          <sc-if value="{{ cap1 }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+                <div>
+                  <div style="font-size:11.5px; color:#767F92; margin-bottom:6px">الزيارة السابقة</div>
+                  <div style="aspect-ratio:3/4; border-radius:14px; background:linear-gradient(160deg,#1B202C,#0F131C); border:1px solid rgba(255,255,255,.08); display:flex; align-items:center; justify-content:center; font-size:11px; color:#5D6478">12 أغسطس</div>
+                </div>
+                <div>
+                  <div style="font-size:11.5px; color:#767F92; margin-bottom:6px">اليوم</div>
+                  <div style="position:relative; aspect-ratio:3/4; border-radius:14px; background:#0D111A; border:1px solid rgba(225,29,46,.45); display:flex; align-items:center; justify-content:center; overflow:hidden">
+                    <div style="width:58%; height:66%; border:2px dashed rgba(255,255,255,.22); border-radius:50% 50% 46% 46%"></div>
+                    <div style="position:absolute; bottom:8px; font-size:10.5px; color:#6E7689">ضع الوجه داخل الإطار</div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex; gap:8px">
+                <sc-for list="{{ angles }}" as="a" hint-placeholder-count="3">
+                  <button onClick="{{ a.go }}" style="{{ a.style }}">{{ a.label }}</button>
+                </sc-for>
+              </div>
+              <div style="display:flex; gap:9px; margin-top:4px">
+                <button onClick="{{ capNext }}" style="flex:1; cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:14px; color:#fff; font-size:14px; font-weight:600">التقاط</button>
+                <button onClick="{{ noop }}" style="cursor:pointer; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:14px; padding:14px 16px; color:#C9D0DE; font-size:14px">إعادة</button>
+              </div>
+              <div style="font-size:11.5px; color:#6E7689; line-height:1.7">صورة الأمام إلزامية، والجانب والخلف اختياريان.</div>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cap2 }}">
+            <div style="display:flex; flex-direction:column; gap:20px">
+              <sc-for list="{{ chipGroups }}" as="g" hint-placeholder-count="2">
+                <div>
+                  <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">{{ g.title }}</div>
+                  <div style="display:flex; flex-wrap:wrap; gap:8px">
+                    <sc-for list="{{ g.chips }}" as="c" hint-placeholder-count="6">
+                      <button onClick="{{ c.go }}" style="{{ c.style }}">{{ c.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <button onClick="{{ capNext }}" style="cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:14px; color:#fff; font-size:14px; font-weight:600">التالي</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cap3 }}">
+            <div style="display:flex; flex-direction:column; gap:16px">
+              <div style="background:rgba(255,255,255,.04); border:1px solid rgba(255,255,255,.09); border-radius:13px; padding:11px 13px; font-size:12.5px; color:#9AA3B5; line-height:1.7">البنود المعبّأة مسبقًا من آخر زيارة — أكّدها أو عدّلها فقط.</div>
+              <sc-for list="{{ prefEdits }}" as="p" hint-placeholder-count="4">
+                <div style="background:#0E121C; border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:13px">
+                  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px">
+                    <span style="font-size:13px; color:#9AA3B5">{{ p.title }}</span>
+                    <span style="font-size:12.5px; font-weight:600">{{ p.current }}</span>
+                  </div>
+                  <div style="display:flex; gap:7px; flex-wrap:wrap">
+                    <sc-for list="{{ p.options }}" as="o" hint-placeholder-count="4">
+                      <button onClick="{{ o.go }}" style="{{ o.style }}">{{ o.label }}</button>
+                    </sc-for>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-for list="{{ toggles }}" as="t" hint-placeholder-count="3">
+                <div style="display:flex; align-items:center; justify-content:space-between; background:#0E121C; border:1px solid rgba(255,255,255,.08); border-radius:13px; padding:12px 13px">
+                  <span style="font-size:13.5px">{{ t.label }}</span>
+                  <button onClick="{{ t.go }}" style="{{ t.trackStyle }}"><span style="{{ t.knobStyle }}"></span></button>
+                </div>
+              </sc-for>
+              <button onClick="{{ capNext }}" style="cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:14px; color:#fff; font-size:14px; font-weight:600">التالي</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cap4 }}">
+            <div style="display:flex; flex-direction:column; gap:18px">
+              <div>
+                <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">رضا الضيف</div>
+                <div style="display:flex; gap:8px">
+                  <sc-for list="{{ moods }}" as="m" hint-placeholder-count="3">
+                    <button onClick="{{ m.go }}" style="{{ m.style }}">{{ m.label }}</button>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">ملاحظة</div>
+                <textarea placeholder="ملاحظة قصيرة تفيد الزيارة القادمة…" style="width:100%; box-sizing:border-box; min-height:88px; resize:none; background:#0E121C; border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:12px 13px; color:#F4F6FA; font-size:13.5px; line-height:1.8"></textarea>
+                <button onClick="{{ noop }}" style="margin-top:8px; cursor:pointer; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:99px; padding:9px 16px; color:#C9D0DE; font-size:12.5px">تسجيل ملاحظة صوتية</button>
+              </div>
+              <div>
+                <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">شيء نتجنّبه المرة القادمة</div>
+                <input placeholder="مثال: عدم لمس أعلى اللحية" style="width:100%; box-sizing:border-box; background:#0E121C; border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:12px 13px; color:#F4F6FA; font-size:13.5px">
+              </div>
+              <div>
+                <div style="font-size:12px; color:#E11D2E; letter-spacing:1px; margin-bottom:10px">اقتراح للزيارة القادمة</div>
+                <input placeholder="مثال: تدرّج Mid مع تحديد أخف" style="width:100%; box-sizing:border-box; background:#0E121C; border:1px solid rgba(255,255,255,.09); border-radius:14px; padding:12px 13px; color:#F4F6FA; font-size:13.5px">
+              </div>
+              <button onClick="{{ capNext }}" style="cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:14px; color:#fff; font-size:14px; font-weight:600">مراجعة</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cap5 }}">
+            <div style="display:flex; flex-direction:column; gap:14px">
+              <div style="display:flex; flex-direction:column; gap:1px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.07); border-radius:14px; overflow:hidden">
+                <sc-for list="{{ summary }}" as="s" hint-placeholder-count="5">
+                  <div style="background:#0E121C; padding:12px 13px; display:flex; justify-content:space-between; gap:12px">
+                    <span style="font-size:12.5px; color:#8F98AB">{{ s.k }}</span>
+                    <span style="font-size:12.5px; font-weight:600; text-align:left">{{ s.v }}</span>
+                  </div>
+                </sc-for>
+              </div>
+              <button onClick="{{ saveCapture }}" style="cursor:pointer; background:#E11D2E; border:none; border-radius:14px; padding:15px; color:#fff; font-size:15px; font-weight:600">حفظ وتحديث الملف</button>
+              <button onClick="{{ capBack }}" style="cursor:pointer; background:none; border:none; color:#8F98AB; font-size:13px">رجوع للتعديل</button>
+            </div>
+          </sc-if>
+
+          <sc-if value="{{ cap6 }}">
+            <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; gap:18px; padding:80px 10px; text-align:center; animation:fadeUp .4s ease both">
+              <div style="width:74px; height:74px; border-radius:99px; background:rgba(225,29,46,.14); border:2px solid #E11D2E; display:flex; align-items:center; justify-content:center; font-size:30px; color:#E11D2E">✓</div>
+              <div style="font-size:19px; font-weight:700; line-height:1.5">تم تحديث ملف عبدالله</div>
+              <div style="font-size:13.5px; color:#9AA3B5; line-height:1.8; max-width:28ch">متاح الآن لجميع الفروع — العليا، حطين، الياسمين.</div>
+              <button onClick="{{ capRestart }}" style="margin-top:8px; cursor:pointer; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:99px; padding:11px 22px; color:#E4E8F0; font-size:13px">إعادة المحاكاة</button>
+            </div>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ isS5 }}" hint-placeholder-val="{{ true }}">
+    <div style="display:flex; flex-direction:column; align-items:center; padding:28px 16px 0; gap:14px">
+      <div style="width:100%; max-width:430px; height:844px; border-radius:44px; border:8px solid #171B24; background:#0A0D15; overflow-y:auto; box-sizing:border-box">
+        <div style="position:sticky; top:0; z-index:5; background:rgba(10,13,21,.95); backdrop-filter:blur(10px); padding:18px 16px 12px; border-bottom:1px solid rgba(255,255,255,.07); display:flex; flex-direction:column; gap:12px">
+          <div style="font-size:20px; font-weight:700">الضيوف</div>
+          <input value="{{ query }}" onChange="{{ onQuery }}" placeholder="ابحث بالاسم أو رقم الجوال" style="width:100%; box-sizing:border-box; background:#0E121C; border:1px solid rgba(255,255,255,.1); border-radius:13px; padding:11px 13px; color:#F4F6FA; font-size:13.5px">
+          <div style="display:flex; gap:7px; overflow-x:auto; padding-bottom:2px">
+            <sc-for list="{{ filters }}" as="f" hint-placeholder-count="4">
+              <button onClick="{{ f.go }}" style="{{ f.style }}">{{ f.label }}</button>
+            </sc-for>
+          </div>
+          <div style="display:flex; gap:6px">
+            <sc-for list="{{ listTabs }}" as="t" hint-placeholder-count="2">
+              <button onClick="{{ t.go }}" style="{{ t.style }}">{{ t.label }}</button>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="padding:14px 14px 40px; display:flex; flex-direction:column; gap:10px">
+          <sc-if value="{{ showAllGuests }}" hint-placeholder-val="{{ true }}">
+            <sc-for list="{{ visibleGuests }}" as="g" hint-placeholder-count="3">
+              <button onClick="{{ g.go }}" style="text-align:right; cursor:pointer; display:flex; gap:12px; align-items:center; background:#0E121C; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:12px; color:#F4F6FA" style-hover="border-color:rgba(225,29,46,.5)">
+                <div style="width:46px; height:46px; border-radius:99px; background:#1B202C; display:flex; align-items:center; justify-content:center; font-size:18px; font-weight:600; color:#E11D2E; flex:none">{{ g.initial }}</div>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px">
+                  <div style="display:flex; align-items:center; gap:7px">
+                    <span style="font-size:14.5px; font-weight:600">{{ g.name }}</span>
+                    <span style="{{ g.tagStyle }}">{{ g.tag }}</span>
+                  </div>
+                  <div style="font-size:11.5px; color:#8F98AB">{{ g.meta }}</div>
+                </div>
+              </button>
+            </sc-for>
+            <sc-if value="{{ noResults }}">
+              <div style="text-align:center; padding:60px 20px; display:flex; flex-direction:column; gap:10px; align-items:center">
+                <div style="width:44px; height:44px; border-radius:99px; border:1px dashed rgba(255,255,255,.22)"></div>
+                <div style="font-size:14px; font-weight:600">لا يوجد ضيف بهذا الاسم</div>
+                <div style="font-size:12.5px; color:#767F92; line-height:1.8; max-width:26ch">جرّب رقم الجوال، أو أنشئ ملفًا جديدًا للضيف.</div>
+                <button onClick="{{ noop }}" style="margin-top:6px; cursor:pointer; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.12); border-radius:99px; padding:10px 20px; color:#E4E8F0; font-size:12.5px">إنشاء ملف ضيف</button>
+              </div>
+            </sc-if>
+          </sc-if>
+
+          <sc-if value="{{ showToday }}">
+            <sc-for list="{{ todayGuests }}" as="t" hint-placeholder-count="5">
+              <div style="display:flex; gap:12px; align-items:center; background:#0E121C; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:12px">
+                <div style="font-family:'Archivo Black',sans-serif; font-size:15px; color:#C9D0DE; width:52px; flex:none">{{ t.time }}</div>
+                <div style="flex:1; min-width:0; display:flex; flex-direction:column; gap:4px">
+                  <div style="font-size:14px; font-weight:600">{{ t.name }}</div>
+                  <div style="font-size:11.5px; color:#8F98AB">{{ t.meta }}</div>
+                </div>
+                <span style="{{ t.statusStyle }}">{{ t.status }}</span>
+              </div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1200,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  state = {
+    screen: 0, kiosk: 'idle', push: true, guestId: 'abdullah',
+    comparing: false, confirmOpen: false, checks: {},
+    cap: 1, angle: 'أمام', chips: { 'قصّة شعر': true, 'تهذيب لحية': true, 'غسيل شعر': true, 'منشفة ساخنة': true, 'واكس مطفأ': true },
+    prefPick: { fade: 'Mid', beard: 'قصيرة مهذّبة', drink: 'قهوة عربية', clipper: '2' },
+    toggles: { hairwash: true, towel: true, brows: false, talk: false },
+    mood: 'راضٍ جدًا', filter: 'كل الفروع', listTab: 'all', query: '', now: new Date()
+  };
+
+  componentDidMount() { this._t = setInterval(() => this.setState({ now: new Date() }), 1000); }
+  componentWillUnmount() { clearInterval(this._t); clearTimeout(this._k1); clearTimeout(this._k2); }
+
+  go(n) { return () => this.setState({ screen: n }); }
+
+  setKiosk(s) {
+    clearTimeout(this._k1); clearTimeout(this._k2);
+    this.setState({ kiosk: s });
+    if (s === 'detect') this._k1 = setTimeout(() => this.setKiosk('found'), 2000);
+    if (s === 'found') this._k2 = setTimeout(() => this.setState({ kiosk: 'idle' }), 9000);
+  }
+
+  pill(active, extra) {
+    return 'cursor:pointer; white-space:nowrap; border-radius:99px; padding:8px 14px; font-size:12.5px; font-family:inherit; transition:all .15s; ' +
+      (active ? 'background:#E11D2E; color:#fff; border:1px solid #E11D2E;' : 'background:rgba(255,255,255,.05); color:#B7BECC; border:1px solid rgba(255,255,255,.1);') + (extra || '');
+  }
+
+  chip(active) {
+    return 'cursor:pointer; border-radius:11px; padding:9px 13px; font-size:12.5px; font-family:inherit; ' +
+      (active ? 'background:rgba(225,29,46,.16); color:#FF8A95; border:1px solid rgba(225,29,46,.6);' : 'background:#0E121C; color:#98A0B1; border:1px solid rgba(255,255,255,.1);');
+  }
+
+  tagStyle(kind) {
+    const c = kind === 'VIP' ? ['rgba(242,176,61,.14)', '#F2B03D'] : kind === 'جديد' ? ['rgba(255,255,255,.08)', '#B7BECC'] : ['rgba(225,29,46,.14)', '#FF8A95'];
+    return 'font-size:10.5px; padding:3px 9px; border-radius:99px; background:' + c[0] + '; color:' + c[1] + ';';
+  }
+
+  guests() {
+    return [
+      { id: 'abdullah', name: 'عبدالله الشمري', initial: 'ع', tag: 'ضيف دائم', meta: 'آخر زيارة 12 أغسطس — العليا — فهد', branch: 'فرع العليا', barber: 'فهد' },
+      { id: 'khaled', name: 'خالد العتيبي', initial: 'خ', tag: 'VIP', meta: 'آخر زيارة 28 أغسطس — العليا — سعود', branch: 'فرع العليا', barber: 'سعود' },
+      { id: 'turki', name: 'تركي', initial: 'ت', tag: 'جديد', meta: 'لا يوجد ملف — أول زيارة اليوم', branch: 'حطين', barber: '—' }
+    ];
+  }
+
+  guestData(id) {
+    const base = {
+      abdullah: {
+        name: 'عبدالله الشمري', initial: 'ع', nickname: 'أبو سلطان', phone: '05•• ••• •412',
+        branch: 'فرع العليا', barber: 'فهد', tag: 'ضيف دائم', cross: false, hasAlert: true,
+        alerts: ['حساسية من منتجات تحتوي كحول — تُستخدم لوشن خالٍ من الكحول فقط.', 'ممنوع استخدام البودرة على الرقبة.'],
+        stats: [{ k: 'زيارة', v: '14' }, { k: 'آخر زيارة', v: '12 أغسطس' }, { k: 'المعتاد', v: 'الثلاثاء 4:30' }]
+      },
+      khaled: {
+        name: 'خالد العتيبي', initial: 'خ', nickname: 'أبو فيصل', phone: '05•• ••• •908',
+        branch: 'فرع حطين — اليوم', barber: 'ماجد — اليوم', tag: 'VIP', cross: true, hasAlert: false, alerts: [],
+        stats: [{ k: 'زيارة', v: '9' }, { k: 'آخر زيارة', v: '28 أغسطس' }, { k: 'المعتاد', v: 'الخميس 7:00' }]
+      }
+    }[id] || {};
+    return Object.assign({
+      gallery: [
+        { date: '12 أغسطس', branch: 'العليا', barber: 'فهد' }, { date: '22 يوليو', branch: 'العليا', barber: 'فهد' },
+        { date: '4 يوليو', branch: 'حطين', barber: 'سعود' }, { date: '15 يونيو', branch: 'العليا', barber: 'فهد' },
+        { date: '30 مايو', branch: 'الياسمين', barber: 'ماجد' }, { date: '9 مايو', branch: 'العليا', barber: 'فهد' }
+      ],
+      prefGroups: [
+        { title: 'الشعر', items: [{ k: 'نوع القصّة', v: 'كلاسيك مع فرق' }, { k: 'الجوانب والخلف', v: 'ماكينة 2' }, { k: 'طول الأعلى', v: '4 سم' }, { k: 'التدرّج', v: 'Mid Fade' }, { k: 'شكل القفا', v: 'دائري' }, { k: 'جهة الفرق', v: 'اليمين' }, { k: 'الأداة', v: 'مقص للأعلى، موس للحواف' }] },
+        { title: 'اللحية', items: [{ k: 'الشكل', v: 'كاملة مهذّبة' }, { k: 'الطول', v: 'قصيرة — 6 مم' }, { k: 'خط الخد', v: 'طبيعي بلا تحديد' }, { k: 'خط الرقبة', v: 'محدّد بالموس' }, { k: 'الأداة', v: 'ماكينة ثم موس' }] },
+        { title: 'المنتجات', items: [{ k: 'الشامبو', v: 'خالٍ من الكبريتات' }, { k: 'التصفيف', v: 'واكس مطفأ' }, { k: 'زيت اللحية', v: 'عود خفيف' }, { k: 'ما بعد الحلاقة', v: 'بلسم بلا كحول' }] },
+        { title: 'الإضافات', items: [{ k: 'غسيل الشعر', v: 'نعم' }, { k: 'المنشفة الساخنة', v: 'نعم' }, { k: 'تنظيف البشرة', v: 'لا' }, { k: 'الحاجبان', v: 'تهذيب خفيف' }, { k: 'الأنف والأذن', v: 'نعم' }, { k: 'الخيط', v: 'لا' }] },
+        { title: 'الضيافة والجو', items: [{ k: 'المشروب', v: 'قهوة عربية' }, { k: 'الحديث', v: 'يفضّل الهدوء' }, { k: 'الموسيقى', v: 'هادئة' }, { k: 'الوقت المعتاد', v: 'الثلاثاء 4:30 م' }, { k: 'يأتي غالبًا مع', v: 'ابنه سلطان' }] }
+      ],
+      notes: [
+        { text: 'يفضّل ألا تُلمس اللحية من الأعلى.', by: 'فهد', date: '12 أغسطس' },
+        { text: 'يحب أن يبدأ بالقهوة العربية قبل الجلوس على الكرسي.', by: 'سعود', date: '4 يوليو' },
+        { text: 'يأتي أحيانًا مع ابنه — احجز كرسيين إن أمكن.', by: 'إدارة الفرع', date: '15 يونيو' }
+      ],
+      visits: [
+        { date: '12 أغسطس', branch: 'العليا', barber: 'فهد', services: 'قصّة شعر، تهذيب لحية، منشفة ساخنة', duration: '55 دقيقة', amount: '180 ر.س', rating: '5/5' },
+        { date: '22 يوليو', branch: 'العليا', barber: 'فهد', services: 'قصّة شعر، غسيل', duration: '40 دقيقة', amount: '140 ر.س', rating: '5/5' },
+        { date: '4 يوليو', branch: 'حطين', barber: 'سعود', services: 'قصّة شعر، لحية، حاجبان', duration: '65 دقيقة', amount: '200 ر.س', rating: '4/5' },
+        { date: '15 يونيو', branch: 'العليا', barber: 'فهد', services: 'تهذيب لحية', duration: '25 دقيقة', amount: '70 ر.س', rating: '—' }
+      ]
+    }, base);
+  }
+
+  renderVals() {
+    const s = this.state, g = this.guestData(s.guestId);
+    const two = n => (n < 10 ? '0' + n : '' + n);
+    const h = s.now.getHours() % 12 || 12;
+    const days = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+    const months = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+
+    const navLabels = ['الرحلة', 'الاستقبال', 'إشعار الموظف', 'بطاقة الضيف', 'التوثيق', 'الضيوف'];
+    const nav = navLabels.map((l, i) => ({ label: l, go: this.go(i), style: this.pill(s.screen === i) }));
+
+    const kioskStates = [['idle', 'الانتظار'], ['detect', 'الفحص'], ['found', 'تعرّف ناجح'], ['new', 'ضيف جديد']]
+      .map(([k, l]) => ({ label: l, go: () => this.setKiosk(k), style: this.pill(s.kiosk === k) }));
+
+    const notifTypes = [
+      { kind: 'وصول ضيف', time: 'الآن', title: 'وصل ضيفك: عبدالله', body: 'موعد 4:30 — الكرسي 3 — زيارته رقم 14', color: '#E11D2E', id: 'abdullah' },
+      { kind: 'ضيف جديد بلا حجز', time: 'قبل 3 د', title: 'تركي — أول زيارة', body: 'لا يوجد ملف — يحتاج استقبالًا وتعريفًا بالخدمات', color: '#F2B03D', id: null },
+      { kind: 'تأخّر عن الموعد', time: 'قبل 12 د', title: 'خالد تأخّر 15 دقيقة', body: 'موعد 4:00 مع ماجد — فرع حطين', color: '#8F98AB', id: 'khaled' },
+      { kind: 'زيارة لم تُوثّق', time: 'أمس', title: 'زيارة عبدالله لم تُوثّق', body: 'لم تُلتقط صورة ولم تُحدّث التفضيلات', color: '#8F98AB', id: 'abdullah' }
+    ];
+    const notifications = notifTypes.map(n => ({
+      kind: n.kind, time: n.time, title: n.title, body: n.body,
+      dot: 'width:8px; height:8px; border-radius:99px; flex:none; display:inline-block; background:' + n.color + ';',
+      style: 'text-align:right; cursor:pointer; background:#0E121C; border:1px solid rgba(255,255,255,.08); border-radius:16px; padding:13px 14px; color:#F4F6FA; width:100%;',
+      go: n.id ? () => this.setState({ screen: 3, guestId: n.id }) : this.go(5)
+    }));
+
+    const checkQs = ['نفس قصّة الشعر الأخيرة؟', 'ماكينة 2 على الجوانب؟', 'اللحية بنفس الطول؟', 'قهوة عربية كالعادة؟'];
+    const checklist = checkQs.map((q, i) => {
+      const v = s.checks[i];
+      const btn = on => 'cursor:pointer; border-radius:9px; padding:6px 12px; font-size:12px; font-family:inherit; border:1px solid ' +
+        (on ? '#E11D2E; background:rgba(225,29,46,.18); color:#FF8A95;' : 'rgba(255,255,255,.12); background:transparent; color:#8F98AB;');
+      return { q, yes: () => this.setState({ checks: Object.assign({}, s.checks, { [i]: 'y' }) }), no: () => this.setState({ checks: Object.assign({}, s.checks, { [i]: 'n' }) }), yesStyle: btn(v === 'y'), noStyle: btn(v === 'n') };
+    });
+
+    const capTitles = { 1: 'الصورة', 2: 'الخدمات المقدّمة', 3: 'التفضيلات', 4: 'الانطباع والملاحظات', 5: 'المراجعة والحفظ', 6: 'تم الحفظ' };
+    const capPct = Math.min(s.cap, 5) / 5 * 100;
+
+    const chipGroups = [
+      { title: 'الخدمات اليوم', chips: ['قصّة شعر', 'تهذيب لحية', 'غسيل شعر', 'منشفة ساخنة', 'حاجبان', 'أنف وأذن', 'تنظيف بشرة'] },
+      { title: 'المنتجات المستخدمة', chips: ['شامبو بلا كبريتات', 'واكس مطفأ', 'زيت لحية', 'بلسم بلا كحول'] }
+    ].map(g2 => ({
+      title: g2.title,
+      chips: g2.chips.map(c => ({ label: c, style: this.chip(!!s.chips[c]), go: () => this.setState({ chips: Object.assign({}, s.chips, { [c]: !s.chips[c] }) }) }))
+    }));
+
+    const prefEdits = [
+      { key: 'fade', title: 'نوع التدرّج', options: ['Low', 'Mid', 'High', 'Skin'] },
+      { key: 'clipper', title: 'درجة الماكينة للجوانب', options: ['0', '1', '2', '3', '4'] },
+      { key: 'beard', title: 'شكل اللحية', options: ['قصيرة مهذّبة', 'كاملة', 'خفيفة', 'حليقة'] },
+      { key: 'drink', title: 'المشروب المفضّل', options: ['قهوة عربية', 'تركية', 'شاي', 'ماء', 'بدون'] }
+    ].map(p => ({
+      title: p.title, current: s.prefPick[p.key],
+      options: p.options.map(o => ({ label: o, style: this.chip(s.prefPick[p.key] === o), go: () => this.setState({ prefPick: Object.assign({}, s.prefPick, { [p.key]: o }) }) }))
+    }));
+
+    const toggles = [['hairwash', 'غسيل الشعر'], ['towel', 'المنشفة الساخنة'], ['brows', 'تهذيب الحاجبين'], ['talk', 'يفضّل الحديث']].map(([k, label]) => {
+      const on = !!s.toggles[k];
+      return {
+        label, go: () => this.setState({ toggles: Object.assign({}, s.toggles, { [k]: !on }) }),
+        trackStyle: 'cursor:pointer; width:46px; height:26px; border-radius:99px; border:none; padding:3px; display:flex; justify-content:' + (on ? 'flex-start' : 'flex-end') + '; background:' + (on ? '#E11D2E' : 'rgba(255,255,255,.14)') + ';',
+        knobStyle: 'width:20px; height:20px; border-radius:99px; background:#fff; display:block;'
+      };
+    });
+
+    const angles = ['أمام', 'جانب', 'خلف'].map(a => ({ label: a, style: this.pill(s.angle === a, 'flex:1;'), go: () => this.setState({ angle: a }) }));
+    const moods = ['راضٍ جدًا', 'راضٍ', 'غير راضٍ'].map(m => ({ label: m, style: this.chip(s.mood === m) + 'flex:1;', go: () => this.setState({ mood: m }) }));
+
+    const q = s.query.trim();
+    const visibleGuests = this.guests().filter(x => !q || x.name.includes(q) || x.meta.includes(q))
+      .map(x => Object.assign({}, x, { tagStyle: this.tagStyle(x.tag), go: x.id === 'turki' ? () => this.setState({ screen: 4, cap: 1 }) : () => this.setState({ screen: 3, guestId: x.id }) }));
+
+    const statusColors = { 'لم يصل': ['rgba(255,255,255,.07)', '#B7BECC'], 'وصل': ['rgba(225,29,46,.15)', '#FF8A95'], 'في الخدمة': ['rgba(242,176,61,.14)', '#F2B03D'], 'انتهى': ['rgba(255,255,255,.07)', '#B7BECC'], 'لم يُوثَّق': ['rgba(242,176,61,.14)', '#F2B03D'] };
+    const todayGuests = [
+      { time: '4:30', name: 'عبدالله الشمري', meta: 'فهد — الكرسي 3', status: 'وصل' },
+      { time: '5:00', name: 'خالد العتيبي', meta: 'ماجد — زائر من فرع العليا', status: 'في الخدمة' },
+      { time: '5:30', name: 'تركي', meta: 'بلا حجز — ضيف جديد', status: 'لم يصل' },
+      { time: '3:00', name: 'سعد الدوسري', meta: 'سعود — الكرسي 1', status: 'انتهى' },
+      { time: '2:15', name: 'ياسر القحطاني', meta: 'فهد — الكرسي 2', status: 'لم يُوثَّق' }
+    ].map(t => ({ time: t.time, name: t.name, meta: t.meta, status: t.status, statusStyle: 'font-size:11px; padding:5px 10px; border-radius:99px; flex:none; background:' + statusColors[t.status][0] + '; color:' + statusColors[t.status][1] + ';' }));
+
+    return {
+      nav, clock: h + ':' + two(s.now.getMinutes()),
+      today: days[s.now.getDay()] + '، ' + s.now.getDate() + ' ' + months[s.now.getMonth()],
+      isS0: s.screen === 0, isS1: s.screen === 1, isS2: s.screen === 2, isS3: s.screen === 3, isS4: s.screen === 4, isS5: s.screen === 5,
+      journey: [
+        { num: '01', actor: 'الضيف', title: 'الوصول والتعرّف', desc: 'شاشة المدخل تتعرّف على الضيف وترحّب به وتعرض موعده وحلاقه.', go: this.go(1) },
+        { num: '02', actor: 'الحلاق', title: 'إشعار الفريق', desc: 'إشعار فوري لجهاز الحلاق وإشعار عام لمدير الفرع.', go: this.go(2) },
+        { num: '03', actor: 'الحلاق', title: 'بطاقة الضيف', desc: 'الصور والتفضيلات والملاحظات وسجل الزيارات في عشر ثوانٍ.', go: this.go(3) },
+        { num: '04', actor: 'الحلاق', title: 'التوثيق بعد الخدمة', desc: 'صورة، خدمات، تفضيلات، انطباع — ثم تحديث الملف لكل الفروع.', go: this.go(4) }
+      ],
+      extraScreens: [
+        { label: 'قائمة الضيوف والبحث + ضيوف اليوم', go: this.go(5) },
+        { label: 'تنبيه زيارة من فرع مختلف — داخل بطاقة خالد', go: () => this.setState({ screen: 3, guestId: 'khaled' }) }
+      ],
+      kioskStates, kIdle: s.kiosk === 'idle', kDetect: s.kiosk === 'detect', kFound: s.kiosk === 'found', kNew: s.kiosk === 'new',
+      pushVisible: s.push, replayPush: () => { this.setState({ push: false }); setTimeout(() => this.setState({ push: true }), 350); },
+      openProfileFromPush: () => this.setState({ screen: 3, guestId: 'abdullah' }),
+      notifications,
+      guestTabs: [{ id: 'abdullah', l: 'عبدالله' }, { id: 'khaled', l: 'خالد — فرع مختلف' }].map(t => ({ label: t.l, go: () => this.setState({ guestId: t.id }), style: this.pill(s.guestId === t.id) })),
+      guest: Object.assign({}, g, { tagStyle: this.tagStyle(g.tag) }),
+      crossBranch: !!g.cross,
+      comparing: s.comparing, compareLabel: s.comparing ? 'إغلاق المقارنة' : 'مقارنة صورتين',
+      toggleCompare: () => this.setState({ comparing: !s.comparing }),
+      compensate: null,
+      comparePair: [g.gallery[0], g.gallery[1]],
+      startService: () => this.setState({ confirmOpen: true }), closeConfirm: () => this.setState({ confirmOpen: false }),
+      confirmOpen: s.confirmOpen, checklist,
+      goCapture: () => this.setState({ screen: 4, cap: 1, confirmOpen: false }),
+      capStepTitle: capTitles[s.cap], capStepLabel: s.cap > 5 ? 'اكتمل' : 'الخطوة ' + s.cap + ' من 5',
+      capProgress: 'height:100%; border-radius:99px; background:#E11D2E; transition:width .3s; width:' + capPct + '%;',
+      cap1: s.cap === 1, cap2: s.cap === 2, cap3: s.cap === 3, cap4: s.cap === 4, cap5: s.cap === 5, cap6: s.cap === 6,
+      capNext: () => this.setState({ cap: s.cap + 1 }), capBack: () => this.setState({ cap: 4 }),
+      saveCapture: () => this.setState({ cap: 6 }), capRestart: () => this.setState({ cap: 1 }),
+      angles, chipGroups, prefEdits, toggles, moods,
+      summary: [
+        { k: 'الصور', v: 'أمام + جانب' },
+        { k: 'الخدمات', v: Object.keys(s.chips).filter(c => s.chips[c]).slice(0, 3).join('، ') || '—' },
+        { k: 'التدرّج', v: s.prefPick.fade + ' Fade' },
+        { k: 'الماكينة', v: 'درجة ' + s.prefPick.clipper },
+        { k: 'اللحية', v: s.prefPick.beard },
+        { k: 'المشروب', v: s.prefPick.drink },
+        { k: 'الانطباع', v: s.mood }
+      ],
+      query: s.query, onQuery: e => this.setState({ query: e.target.value }),
+      filters: ['كل الفروع', 'العليا', 'حطين', 'الياسمين', 'فهد', 'ضيف دائم'].map(f => ({ label: f, style: this.pill(s.filter === f), go: () => this.setState({ filter: f }) })),
+      listTabs: [{ k: 'all', l: 'كل الضيوف' }, { k: 'today', l: 'ضيوف اليوم' }].map(t => ({ label: t.l, style: this.pill(s.listTab === t.k, 'flex:1;'), go: () => this.setState({ listTab: t.k }) })),
+      showAllGuests: s.listTab === 'all', showToday: s.listTab === 'today',
+      visibleGuests, noResults: visibleGuests.length === 0, todayGuests,
+      noop: () => {}
+    };
+  }
+}
+</script>
+</body>
+</html>

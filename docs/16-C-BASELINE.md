@@ -1,0 +1,75 @@
+# 16 — C baseline: base pin, ownership, capability states, configuration, sequence
+
+**Stream C decisions (Claude Code as integrator; Cursor implements).** Issue #3. Status of each item is tracked in #3 comments, not here.
+
+## 1. Baseline source and rerun (item 1)
+
+| Fact | Value | Label |
+|---|---|---|
+| Main at planning | `517272d31280515b75a7d6a1b8b74cb49742d055` | verified (git) |
+| PR #1 head (Grok pack + sandbox) | `6f6683a0b057536a09e6b9d287d8635bce0a8493` | verified (git) |
+| PR #11 head (plan) | `468fbe48d8eb99dbc44d9ed6946e561737a77493`, stacked on PR #1 | verified (git) |
+| Baseline suite rerun on `468fbe4` | `node --test tests/*.test.mjs` → **112 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-14 04:35 UTC) | tested, this checkout |
+| CodeRabbit on PR #1 | skipped the draft — **not** a pass | recorded |
+| Non-author review of PR #1 content | NOT_RUN in this pass (historical reviews in docs 14/15 stand as what they are) | honest status |
+
+The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application.
+
+## 2. Immutable base pin and merge sequence (item 8)
+
+1. Owner merges **PR #1**, then **PR #11**, then the **C-baseline PR** (this branch), in that order, each with a fresh compare against `main`, no force push.
+2. After that merge, the resulting `main` commit is the **immutable base pin**; the integrator posts its SHA in #3 and #2 within the same day.
+3. Until it is posted, A/B/C prepare on branches created from the C-baseline PR head (`work/c-rakan-platform`) and **rebase onto the pin before opening a non-draft PR**. Nothing executable may be invented outside the contract in §6.
+4. Work branches: `work/a-rakan-agent`, `work/b-rakan-ui`, `work/c-rakan-platform`. One PR per coherent change. Only the owner merges.
+
+## 3. Ownership map (items 3, 5 of #2; repeated in `CONTINUE.md`)
+
+| Path | Writer | Notes |
+|---|---|---|
+| root files (`package.json`, lockfile, `.gitignore`, `.env.example`, `README.md`, `AGENTS.md`, `CONTINUE.md`, `NOTICE.md`), `.github/**` | C | A/B request changes in #3 |
+| `src/contracts/**` | C | versioned; A/B consume without modification |
+| `src/server/**`, `src/domain/**`, `src/integrations/internal/**`, `db/**`, `tests/platform/**`, `tests/integration/**` | C | |
+| `design/reference/**` | C (immutable archive) | hash-checked |
+| `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`, `research/claude-20260913/**` | A | |
+| `src/ui/**`, `styles/**`, `tests/ui/**`, `design/implementation-notes/**` | B | |
+| `sandbox/**`, `evals/**`, `fixtures/**` (from PR #1) | C custody; regression fixtures only | not live capabilities |
+| `docs/**` | the stream that owns the topic; C for 16+ | |
+
+## 4. Independent capability states (item 5) — no single DEMO flag
+
+Each capability is a separate configured state, surfaced to the UI in the trusted context (`capabilities` in `src/contracts/CONTRACT-v0.1.md` §1). Every state has an explicit **unavailable** value that the UI must render as disabled/omitted, never as a fake control.
+
+| Capability | States | Rule |
+|---|---|---|
+| `model` | `real` · `mock` · `unavailable` | `mock` only when `WEEKEND_ENV=local`; in `owner-review` a missing/failed model is `unavailable`, never silently mocked. |
+| `photo` | `enabled` · `disabled` | `enabled` only after permitted subjects, upload gateway limits and retention configuration exist (#7) **and** the customer's own permission receipt for the session. Text help never depends on it. |
+| `booking_handoff` | `official_link` · `pending_request` · `unavailable` | `official_link` = allowlisted existing URL from config, recorded as `EXTERNAL_HANDOFF`. `pending_request` only with a real operator watching the inbox. Integrated booking is **not** an M1 state (deferred, #10). |
+| `staff_inbox` | `enabled` · `unavailable` | requires authenticated staff session and the one configured branch. |
+| `preferences` | `enabled` · `unavailable` | text-only, opt-in, revocable. |
+
+Combinations are legal in any mix (e.g. `model=real, photo=disabled, booking_handoff=official_link` is the expected first owner-review build).
+
+## 5. Dedicated configuration and boundaries (item 7) — names only
+
+Names live in `.env.example`. Rules:
+
+- **Missing required configuration fails at start** with the variable name in the error; no defaults for secrets, model ids, caps or the booking URL.
+- **Project-only**: a new provider account/key for The Weekend; no Kivo/MaitreAI endpoint, account, feature row, kill switch, database or host. The kill switch for this project is its own `WEEKEND_MODEL_MODE`/caps, in this repository.
+- **Caps**: `WEEKEND_SPEND_CAP_USD_PER_DAY`, `WEEKEND_MAX_CALLS_PER_SESSION`, `WEEKEND_REQUEST_TIMEOUT_MS`, `WEEKEND_UPLOAD_MAX_BYTES` are mandatory; exceeding them yields `MODEL_UNAVAILABLE` / `BUDGET_EXCEEDED` / `TIMEOUT` error shapes, never a mock answer.
+- **Secrets route**: values are given by the owner to the person running the app, out of band; never in Git, issues, PR text or logs. Logs contain ids and counts, not customer text or images.
+- **Model/version**: the provider, model ids and SDK version are chosen and verified in #3 against the provider's current documentation at that time (not inherited from Kivo docs); recorded in #3 with the date. No value is chosen in this file.
+
+## 6. Runtime selection (item 6)
+
+- **Node 22 LTS** (verified here: v22.22.2), ES modules, `node --test`, **zero runtime dependencies** for the contract/test layer (PR #1 precedent: hand-rolled validation, no Ajv).
+- Server: `node:http` (or the smallest reviewed router if #7 needs one — decision recorded in #7 before adding a dependency). Static UI served from `src/ui/` as plain HTML/CSS/JS so the design file's structure carries over without a framework port. Any framework/bundler proposal is a #3 request with a dependency review.
+- Store: the dedicated SQLite file at `WEEKEND_DB_PATH` via `node:sqlite` (unflagged on Node ≥ 22.13; verify with `node -e "import('node:sqlite')"` on the target machine and record the version in #7). No shared database.
+- Runnable shell and commands are published in #7 once implementation is authorized; this document does not claim one exists.
+
+## 7. Contracts (item 4)
+
+Definitions: `src/contracts/CONTRACT-v0.1.md` (this PR). Implementation (JSON schema files, valid/invalid fixtures, `tests/contracts.test.mjs`) is #3 work for Cursor; A/B may read the definitions now and must not invent fields.
+
+## 8. Not done by this document
+
+No deployment, no paid provisioning, no customer data processing, no model selection, no merchant approval. Acceptance boxes in #3 are ticked only with evidence in #3 comments.
