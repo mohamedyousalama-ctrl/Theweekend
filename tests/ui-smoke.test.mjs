@@ -98,3 +98,10 @@ test('smoke: ChatTurnInput from composer validates', () => {
   });
   assert.equal(validateContract('ChatTurnInput', input).ok, true);
 });
+
+test('smoke: share buttons are executable and a booking action with a URL is a real link', () => {
+  const share = renderShareControls({ allowedActions: [{ ...allowed, action_id: 'act_syn_share_text', kind: 'share_brief_text', url: null, requires_receipt_kind: 'staff_sharing_text' }] });
+  assert.match(share.html, /data-executable="true"/);
+  const view = renderConversation({ context, output, allowedActions: [{ ...allowed, action_id: 'act_syn_book', kind: 'open_official_booking', url: 'https://theweekendhairstyling.com/book' }] });
+  assert.match(view.html, /<a [^>]*href="https:\/\/theweekendhairstyling\.com\/book"[^>]*rel="noopener"/);
+});

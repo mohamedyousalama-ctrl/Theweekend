@@ -58,6 +58,7 @@ export function renderPreferenceEditor({
         class: 'wk-pill is-ghost',
         'data-action-kind': 'delete_preference',
         'data-action-id': del.action_id,
+        'data-executable': 'true',
       }, t(locale, 'delete_pref'))
       : '',
     unavailable ? el('p', { class: 'wk-note' }, t(locale, 'unavailable')) : '',

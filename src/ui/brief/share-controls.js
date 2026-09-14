@@ -15,6 +15,7 @@ export function renderShareControls({
       class: 'wk-pill',
       'data-action-kind': 'share_brief_text',
       'data-action-id': text.action_id,
+      'data-executable': disabled ? 'false' : 'true',
       disabled,
     }, escapeHtml(text.label_ar || t(locale, 'share_text'))));
   }
@@ -24,6 +25,7 @@ export function renderShareControls({
       class: 'wk-pill is-ghost',
       'data-action-kind': 'share_photo_ref',
       'data-action-id': photo.action_id,
+      'data-executable': disabled ? 'false' : 'true',
       disabled,
     }, escapeHtml(photo.label_ar || t(locale, 'share_photo'))));
   }

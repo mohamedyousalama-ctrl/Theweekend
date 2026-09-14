@@ -228,7 +228,9 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       });
     }
     root.querySelectorAll('[data-action-id][data-executable="true"]').forEach((btn) => {
-      btn.addEventListener('click', () => void clickAction(btn.getAttribute('data-action-id')));
+      // A link opens its own page on the click (no popup to block); the action is posted for the record either way.
+      const opensItself = btn.getAttribute('data-opens-itself') === 'true';
+      btn.addEventListener('click', () => void clickAction(btn.getAttribute('data-action-id'), { opensItself }));
     });
     root.querySelectorAll('[data-action-kind="continue_without_photo"]').forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -308,13 +310,13 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     }
   }
 
-  async function clickAction(actionId) {
+  async function clickAction(actionId, { opensItself = false } = {}) {
     if (!actionId || state.reconnectInvalidates) return;
     try {
       const result = await api(`/actions/${actionId}`, { method: 'POST', token: state.token, body: {}, fetchImpl });
       state.actionResult = result;
       state.error = null;
-      if (result.outcome === 'external_handoff') {
+      if (result.outcome === 'external_handoff' && !opensItself) {
         const action = state.allowedActions.find((a) => a.action_id === actionId);
         if (action?.url) window.open(action.url, '_blank', 'noopener');
       }

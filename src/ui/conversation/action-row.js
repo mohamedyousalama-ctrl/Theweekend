@@ -19,17 +19,21 @@ export function renderActionRow({
   const allowed = filterAllowedActions(allowedActions);
   const invented = (allowedActions || []).filter((a) => a && !isAllowedActionKind(a.kind));
   const buttons = allowed.map((action) => {
-    const isBooking = action.kind === 'open_official_booking' || action.kind === 'request_pending_booking';
-    return el('button', {
-      type: 'button',
+    const enabled = !(disabled || reconnectInvalidates);
+    const common = {
       class: action.kind === 'decline' || action.kind === 'continue_without_photo' ? 'wk-pill is-ghost' : 'wk-pill',
       'data-action-id': action.action_id,
       'data-action-kind': action.kind,
-      'data-executable': reconnectInvalidates ? 'false' : 'true',
+      'data-executable': enabled ? 'true' : 'false',
       'data-booking-confirmed': 'false',
-      disabled: disabled || reconnectInvalidates,
-      'aria-disabled': String(disabled || reconnectInvalidates),
-    }, escapeHtml(bookingLabel(action.kind, locale, action.label_ar, action.label_en)));
+      'aria-disabled': String(!enabled),
+    };
+    const label = escapeHtml(bookingLabel(action.kind, locale, action.label_ar, action.label_en));
+    // The server's own URL (external handoff) is a real link so the click opens it directly; app.js still posts the action.
+    if (enabled && typeof action.url === 'string' && /^https:\/\//.test(action.url)) {
+      return el('a', { ...common, href: action.url, target: '_blank', rel: 'noopener', role: 'button', 'data-opens-itself': 'true' }, label);
+    }
+    return el('button', { type: 'button', ...common, disabled: !enabled }, label);
   });
 
   const proposed = Array.isArray(proposedActions) ? proposedActions : [];
