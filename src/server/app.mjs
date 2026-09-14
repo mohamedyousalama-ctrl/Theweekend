@@ -56,14 +56,16 @@ function iso(clock) {
   return clock();
 }
 
-function modelCapability(config) {
+function modelCapability(config, realAdapter = false) {
   if (config.WEEKEND_MODEL_MODE === 'mock' && config.WEEKEND_ENV === 'local') return 'mock';
+  // Real inference exists only when stream A's adapter is injected (src/server/index.mjs); never assumed.
+  if (config.WEEKEND_MODEL_MODE === 'real' && realAdapter) return 'real';
   return 'unavailable';
 }
 
-function capabilitiesFor(config, role) {
+function capabilitiesFor(config, role, realAdapter = false) {
   return {
-    model: modelCapability(config),
+    model: modelCapability(config, realAdapter),
     photo: config.WEEKEND_PHOTO_ENABLED ? 'enabled' : 'disabled',
     booking_handoff: config.WEEKEND_BOOKING_HANDOFF_MODE,
     staff_inbox: role === 'staff' || role === 'owner' ? 'enabled' : 'unavailable',
@@ -71,11 +73,12 @@ function capabilitiesFor(config, role) {
   };
 }
 
-function healthOf(config, storeUp) {
+function healthOf(config, storeUp, realAdapter = false) {
   const store = storeUp ? 'ok' : 'unavailable';
+  const model = modelCapability(config, realAdapter);
   return {
     contract_version: '0.1.0',
-    model: 'unavailable',
+    model: model === 'real' ? 'ok' : 'unavailable',
     photo: config.WEEKEND_PHOTO_ENABLED ? 'ok' : 'unavailable',
     booking_handoff: 'ok',
     staff_inbox: storeUp ? 'ok' : 'unavailable',
@@ -175,6 +178,7 @@ export function createApp(config, deps = {}) {
   const clock = deps.clock || (() => new Date().toISOString());
   const store = deps.store || openStore(config.WEEKEND_DB_PATH);
   const adapter = deps.adapter || runModelTurn;
+  const realAdapter = Boolean(deps.adapter) && config.WEEKEND_MODEL_MODE === 'real';
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
 
@@ -211,7 +215,7 @@ export function createApp(config, deps = {}) {
       verified: true,
       branch_id: config.WEEKEND_BRANCH_ID,
       locale: 'ar',
-      capabilities: capabilitiesFor(config, session.role),
+      capabilities: capabilitiesFor(config, session.role, realAdapter),
       consents,
       issued_at: iso(clock),
     };
@@ -944,7 +948,7 @@ export function createApp(config, deps = {}) {
       } catch {
         storeUp = false;
       }
-      const state = { ...healthOf(config, storeUp), checked_at: iso(clock) };
+      const state = { ...healthOf(config, storeUp, realAdapter), checked_at: iso(clock) };
       assertContract('HealthState', state);
       return state;
     },
