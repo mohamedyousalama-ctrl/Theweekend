@@ -12,23 +12,23 @@ Truth order: (1) latest comments on issue #2 and on open PRs, (2) this file, (3)
 | Stream A — agent brain (prompt, persona, knowledge, agent tests) | Claude Code | GPT writes the prompt/knowledge/tests as text; Cursor commits and runs them (GPT cannot push). |
 | Stream B — UI | Grok | Grok |
 | Stream C — contracts, server, hosting | Cursor (code), Claude Code (decisions/review) | Cursor (code), GPT (decisions/review) |
-| Merges | owner | owner |
+| Merges | the integrator (D17): after the two-agent review, green `npm test`, and the bot reviews read; the owner may also merge | owner, until the owner grants it to the named successor in writing on #2 |
 
-Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merges, no force pushes, no secrets in Git or chat.
+Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merge without D17's checks, no force pushes, no secrets in Git or chat.
 
 ## 2. State snapshot (2026-09-14, ~20:40 UTC) — verify against #2 before trusting
 
 | Item | State |
 |---|---|
 | `main` = `6658d71` | PR #21 (Grok UI + integrator fixes), PR #20 (Cursor platform + pre-call reservations), PR #22 (A hardening: exact grounding, cost/retry accounting, abort-aware turns, pack revision 2, prompt v0.4) merged by the integrator on the owner's instruction (order #21 → #20 → #22); 259 tests on `main` |
-| PR #23 (integrator, C config) | open: `tests/ui/*.test.mjs` under `npm test`, smoke file removed; 297 tests |
-| Package C2 (Cursor, issue #7) | READY from `main`: 15 items (order: share-actions endpoint, consent-gated staff inbox, photo share = observations, server-side brief binding, abort signal, then preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape, logging) |
-| Next UI handback (Grok, issue #6) | READY from `main`: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:id/share-actions`, direct preference save, hide M2 ids, photo upload path |
+| PR #23 (integrator, C config + this file) | open when this snapshot was written: `tests/ui/*.test.mjs` under `npm test`, smoke file removed, this file refreshed; 297 tests; the Codex bot checked the first commit and found no problems; two review rounds (auditor + reviewer) done on the doc refresh; the integrator merges it under D17 after the final checks, and the merge shows on the PR and on #2 |
+| Package C2 (Cursor, issue #7) | READY from `main`: 14 items left of the original 15 (item 15, the `npm test` file list, shipped as PR #23) — order: share-actions endpoint, consent-gated staff inbox, photo share = observations, server-side brief binding, abort signal, then preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape, logging) |
+| Next UI handback (Grok, issue #6) | READY from `main`: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:brief_id/share-actions`, direct preference save, hide M2 ids, photo upload path |
 | #8 owner walkthrough | after C2 item 14 + the consent/brief UI, the first Railway deploy and one `npm run eval:agent` run with the owner's key (results to #5) |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
 | Hosting | Railway decided (`docs/17-HOSTING.md`); owner signed up; project not created yet; `WEEKEND_TRUST_PROXY=1`; the dedicated Claude key goes into Railway as `WEEKEND_MODEL_API_KEY` only |
 | Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
-| Bot reviews | Qodo and Codex review every PR (also after merge): read them on each check-in; a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
+| Bot reviews | current roster and state in §8 (Qodo paused since 2026-09-14); a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
 | Idle agents | if Cursor or Grok stay idle, the integrator may do small, in-scope required fixes on their branches after an adversarial audit (done on #20 and #21 on 2026-09-14); larger packages stay theirs |
 
 ## 3. Decisions log (all recorded; do not reopen without the owner)
@@ -51,10 +51,11 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 | D14 | M1 photo share (`share_photo_ref`) gives staff the stored cosmetic observations of that `image_ref`, never image bytes (not retained); the owner may later choose retained photos under the sharing consent (contract v0.2) | #7 (C2 item 3), #2 |
 | D15 | Every price, figure with a unit (minutes, days, visits, percent) and link in a reply must come from a record the reply cites; no exemption for a customer's own wrong figure (state the right one, never repeat it); one corrective retry, then a closed error | PR #22 |
 | D16 | A service whose name names a condition («باي باي قشرة») stays disabled in the model's knowledge until the owner and a qualified reviewer decide (row 18); annual membership carry-over is stated as unconfirmed (row 19) | PR #22, `MISSING-FACTS.md` |
+| D17 | The integrator makes all merges in this repository, and may use Codex and Cursor as it sees fit (owner, 2026-09-14: «you make all merges, use codex, cursor as you want»). A merge still needs: the two-agent review (auditor + reviewer), green `npm test`, the bot reviews read and answered, no overlapping writer on the same paths. Never a force push; never MaitreAI/Kivo repositories | #2 comment of 2026-09-14 «Decision D17», `CONTINUE.md` §3 item 7 |
 
 ## 4. Stream A brief — the Rakan brain (implementable by anyone)
 
-Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Consumes `src/contracts/` schemas from PR #14. Real calls only with the owner's key on Railway; local tests use the labelled mock.
+Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Consumes the `src/contracts/` schemas (issue #3; merged in PR #14, already on `main`). Real calls only with the owner's key on Railway; local tests use the labelled mock.
 
 **4.1 Knowledge pack (`knowledge/`)** — one JSON record per fact in the `KnowledgeRecord` shape, generated from `research/claude-20260913/catalogue.sanitized.json`, `staff.sanitized.json`, `EXCERPTS.md` and `OWNER-ANSWERS-2026-09-14.md`; `status: merchant_approved` only where D2–D7 cover it, otherwise `verified_public`. A `verified_public` record may be enabled only if its text states the uncertainty itself (e.g. «ما أقدر أأكد إنها متوفرة بفرع مرسية»); anything else stays `enabled: false`. Implemented in PR #19 (`knowledge/build.mjs`, 45 records). Scope: مرسية services and price rows (VAT-inclusive), add-ons, products (website wording), memberships (D5), policy text (no-show/late, as written), branch map link, the 7 barber names, charity line. Never: ratings, review counts, stock, delivery promises, other branches' hours, iCal.
 
@@ -71,31 +72,34 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 
 **4.3 Cosmetic observation rules (`CosmeticObservations`)** — allowed: hair length/texture/density appearance, beard shape, visible skin surface appearance (shine, dryness look, visible blemishes as appearance), face visibility, lighting/angle limitations, confidence. Forbidden and tested: identity, age, ethnicity, gender inference, health/condition names, treatment claims, attractiveness. The `not_inferred` array is always present.
 
-**4.4 Adapter contract (Cursor implements, §5)** — `adapter({context, input, now}) → {output, usage}`; real mode uses the Anthropic Messages API with the configured model, `max_tokens` bounded, timeout from config, image passed as an in-memory content block only when a receipt exists; usage returns tokens, latency, `cost_estimate_minor`, outcome.
+**4.4 Adapter contract (live on `main`: `src/agent/adapter.mjs`, stream A)** — `adapter({ context, input, now, image_bytes, signal }) → { output, usage }`. Real mode (`WEEKEND_MODEL_MODE=real`, wired in `src/server/index.mjs`) calls the Anthropic Messages API with the configured model, `max_tokens` bounded, the image as an in-memory content block only when a receipt exists, and `signal`, an abort signal the adapter accepts and honours (no retry starts after it fires; a late reply is dropped; unit-tested) — the server does not pass one yet: its timeout only stops waiting (`src/server/timeout.mjs`); wiring an `AbortController` to the adapter is C2 item 13. `usage` carries tokens summed across attempts, latency, `cost_estimate_minor` (integer minor units, rounded up), outcome (`timeout` on abort). `adapter.costCeilingMinor` (86 cents for claude-opus-5, 36 for claude-sonnet-5) is what the server reserves against the day ledger before each paid call (`costCeilingFor` in `src/server/app.mjs`). Grounding (D15) is enforced in the adapter: every price, unit figure and link in the draft must come from a record cited in `knowledge_refs`; one corrective retry, then a closed error (`agent.ungrounded_price|fact|link`, `state: error`).
 
 **4.5 Tests (`tests/agent/`)** — deterministic with the mock: schema validity of every fixture reply; grounding (a price without `knowledge_refs` fails); refusal cases (medical, child, injection); no scarcity/no repeated offer; booking never confirmed; photo path blocked without receipt; Arabic/English switch. Real-model evaluation (after the key exists): ≥ 30 text cases and ≥ 10 permitted images (blurry, covered, reference photo of a public style, two genuinely different faces); report prompt version, model id, case counts, timings, cost, failures — separately from the deterministic results.
 
+**4.6 Stream A next steps** — (1) after the first Railway deploy, one `npm run eval:agent` run with the owner's key set on Railway only; results (counts, timings, cost, failures, prompt version, model id) posted to #5; fix what fails in a small PR. (2) When the owner answers `MISSING-FACTS.md` rows 18–19: rebuild the pack (`node knowledge/build.mjs`), bump `pack_revision`, update the prompt if the wording changes, tests. (3) Contract v0.2 (D13) with stream C, after #10 has its key.
+
 ## 5. Stream C next steps (Cursor)
 
-1. After PR #14 merges: Anthropic adapter behind `WEEKEND_MODEL_MODE=real` (SDK version verified on the day, recorded in the PR); image content block from the in-memory bytes; usage/cost record; budget and timeout already enforced.
-2. Serve Grok's `src/ui/` when it lands; wire routes to the contracts; two-session customer→staff demo script for #8.
-3. Railway: first deploy from `main` once A and B are in; health check green; owner enters variables.
-4. Later: contract v0.2 and the Rekaz merchant-API package (#10) with quote → approve → create, cancel of test reservations, hosted payment link.
+1. **Package C2** (issue #7: items in the comment of 2026-09-14 11:30 UTC, endpoint shape 16:25 UTC, start order 21:15 UTC) from `main`, new branch, one topic per commit, a test per item, in this order: 14 `POST /briefs/:brief_id/share-actions` → 2 staff inbox only after an executed share → 3 photo share = stored observations, never bytes (D14) → 4 server-side brief binding → 13 `AbortController` → adapter `signal`, persist the adapter's timeout usage → 1, 5, 6, 7, 8, 9, 10, 11, 12 (preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape → 400, error logging). Item 15 (the `npm test` file list) is PR #23. Reviewer: the integrator; report in the PR body (base → head, files, `npm test` counts, not run, blockers).
+2. **Railway**: first deploy from `main` after C2 item 14 and the consent/brief UI; health check green; the owner enters the variables (`docs/17-HOSTING.md`).
+3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10): quote → approve → create, cancel of test reservations, hosted payment link.
 
 ## 6. Stream B next steps (Grok)
 
-Second handback per `design/implementation-notes/m1-component-map.md` §8 against PR #14's fixtures; states matrix §6; no framework; tests in `tests/ui/`.
+Next handback (issue #6, comment of 2026-09-14 21:15 UTC) from `main`, required before the owner walkthrough #8: consent step (`POST /consents`, withdrawal via `POST /consents/:receipt_id/revoke`, shown on `403 CONSENT_REQUIRED`, then the click is retried); brief approval (`POST /briefs`) and sharing via `POST /briefs/:brief_id/share-actions` (photo sharing = observations, copy «مشاركة ملاحظات الصورة»); direct preference save (`POST /preferences`); polish (hide M2 ids on the customer screen, translate raw labels, keep focus after re-render); photo upload path (`POST /uploads` behind the photo consent, only when `capabilities.photo === "enabled"`). No framework; tests in `tests/ui/`; `design/reference/**` SHA unchanged. Cross-review per `CONTINUE.md` §3: ChatGPT or Cursor (fidelity) and the integrator (contract consumption).
 
 ## 7. Owner pending tasks (as of this file)
 
-1. Merge PR #14 when the integrator confirms on the PR.
-2. Trigger Grok after that merge: «continue The Weekend project, second handback for #6».
-3. When the integrator says "deploy": Railway project from the repo, volume `/data`, variables from `.env.example` (incl. `WEEKEND_MODEL_API_KEY`), generate domain (`docs/17-HOSTING.md`).
-4. Rekaz API key from Khalid (for #10).
+1. Trigger Grok: «continue The Weekend project, next handback on #6». Cursor: the integrator starts package C2 itself with an `@cursor` comment on #7 (D17); if Cursor does not react within a day, the owner starts it: «continue The Weekend project, package C2 on #7».
+2. Wait for the integrator to say "deploy" (once C2 item 14 and the consent/brief UI are on `main`). Then the Railway steps (`docs/17-HOSTING.md` steps 2–5): create the project from the repo, add the volume `/data`, set the variables from `.env.example` plus `WEEKEND_TRUST_PROXY=1`, put the dedicated Claude key only in `WEEKEND_MODEL_API_KEY` (never in chat or Git), generate the domain.
+3. Rekaz API key from Khalid (for #10).
+4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 
 ## 8. Automation that only Claude Code can run (disable if Claude is gone)
 
-- An hourly Routine in the owner's claude.ai account wakes the Claude session to read GitHub and respond; a PR subscription on #14 does the same on pushes. If Claude Code is retired, the owner disables the Routine in claude.ai → Routines. GPT then works from the owner's prompts; Cursor cannot post issue comments (reports in PR bodies); Grok can comment.
+- An hourly Routine in the owner's claude.ai account wakes the Claude session to read GitHub and respond; a PR subscription on the integrator's open PR (#23 now) does the same on pushes and reviews. If Claude Code is retired, the owner disables the Routine in claude.ai → Routines. GPT then works from the owner's prompts; Cursor cannot post issue comments (reports in PR bodies); Grok's issue comments fail (403) — the owner relays them.
+- Bot reviewers on every PR: Codex (reviews automatically when a PR is opened or marked ready, or on a «@codex review» comment; found nothing wrong with PR #23); Qodo (paused for this account since 2026-09-14 — nothing to do); CodeRabbit (no automatic reviews). A bot finding is a bug report: verify, fix in a small PR, or say why not on the PR.
+- Under D17 the integrator may start Cursor work with an `@cursor` comment on the issue and ask Codex for a review with «@codex review»; whether the `@cursor` mention starts an agent in this repository is recorded on #2 the first time it is tried.
 
 ## 9. Evidence you cannot see in Git
 

@@ -17,10 +17,10 @@ The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next
 
 ## 2. Immutable base pin and merge sequence (item 8)
 
-1. Owner merges **PR #1**, then **PR #11**, then the **C-baseline PR** (this branch), in that order, each with a fresh compare against `main`, no force push.
+1. (Done on 2026-09-14.) The owner merged **PR #1**, then **PR #11**, then the **C-baseline PR** (this branch), in that order, each with a fresh compare against `main`, no force push.
 2. After that merge, the resulting `main` commit is the **immutable base pin**; the integrator posts its SHA in #3 and #2 within the same day.
 3. Until it is posted, A/B/C prepare on branches created from the C-baseline PR head (`work/c-rakan-platform`) and **rebase onto the pin before opening a non-draft PR**. Nothing executable may be invented outside the contract in §6.
-4. Work branches: `work/a-rakan-agent`, `work/b-rakan-ui`, `work/c-rakan-platform`. One PR per coherent change. Only the owner merges.
+4. Work branches: `work/a-rakan-agent`, `work/b-rakan-ui`, `work/c-rakan-platform`. One PR per coherent change. Merges per `CONTINUE.md` §3 item 7 (owner until 2026-09-14, then the integrator under D17).
 
 ## 3. Ownership map (items 3, 5 of #2; repeated in `CONTINUE.md`)
 

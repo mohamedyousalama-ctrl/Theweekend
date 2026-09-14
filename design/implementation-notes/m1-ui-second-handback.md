@@ -25,7 +25,7 @@ CSS lives in `styles/` (map) and an identical copy under `src/ui/styles/` so `no
 ## Tests
 
 - `tests/ui/*.test.mjs` — full Stream B suite (`node --test tests/ui/*.test.mjs`).
-- `tests/ui-smoke.test.mjs` — critical assertions picked up by the current `package.json` script (`tests/*.test.mjs`) **without** editing that C-owned file.
+- `tests/ui-smoke.test.mjs` — critical assertions picked up by the current `package.json` script (`tests/*.test.mjs`) **without** editing that C-owned file. Removed in PR #23 once `npm test` was set up to run `tests/ui/*.test.mjs` itself; do not recreate it.
 
 `design/reference/**` SHA-256 must remain `7ee86b47bd1b75f21655e30bd2a2770b8a9f4bea8ce1e50af7982f0a80b0d980`.
 
