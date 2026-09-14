@@ -44,11 +44,45 @@ test('share photo action re-checks ownership on click', () => {
   const { token } = app.createSession('customer', OWNER_PASS);
   app.grantConsent(token, 'photo_analysis', 'customer_ui');
   app.grantConsent(token, 'staff_sharing_photo', 'customer_ui');
-  app.createBrief(token, { text_ar: 'قصة قصيرة من الجوانب', do_not: [] });
+  const brief = app.createBrief(token, { text_ar: 'قصة قصيرة من الجوانب', do_not: [] });
   const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
   const action = app.issueSharePhotoAction(token, { image_ref: up.image_ref });
-  assert.equal(action.bound.object_id, up.image_ref);
+  assert.equal(action.bound.object_id, brief.brief_id);
+  assert.equal(action.bound.object_version, brief.provenance.version);
+  const payload = JSON.parse(
+    app.store.get('SELECT payload_json FROM allowed_actions WHERE action_id = ?', [action.action_id]).payload_json,
+  );
+  assert.equal(payload.image_ref, up.image_ref);
+  assert.equal(payload.brief_id, brief.brief_id);
   assert.equal(app.executeAction(token, action.action_id).outcome, 'done');
+  app.close();
+});
+
+test('share_photo_ref stays on the issued brief when a later brief exists', () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
+  const { token } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  app.grantConsent(token, 'staff_sharing_photo', 'customer_ui');
+  const briefA = app.createBrief(token, { text_ar: 'الموجز الأول', do_not: [] });
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+  const issued = app.issueShareActionsForBrief(token, briefA.brief_id);
+  const photo = issued.allowed_actions.find(a => a.kind === 'share_photo_ref');
+  assert.ok(photo);
+  assert.equal(photo.bound.object_id, briefA.brief_id);
+  assert.equal(photo.bound.object_version, briefA.provenance.version);
+  const briefB = app.createBrief(token, { text_ar: 'الموجز الثاني', do_not: [] });
+  assert.equal(app.executeAction(token, photo.action_id).outcome, 'done');
+  const rowA = app.store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefA.brief_id]);
+  const rowB = app.store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefB.brief_id]);
+  assert.equal(rowA.ref_kind, 'photo_ref');
+  assert.equal(rowA.image_ref, up.image_ref);
+  assert.equal(rowB.ref_kind, 'none');
+  assert.equal(rowB.image_ref, null);
+
+  const again = app.issueShareActionsForBrief(token, briefA.brief_id)
+    .allowed_actions.find(a => a.kind === 'share_photo_ref');
+  app.store.run('UPDATE briefs SET version = version + 1 WHERE brief_id = ?', [briefA.brief_id]);
+  assert.equal(app.executeAction(token, again.action_id).outcome, 'stale');
   app.close();
 });
 
@@ -158,6 +192,77 @@ test('model share_brief_text without brief_id binds to the latest approved brief
   app.close();
 });
 
+test('model share_photo_ref without brief_id binds to the latest approved brief', async () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' }, {
+    adapter: ({ context, input, now }) => {
+      const usageId = `use_syn_photo_${input.turn_id.slice(-12)}`;
+      return {
+        usage: {
+          contract_version: '0.1.0',
+          usage_id: usageId,
+          session_id: context.session_id,
+          turn_id: input.turn_id,
+          provider: 'mock',
+          model_id: 'local-script',
+          prompt_version: 'local.mock.0',
+          input_tokens: 1,
+          output_tokens: 1,
+          latency_ms: 1,
+          cost_estimate_minor: null,
+          outcome: 'ok',
+          created_at: now,
+        },
+        output: {
+          contract_version: '0.1.0',
+          turn_id: input.turn_id,
+          state: 'ok',
+          messages: [{ text: 'هذا رد محلي للاختبار فقط، وليس استشارة حقيقية.', lang: 'ar' }],
+          observations: null,
+          style_options: [],
+          proposed_actions: [
+            {
+              kind: 'share_photo_ref',
+              label_ar: 'مشاركة ملاحظات الصورة',
+              label_en: 'Share photo notes',
+              payload: { image_ref: input.image_ref },
+            },
+          ],
+          knowledge_refs: [],
+          brief_draft: null,
+          usage_ref: usageId,
+          flags: [],
+          error: null,
+        },
+      };
+    },
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+  const first = app.createBrief(token, { text_ar: 'الموجز الأقدم', do_not: [] });
+  const latest = app.createBrief(token, { text_ar: 'الموجز الأحدث', do_not: [] });
+  const bound = await app.submitTurn(token, {
+    contract_version: '0.1.0',
+    session_id: context.session_id,
+    turn_id: '11111111-2222-4333-8444-555555555603',
+    text: 'شارك الملاحظات',
+    image_ref: up.image_ref,
+    client_action_id: null,
+    locale_hint: 'ar',
+  });
+  const photo = bound.allowed_actions.find(a => a.kind === 'share_photo_ref');
+  assert.ok(photo);
+  assert.equal(photo.bound.object_id, latest.brief_id);
+  assert.equal(photo.bound.object_version, latest.provenance.version);
+  assert.notEqual(photo.bound.object_id, first.brief_id);
+  const payload = JSON.parse(
+    app.store.get('SELECT payload_json FROM allowed_actions WHERE action_id = ?', [photo.action_id]).payload_json,
+  );
+  assert.equal(payload.image_ref, up.image_ref);
+  assert.equal(payload.brief_id, latest.brief_id);
+  app.close();
+});
+
 test('share-actions for an owned brief returns a bound text share', () => {
   const { app } = testApp();
   const { token } = app.createSession('customer', OWNER_PASS);
@@ -203,7 +308,8 @@ test('share-actions omits photo share without an image or the photo capability',
   const withImage = withPhoto.app.issueShareActionsForBrief(token, brief.brief_id);
   const photo = withImage.allowed_actions.find(a => a.kind === 'share_photo_ref');
   assert.ok(photo);
-  assert.equal(photo.bound.object_id, up.image_ref);
+  assert.equal(photo.bound.object_id, brief.brief_id);
+  assert.equal(photo.bound.object_version, brief.provenance.version);
   assert.equal(photo.requires_receipt_kind, 'staff_sharing_photo');
   assert.equal(photo.bound.session_id, context.session_id);
   withPhoto.app.close();

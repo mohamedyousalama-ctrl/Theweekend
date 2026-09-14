@@ -368,20 +368,23 @@ export function createApp(config, deps = {}) {
     return persistAction(session, 'delete_preference', pref.preference_id, pref.version, { payload });
   }
 
-  function persistShareBriefProposal(session, payload) {
-    let brief = null;
+  function resolveShareBrief(session, payload) {
     if (typeof payload.brief_id === 'string') {
-      brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
+      const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
       if (!brief || brief.subject_id !== session.subject_id) return null;
-    } else {
-      brief = store.get(
-        `SELECT * FROM briefs
-         WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
-         ORDER BY created_at DESC LIMIT 1`,
-        [session.subject_id],
-      );
-      if (!brief) return null;
+      return brief;
     }
+    return store.get(
+      `SELECT * FROM briefs
+       WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
+       ORDER BY created_at DESC LIMIT 1`,
+      [session.subject_id],
+    );
+  }
+
+  function persistShareBriefProposal(session, payload) {
+    const brief = resolveShareBrief(session, payload);
+    if (!brief) return null;
     return persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
       requires_receipt_kind: 'staff_sharing_text',
       payload: { ...payload, brief_id: brief.brief_id },
@@ -392,9 +395,11 @@ export function createApp(config, deps = {}) {
     if (typeof payload.image_ref !== 'string') return null;
     const image = store.get('SELECT * FROM images WHERE image_ref = ?', [payload.image_ref]);
     if (!image || image.subject_id !== session.subject_id) return null;
-    return persistAction(session, 'share_photo_ref', image.image_ref, 1, {
+    const brief = resolveShareBrief(session, payload);
+    if (!brief) return null;
+    return persistAction(session, 'share_photo_ref', brief.brief_id, brief.version, {
       requires_receipt_kind: 'staff_sharing_photo',
-      payload,
+      payload: { ...payload, image_ref: image.image_ref, brief_id: brief.brief_id },
     });
   }
 
@@ -938,20 +943,21 @@ export function createApp(config, deps = {}) {
         if (!photoReceipt) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
         }
-        const image = store.get('SELECT * FROM images WHERE image_ref = ?', [row.object_id]);
+        const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [row.object_id]);
+        if (!brief || brief.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+        }
+        if (brief.version !== row.object_version) return staleAction(actionId);
+        const imageRef = typeof payload.image_ref === 'string' ? payload.image_ref : null;
+        const image = imageRef
+          ? store.get('SELECT * FROM images WHERE image_ref = ?', [imageRef])
+          : null;
         if (!image || image.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
         }
-        const target = store.get(
-          `SELECT * FROM briefs
-           WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
-           ORDER BY created_at DESC LIMIT 1`,
-          [session.subject_id],
-        );
-        if (!target) fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
         store.run(
           `UPDATE briefs SET ref_kind = 'photo_ref', image_ref = ?, receipt_id = ? WHERE brief_id = ?`,
-          [image.image_ref, photoReceipt.receipt_id, target.brief_id],
+          [image.image_ref, photoReceipt.receipt_id, brief.brief_id],
         );
         outcome = 'done';
         messageKey = 'brief.shared_photo';
@@ -1229,10 +1235,11 @@ export function createApp(config, deps = {}) {
     if (caps.photo === 'enabled') {
       const image = latestSessionImage(session);
       if (image) {
-        allowed.push(persistAction(session, 'share_photo_ref', image.image_ref, 1, {
-          requires_receipt_kind: 'staff_sharing_photo',
-          payload: { image_ref: image.image_ref, brief_id: brief.brief_id },
-        }));
+        const photo = persistSharePhotoProposal(session, {
+          image_ref: image.image_ref,
+          brief_id: brief.brief_id,
+        });
+        if (photo) allowed.push(photo);
       }
     }
     return { contract_version: '0.1.0', allowed_actions: allowed };
