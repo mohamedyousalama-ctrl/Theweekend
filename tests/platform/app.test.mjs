@@ -140,6 +140,11 @@ test('staff sees customer brief; other customer does not', () => {
   const staff = app.createSession('staff', STAFF_PASS);
   const brief = app.createBrief(customer.token, { text_ar: 'قصة قصيرة من الجوانب', do_not: [] });
   assert.throws(() => app.staffBriefs(other.token), err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED');
+  assert.equal(app.staffBriefs(staff.token).some(b => b.brief_id === brief.brief_id), false);
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  const share = app.issueShareActionsForBrief(customer.token, brief.brief_id).allowed_actions
+    .find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, share.action_id).outcome, 'done');
   const inbox = app.staffBriefs(staff.token);
   assert.equal(inbox.some(b => b.brief_id === brief.brief_id), true);
   const ack = app.acknowledgeBrief(staff.token, brief.brief_id);

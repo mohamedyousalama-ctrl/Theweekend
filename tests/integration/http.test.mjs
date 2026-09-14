@@ -124,6 +124,24 @@ test('http session, brief sync, and booking handoff', async () => {
     const blocked = await req(base, '/staff/briefs', { token: other.json.token });
     assert.equal(blocked.status, 401);
 
+    const beforeShare = await req(base, '/staff/briefs', { token: staff.json.token });
+    assert.equal(beforeShare.status, 200);
+    assert.equal(beforeShare.json.briefs.some(b => b.brief_id === brief.json.brief_id), false);
+
+    await req(base, '/consents', {
+      method: 'POST',
+      token,
+      body: { kind: 'staff_sharing_text', granted_via: 'customer_ui' },
+    });
+    const shareActions = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token,
+      body: {},
+    });
+    const textShare = shareActions.json.allowed_actions.find(a => a.kind === 'share_brief_text');
+    const shared = await req(base, `/actions/${textShare.action_id}`, { method: 'POST', token, body: {} });
+    assert.equal(shared.json.outcome, 'done');
+
     const inbox = await req(base, '/staff/briefs', { token: staff.json.token });
     assert.equal(inbox.status, 200);
     assert.equal(inbox.json.briefs.some(b => b.brief_id === brief.json.brief_id), true);

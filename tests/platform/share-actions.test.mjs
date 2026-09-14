@@ -51,6 +51,30 @@ test('share photo action re-checks ownership on click', () => {
   app.close();
 });
 
+test('staff inbox lists a brief only after an executed text share with an active receipt', () => {
+  const { app } = testApp();
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  const brief = app.createBrief(customer.token, { text_ar: 'لا يظهر قبل المشاركة', do_not: [] });
+  const issued = app.issueShareActionsForBrief(customer.token, brief.brief_id).allowed_actions[0];
+  assert.throws(
+    () => app.executeAction(customer.token, issued.action_id),
+    err => err instanceof AppError && err.shape.code === 'CONSENT_REQUIRED' && err.shape.message_key === 'brief.share_consent',
+  );
+  assert.equal(app.staffBriefs(staff.token).length, 0);
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  const retry = app.issueShareActionsForBrief(customer.token, brief.brief_id).allowed_actions[0];
+  assert.equal(app.executeAction(customer.token, retry.action_id).outcome, 'done');
+  const inbox = app.staffBriefs(staff.token);
+  assert.equal(inbox.length, 1);
+  assert.equal(inbox[0].brief_id, brief.brief_id);
+  assert.equal(inbox[0].status, 'delivered');
+  assert.equal(app.staffBriefs(staff.token)[0].status, 'delivered');
+  const row = app.store.get('SELECT * FROM briefs WHERE brief_id = ?', [brief.brief_id]);
+  assert.equal(row.status, 'delivered');
+  app.close();
+});
+
 test('share-actions for an owned brief returns a bound text share', () => {
   const { app } = testApp();
   const { token } = app.createSession('customer', OWNER_PASS);

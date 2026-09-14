@@ -620,24 +620,10 @@ export function createApp(config, deps = {}) {
       fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
     }
     const rows = store.all(
-      `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('approved', 'delivered', 'acknowledged')`,
+      `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('delivered', 'acknowledged')`,
       [config.WEEKEND_BRANCH_ID],
     );
-    const now = iso(clock);
-    return rows.map(row => {
-      if (row.status === 'approved') {
-        const viewId = newId('svw_');
-        store.run('UPDATE briefs SET status = ? WHERE brief_id = ?', ['delivered', row.brief_id]);
-        store.run(
-          `INSERT OR IGNORE INTO delivery_receipts
-             (brief_id, delivered_at, staff_view_id, acknowledged_at, acknowledged_by)
-           VALUES (?, ?, ?, NULL, NULL)`,
-          [row.brief_id, now, viewId],
-        );
-        row.status = 'delivered';
-      }
-      return rowBrief(row);
-    });
+    return rows.map(rowBrief);
   }
 
   function acknowledgeBrief(token, briefId) {
@@ -744,7 +730,15 @@ export function createApp(config, deps = {}) {
       return actionResult(actionId, 'expired', 'action.expired');
     }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
-      fail('CONSENT_REQUIRED', 'action.consent_required', false, { action_id: actionId }, 403);
+      const messageKey = row.kind === 'share_brief_text'
+        ? 'brief.share_consent'
+        : row.kind === 'share_photo_ref'
+          ? 'brief.photo_consent'
+          : 'action.consent_required';
+      const details = { action_id: actionId };
+      if (row.kind === 'share_brief_text') details.capability = 'staff_inbox';
+      else if (row.kind === 'share_photo_ref') details.capability = 'photo';
+      fail('CONSENT_REQUIRED', messageKey, false, details, 403);
     }
 
     let outcome = 'done';
@@ -826,6 +820,17 @@ export function createApp(config, deps = {}) {
           fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
         }
         if (brief.version !== row.object_version) return staleAction(actionId);
+        const deliveredAt = iso(clock);
+        store.run(
+          `UPDATE briefs SET status = 'delivered' WHERE brief_id = ? AND status IN ('approved', 'delivered')`,
+          [brief.brief_id],
+        );
+        store.run(
+          `INSERT OR IGNORE INTO delivery_receipts
+             (brief_id, delivered_at, staff_view_id, acknowledged_at, acknowledged_by)
+           VALUES (?, ?, ?, NULL, NULL)`,
+          [brief.brief_id, deliveredAt, newId('svw_')],
+        );
         outcome = 'done';
         messageKey = 'brief.shared_text';
         break;
