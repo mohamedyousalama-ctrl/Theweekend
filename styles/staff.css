@@ -1,0 +1,62 @@
+.wk-device {
+  width: min(100%, 390px);
+  min-height: 640px;
+  border-radius: var(--wk-radius-device);
+  border: 8px solid #171B24;
+  background: var(--wk-sheet);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.wk-inbox-head {
+  position: sticky;
+  top: 0;
+  background: rgba(10, 13, 21, 0.94);
+  backdrop-filter: blur(10px);
+  padding: 20px 18px 14px;
+  border-bottom: 1px solid var(--wk-hairline-soft);
+}
+
+.wk-inbox-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px 14px 32px;
+}
+
+.wk-inbox-card {
+  width: 100%;
+  text-align: right;
+  cursor: pointer;
+  background: #0E121C;
+  border: 1px solid var(--wk-hairline-soft);
+  border-radius: 16px;
+  padding: 14px 16px;
+  color: var(--wk-ink);
+}
+
+.wk-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 99px;
+  background: var(--wk-red);
+  display: inline-block;
+}
+
+.wk-panel {
+  padding: 16px 16px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.wk-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 16px;
+  background: var(--wk-elevated-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+}

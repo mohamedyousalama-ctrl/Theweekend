@@ -1,0 +1,38 @@
+.wk-pref-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wk-pref-row {
+  background: var(--wk-card);
+  border-radius: 14px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wk-pref-kind {
+  font-size: 11px;
+  color: var(--wk-red);
+  letter-spacing: 0.6px;
+}
+
+.wk-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.wk-editor input,
+.wk-editor select,
+.wk-editor textarea {
+  border-radius: var(--wk-radius);
+  border: 1px solid var(--wk-hairline);
+  background: var(--wk-elevated);
+  color: var(--wk-ink);
+  padding: 10px 12px;
+  font-size: 14px;
+}
