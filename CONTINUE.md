@@ -19,6 +19,8 @@ If you were told **"continue The Weekend project"**, do exactly this, in order. 
 | **B — customer/staff interfaces** | Grok | #6 | `src/ui/**`, `styles/**`, `tests/ui/**`, `design/implementation-notes/**` | prompts, knowledge, server, contracts, `design/reference/**` |
 | **C — contracts, platform, integration** | Cursor (implementation) under Claude Code (decisions, review) | #3, #7 | `src/contracts/**`, `src/server/**`, `src/domain/**`, `src/integrations/internal/**`, `db/**`, `tests/platform/**`, `tests/integration/**`, root config, `.github/workflows/**`, `design/reference/**` | prompts, knowledge, UI |
 
+**If Claude Code is unavailable and you were told to continue as integrator (for example GPT):** read `docs/18-HANDOVER-INTEGRATOR.md` first — it holds the state snapshot, the decisions log, the stream A brief and the owner's pending tasks. Announce yourself on issue #2.
+
 If you are a new agent with no assigned stream: take the **first issue in #2 whose latest comment says `READY` and has no `CLAIMED` comment**, in the order #3 → #6 → #7 → #5 → #8. Never take two streams at once.
 
 ## 3. Claim, branch, work, report
