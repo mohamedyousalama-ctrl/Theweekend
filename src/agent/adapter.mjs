@@ -27,6 +27,7 @@ export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.j
 
 const HISTORY_TTL_MS = 2 * 60 * 60 * 1000;
 const HISTORY_MAX_MESSAGES = 20;
+const HISTORY_MAX_SESSIONS = 500;
 const MAX_TOKENS = 4096;
 
 // USD per million tokens (Claude API list prices, 2026-06); cache read ≈ 0.1×, cache write ≈ 1.25× input.
@@ -224,19 +225,35 @@ export function actionAllowed(kind, caps, hasImage) {
   }
 }
 
+/** Arabic-Indic (٠-٩) and Persian (۰-۹) digits → ASCII; Arabic thousands (٬) and decimal (٫) separators → , and . */
+export function normalizeDigits(text) {
+  return String(text)
+    .replace(/[\u0660-\u0669]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[\u06F0-\u06F9]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/\u066C/g, ',')
+    .replace(/\u066B/g, '.');
+}
+
 // No \b after Arabic: JS word boundaries are ASCII-only, so use a Unicode lookahead instead.
-const PRICE_RE = /(\d+(?:[.,]\d+)?)\s*(?:ريال|ر\.س|SAR|riyals?|SR)(?![\p{L}\p{N}])/giu;
+const PRICE_RE = /(\d[\d,]*(?:\.\d+)?)\s*(?:ريال|ريالاً|ريالات|ر\.س|SAR|riyals?|SR)(?![\p{L}\p{N}])/giu;
+
+/** "2,499" → "2499" (thousands), "2,5" → "2.5" (decimal); returns the integer part as a string. */
+function integerPart(raw) {
+  let s = raw;
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
+  else s = s.replace(',', '.');
+  return s.split('.')[0];
+}
 
 /** Every amount quoted in the reply must appear in a cited knowledge record. Returns the unmatched amounts. */
 export function ungroundedPrices(messages, refs, byId) {
   const cited = refs.map((id) => byId.get(id)).filter(Boolean);
-  const haystack = cited.map((r) => `${r.text_ar}\n${r.text_en}`).join('\n');
+  const haystack = normalizeDigits(cited.map((r) => `${r.text_ar}\n${r.text_en}`).join('\n')).replace(/(\d),(\d{3})/g, '$1$2');
   const missing = [];
   for (const m of messages) {
-    for (const match of m.text.matchAll(PRICE_RE)) {
-      const amount = match[1].replace(',', '.');
-      const integer = amount.split('.')[0];
-      if (!new RegExp(`(^|[^\\d])${integer}([^\\d]|$)`).test(haystack)) missing.push(amount);
+    for (const match of normalizeDigits(m.text).matchAll(PRICE_RE)) {
+      const integer = integerPart(match[1]);
+      if (!new RegExp(`(^|[^\\d])${integer}([^\\d]|$)`).test(haystack)) missing.push(integer);
     }
   }
   return missing;
@@ -331,6 +348,7 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   const proposedActions = [];
   for (const a of Array.isArray(raw.proposed_actions) ? raw.proposed_actions : []) {
     if (!a || !ACTION_KINDS.includes(a.kind) || !actionAllowed(a.kind, caps, hasImage)) continue;
+    if (a.kind === 'delete_preference') continue; // deletion needs a preference id the model never sees; the preference view issues it server-side
     const payload = {};
     if (a.kind === 'save_preference' && a.payload) {
       if (['style', 'barber', 'branch', 'do_not', 'note'].includes(a.payload.preference_kind)) payload.preference_kind = a.payload.preference_kind;
@@ -412,13 +430,18 @@ export function createRakanAdapter(config, deps = {}) {
     throw new Error(`WEEKEND_MODEL_PROVIDER must be "anthropic" for the Rakan adapter (got "${config.WEEKEND_MODEL_PROVIDER}")`);
   }
   const modelId = config.WEEKEND_MODEL_ID;
+  if (!PRICES_USD_PER_MTOK[modelId]) {
+    throw new Error(`WEEKEND_MODEL_ID "${modelId}" has no price entry in PRICES_USD_PER_MTOK; add it so the daily spend cap can be enforced`);
+  }
   const knowledge = deps.knowledge || loadKnowledge(deps.knowledgePath);
   const promptText = deps.prompt || loadPrompt(deps.promptPath);
   const kText = knowledgeText(knowledge.enabled);
   const clock = deps.clock || (() => Date.now());
+  // One retry, both attempts inside the server's own timeout window so no request outlives the turn.
+  const serverTimeout = config.WEEKEND_REQUEST_TIMEOUT_MS || 30000;
   const client = deps.client || new Anthropic({
     apiKey: config.WEEKEND_MODEL_API_KEY,
-    timeout: Math.max(2000, (config.WEEKEND_REQUEST_TIMEOUT_MS || 30000) - 500),
+    timeout: Math.max(2000, Math.floor(serverTimeout / 2) - 250),
     maxRetries: 1,
   });
   const histories = new Map();
@@ -426,6 +449,10 @@ export function createRakanAdapter(config, deps = {}) {
   function history(sessionId) {
     const nowMs = clock();
     for (const [id, h] of histories) if (nowMs - h.updated > HISTORY_TTL_MS) histories.delete(id);
+    while (histories.size >= HISTORY_MAX_SESSIONS && !histories.has(sessionId)) {
+      const oldest = [...histories.entries()].sort((a, b) => a[1].updated - b[1].updated)[0];
+      histories.delete(oldest[0]);
+    }
     if (!histories.has(sessionId)) histories.set(sessionId, { updated: nowMs, messages: [] });
     const h = histories.get(sessionId);
     h.updated = nowMs;
@@ -487,7 +514,7 @@ export function createRakanAdapter(config, deps = {}) {
         response = await callModel({ context, input, now, imageBytes: image_bytes, correction });
       } catch (err) {
         const latency = clock() - started;
-        const retryable = !(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError);
+        const retryable = !(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError || err instanceof Anthropic.NotFoundError);
         const usage = usageRecord({ ...base, usage: null, latencyMs: latency, outcome: 'error' });
         return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: retryable ? 'model.temporarily_unavailable' : 'model.misconfigured', retryable, text: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.' }) };
       }

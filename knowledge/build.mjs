@@ -30,7 +30,7 @@ const EVIDENCE = {
   E01: '2808cfeb06673b2e316ea7cf3bcdb1d1e688c040f78598848783465c1684ffbd', // branch/public-branches
   E02: '2449a6aef67d6623ffdd940b5be68e5a049a259c27ce408d716be411a7e49cea', // provider/read-only-list
   E03: '5756f21a0c6fe023bb566ad6b7a16acef85794160f97372f82663d5016701adf', // product/product-list-v2
-  E05: '8d4b32c50444d50f6076b601f5afca47be8c23c1f7bd91b1dc74d769f2c43bcb', // setting-manager/website-options
+  E05: '8d5e32c50444d50f6076b601f5afca47be8c23c1f7bd91b1dc74d769f2c43bcb', // setting-manager/website-options
   E06: '4926a9f924145cd54382bb73bce84916b4a5f723a112e440cb1d051e3ac06bea', // setting-manager/onboarding
 };
 

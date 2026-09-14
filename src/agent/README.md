@@ -6,7 +6,7 @@
 | Knowledge pack | `knowledge/build.mjs` → `knowledge/marsiya.v1.json` (45 records) | built from `research/claude-20260913/` + the owner's answers; every record validates against `KnowledgeRecord` |
 | Adapter | `src/agent/adapter.mjs` | Claude API via the official SDK, structured JSON output, grounding check, contract validation, in-memory bounded history, photo bytes in memory only |
 | Deterministic tests | `tests/agent/*.test.mjs` (26) | run by `npm test` with a fake client — no network, no key |
-| Real-model evaluation | `src/agent/eval.mjs` + `tests/agent/cases.json` (22 text cases, optional images) | **NOT RUN** until the owner's key exists on the host |
+| Real-model evaluation | `src/agent/eval.mjs` + `tests/agent/cases.json` (30 text cases, optional images) | **NOT RUN** until the owner's key exists on the host |
 
 ## How a turn works
 
@@ -30,4 +30,4 @@ WEEKEND_MODEL_API_KEY=… npm run eval:agent            # real model, costs mone
 WEEKEND_MODEL_API_KEY=… npm run eval:agent -- --images ./permitted-faces   # optional cosmetic-vision set
 ```
 
-Model id defaults to `claude-opus-5` (Claude API docs default); `claude-sonnet-5` is the cheaper alternative and needs no code change.
+Model id defaults to `claude-opus-5` (Claude API docs default); `claude-sonnet-5` is the cheaper alternative and needs no code change. Any model id must have a price entry in `PRICES_USD_PER_MTOK`, otherwise the adapter refuses to start (the daily cap depends on it). The model never proposes `delete_preference`; deletion is issued by the preference view server-side.

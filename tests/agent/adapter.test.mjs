@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, estimateCostMinor, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, normalizeDigits, estimateCostMinor, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -195,4 +195,24 @@ test('mapModelOutput never emits more than the contract allows', () => {
   assert.equal(out.style_options[0].feasible_in_person, true);
   assert.deepEqual(out.flags, ['refusal_medical']);
   assert.ok(validateContract('ChatTurnOutput', out).ok);
+});
+
+test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {
+  const byId = new Map([['kno_a', { text_ar: 'قص الشعر: 30 ريال', text_en: 'Haircut 30 SAR' }], ['kno_b', { text_ar: 'العضوية السنوية: 2499 ريال', text_en: 'Annual 2499 SAR' }]]);
+  assert.deepEqual(ungroundedPrices([{ text: 'السعر ٩٩٩ ريال' }], ['kno_a'], byId), ['999'], 'Arabic-Indic digits are checked');
+  assert.deepEqual(ungroundedPrices([{ text: 'بـ٣٠ ريال' }], ['kno_a'], byId), [], 'Arabic-Indic digits ground against Western digits');
+  assert.deepEqual(ungroundedPrices([{ text: 'السنوية 2,499 ريال' }], ['kno_b'], byId), [], 'thousands separator is not a decimal point');
+  assert.deepEqual(ungroundedPrices([{ text: 'السنوية 2,499 ريالاً' }], ['kno_a'], byId), ['2499']);
+  assert.deepEqual(ungroundedPrices([{ text: '30.5 ريال' }], ['kno_a'], byId), []);
+  const json = modelJson({ proposed_actions: [{ kind: 'delete_preference', label_ar: 'احذف', label_en: 'Delete', payload: { preference_kind: 'style', value_text: 'x' } }] });
+  const { adapter } = adapterWith([response(json)]);
+  const r = await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.deepEqual(r.output.proposed_actions, [], 'delete_preference is never proposed by the model');
+  assert.throws(() => createRakanAdapter(realConfig({ WEEKEND_MODEL_ID: 'claude-unknown-9' }), { client: fakeClient([]), knowledge }), /no price entry/);
+  const notFound = adapterWith([new (await import('@anthropic-ai/sdk')).default.NotFoundError(404, { type: 'error', error: { type: 'not_found_error', message: 'model' } }, 'model', new Headers())]);
+  const r2 = await notFound.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(r2.output.error.retryable, false);
+  const many = adapterWith(Array.from({ length: 520 }, () => response(modelJson())));
+  for (let i = 0; i < 510; i += 1) await many.adapter({ context: context({ session_id: `ses_cap_${i}` }), input: input('x', { session_id: `ses_cap_${i}` }), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(many.client.calls.at(-1).messages.length, 1, 'new sessions still start empty under the cap');
 });
