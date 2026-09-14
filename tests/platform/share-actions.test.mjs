@@ -44,6 +44,7 @@ test('share photo action re-checks ownership on click', () => {
   const { token } = app.createSession('customer', OWNER_PASS);
   app.grantConsent(token, 'photo_analysis', 'customer_ui');
   app.grantConsent(token, 'staff_sharing_photo', 'customer_ui');
+  app.createBrief(token, { text_ar: 'قصة قصيرة من الجوانب', do_not: [] });
   const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
   const action = app.issueSharePhotoAction(token, { image_ref: up.image_ref });
   assert.equal(action.bound.object_id, up.image_ref);
@@ -131,6 +132,54 @@ test('share-actions omits photo share without an image or the photo capability',
   const off = app.issueShareActionsForBrief(session.token, otherBrief.brief_id);
   assert.equal(off.allowed_actions.some(a => a.kind === 'share_photo_ref'), false);
   assert.equal(off.allowed_actions[0].kind, 'share_brief_text');
+  app.close();
+});
+
+test('share_photo_ref attaches stored observations to the staff brief, never bytes', () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  app.grantConsent(customer.token, 'photo_analysis', 'customer_ui');
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  app.grantConsent(customer.token, 'staff_sharing_photo', 'customer_ui');
+  const brief = app.createBrief(customer.token, { text_ar: 'موجز مع ملاحظات', do_not: [] });
+  const up = app.registerUpload(customer.token, { byteLength: 12, contentType: 'image/jpeg' });
+  const observations = {
+    contract_version: '0.1.0',
+    image_ref: up.image_ref,
+    observed: {
+      hair_length: 'short',
+      hair_texture: 'wavy',
+      beard: 'stubble',
+      top_density_visible: 'uncertain',
+      face_visible: 'partial',
+    },
+    limitations: ['lighting'],
+    confidence: 'low',
+    not_inferred: ['identity', 'age', 'ethnicity', 'health', 'attractiveness', 'gender'],
+    retention: 'stored_with_receipt',
+  };
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, customer.context.session_id, customer.context.subject_id, JSON.stringify(observations), new Date().toISOString()],
+  );
+  const textShare = app.issueShareActionsForBrief(customer.token, brief.brief_id)
+    .allowed_actions.find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, textShare.action_id).outcome, 'done');
+  const photoShare = app.issueSharePhotoAction(customer.token, { image_ref: up.image_ref });
+  assert.equal(photoShare.label_ar, 'مشاركة ملاحظات الصورة');
+  assert.equal(app.executeAction(customer.token, photoShare.action_id).outcome, 'done');
+  const inbox = app.staffBriefs(staff.token);
+  assert.equal(inbox.length, 1);
+  assert.equal(inbox[0].reference.kind, 'photo_ref');
+  assert.equal(inbox[0].reference.image_ref, up.image_ref);
+  assert.match(inbox[0].reference.receipt_id, /^rcp_/);
+  assert.deepEqual(inbox[0].observations, observations);
+  const serialized = JSON.stringify(inbox[0]);
+  assert.equal(serialized.includes('image_bytes'), false);
+  assert.equal(serialized.includes('signed'), false);
+  assert.equal(/https?:\/\//.test(serialized), false);
   app.close();
 });
 

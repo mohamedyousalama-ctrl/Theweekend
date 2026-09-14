@@ -28,7 +28,7 @@ const ACTION_LABELS = {
   open_official_booking: { label_ar: 'صفحة الحجز الرسمية', label_en: 'Official booking page' },
   request_pending_booking: { label_ar: 'طلب موعد غير مؤكد', label_en: 'Pending booking request' },
   share_brief_text: { label_ar: 'مشاركة الموجز', label_en: 'Share the brief' },
-  share_photo_ref: { label_ar: 'مشاركة مرجع الصورة', label_en: 'Share photo reference' },
+  share_photo_ref: { label_ar: 'مشاركة ملاحظات الصورة', label_en: 'Share photo notes' },
   save_preference: { label_ar: 'حفظ التفضيل', label_en: 'Save preference' },
   delete_preference: { label_ar: 'حذف التفضيل', label_en: 'Delete preference' },
   talk_to_staff: { label_ar: 'تحدث مع الفريق', label_en: 'Talk to staff' },
@@ -149,6 +149,16 @@ function rowBrief(row) {
     provenance: { approved_by_subject_at: row.approved_by_subject_at, version: row.version },
     status: row.status,
   };
+}
+
+function parseObservations(raw) {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 function parsePayload(row) {
@@ -623,7 +633,18 @@ export function createApp(config, deps = {}) {
       `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('delivered', 'acknowledged')`,
       [config.WEEKEND_BRANCH_ID],
     );
-    return rows.map(rowBrief);
+    return rows.map((row) => {
+      const brief = rowBrief(row);
+      let observations = null;
+      if (brief.reference.kind === 'photo_ref' && brief.reference.image_ref) {
+        const stored = store.get(
+          'SELECT observations_json FROM photo_observations WHERE image_ref = ?',
+          [brief.reference.image_ref],
+        );
+        observations = parseObservations(stored?.observations_json);
+      }
+      return { ...brief, observations };
+    });
   }
 
   function acknowledgeBrief(token, briefId) {
@@ -836,13 +857,25 @@ export function createApp(config, deps = {}) {
         break;
       }
       case 'share_photo_ref': {
-        if (!activeReceipt(session.subject_id, 'staff_sharing_photo')) {
+        const photoReceipt = activeReceipt(session.subject_id, 'staff_sharing_photo');
+        if (!photoReceipt) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
         }
         const image = store.get('SELECT * FROM images WHERE image_ref = ?', [row.object_id]);
         if (!image || image.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
         }
+        const target = store.get(
+          `SELECT * FROM briefs
+           WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged')
+           ORDER BY created_at DESC LIMIT 1`,
+          [session.subject_id],
+        );
+        if (!target) fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+        store.run(
+          `UPDATE briefs SET ref_kind = 'photo_ref', image_ref = ?, receipt_id = ? WHERE brief_id = ?`,
+          [image.image_ref, photoReceipt.receipt_id, target.brief_id],
+        );
         outcome = 'done';
         messageKey = 'brief.shared_photo';
         break;
