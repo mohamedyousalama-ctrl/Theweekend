@@ -36,7 +36,7 @@ test('end to end: a customer turn through the server reaches the adapter and com
   assert.equal(result.allowed_actions.length, 1);
   assert.equal(result.allowed_actions[0].kind, 'open_official_booking');
   assert.match(result.allowed_actions[0].action_id, /^act_/);
-  assert.equal(result.allowed_actions[0].url, 'https://example.invalid/book');
+  assert.equal(result.allowed_actions[0].url, 'https://theweekendhairstyling.com/book');
 });
 
 test('end to end: an ungrounded price never reaches the customer through the server', async () => {

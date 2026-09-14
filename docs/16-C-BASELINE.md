@@ -57,6 +57,7 @@ Names live in `.env.example`. Rules:
 - **Project-only**: a new provider account/key for The Weekend; no Kivo/MaitreAI endpoint, account, feature row, kill switch, database or host. The kill switch for this project is its own `WEEKEND_MODEL_MODE`/caps, in this repository.
 - **Caps**: `WEEKEND_SPEND_CAP_USD_PER_DAY`, `WEEKEND_MAX_CALLS_PER_SESSION`, `WEEKEND_REQUEST_TIMEOUT_MS`, `WEEKEND_UPLOAD_MAX_BYTES` are mandatory; exceeding them yields `MODEL_UNAVAILABLE` / `BUDGET_EXCEEDED` / `TIMEOUT` error shapes, never a mock answer.
 - **Photo retention (`ret_photo_v1`)**: in-memory upload bytes expire after **10 minutes** and the process keeps at most **32** byte entries; stored cosmetic observations expire after **24 hours**. Revoking `photo_analysis` purges that subject's bytes, `images` rows and `photo_observations`. Bytes are never written to SQLite.
+- **Official booking URL**: `WEEKEND_OFFICIAL_BOOKING_URL` must be `https` with host `theweekendhairstyling.com` or `www.theweekendhairstyling.com`, no userinfo and no explicit port. Any other host fails at start.
 - **Secrets route**: values are given by the owner to the person running the app, out of band; never in Git, issues, PR text or logs. Logs contain ids and counts, not customer text or images.
 - **Model/version**: the provider, model ids and SDK version are chosen and verified in #3 against the provider's current documentation at that time (not inherited from Kivo docs); recorded in #3 with the date. No value is chosen in this file.
 

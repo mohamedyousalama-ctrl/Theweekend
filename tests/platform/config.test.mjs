@@ -18,9 +18,26 @@ test('mock is rejected in owner-review', () => {
 
 test('non-https booking url is rejected', () => {
   assert.throws(
-    () => loadConfig(testEnv({ WEEKEND_OFFICIAL_BOOKING_URL: 'http://example.invalid/book' })),
+    () => loadConfig(testEnv({ WEEKEND_OFFICIAL_BOOKING_URL: 'http://theweekendhairstyling.com/book' })),
     err => err instanceof ConfigError && err.variable === 'WEEKEND_OFFICIAL_BOOKING_URL',
   );
+});
+
+test('booking url host must be the allowlisted shop domains, without credentials or a port', () => {
+  const ok = loadConfig(testEnv({ WEEKEND_OFFICIAL_BOOKING_URL: 'https://www.theweekendhairstyling.com/book' }));
+  assert.equal(ok.WEEKEND_OFFICIAL_BOOKING_URL, 'https://www.theweekendhairstyling.com/book');
+  for (const url of [
+    'https://example.invalid/book',
+    'https://theweekendhairstyling.com:8443/book',
+    'https://user:pass@theweekendhairstyling.com/book',
+    'https://evil.theweekendhairstyling.com/book',
+  ]) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_OFFICIAL_BOOKING_URL: url })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_OFFICIAL_BOOKING_URL',
+      url,
+    );
+  }
 });
 
 test('valid local mock config loads', () => {
