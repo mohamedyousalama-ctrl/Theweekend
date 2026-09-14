@@ -777,18 +777,30 @@ export function createApp(config, deps = {}) {
 
   function executeAction(token, actionId) {
     const session = requireSession(token);
-    const row = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
-    if (!row || row.subject_id !== session.subject_id) {
+    const found = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
+    if (!found || found.subject_id !== session.subject_id) {
       fail('NOT_FOUND', 'action.not_found', false, {}, 404);
     }
-    if (row.session_id !== session.session_id) {
+    if (found.session_id !== session.session_id) {
       fail('STALE_ACTION', 'action.stale', false, { action_id: actionId }, 409);
     }
-    if (row.consumed_at) {
-      return staleAction(actionId);
-    }
-    if (Date.parse(row.expires_at) <= Date.parse(iso(clock))) {
-      return actionResult(actionId, 'expired', 'action.expired');
+
+    return store.transaction(() => {
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE allowed_actions SET consumed_at = ? WHERE action_id = ? AND consumed_at IS NULL`,
+      [now, actionId],
+    );
+    if (claimed.changes !== 1) return staleAction(actionId);
+    const row = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
+    if (Date.parse(row.expires_at) <= Date.parse(now)) {
+      const expired = actionResult(actionId, 'expired', 'action.expired');
+      store.run(
+        `INSERT INTO action_results (action_id, outcome, receipt_id, message_key, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [expired.action_id, expired.outcome, expired.receipt_id, expired.message_key, now],
+      );
+      return expired;
     }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
       const messageKey = row.kind === 'share_brief_text'
@@ -951,7 +963,6 @@ export function createApp(config, deps = {}) {
       }
     }
 
-    store.run('UPDATE allowed_actions SET consumed_at = ? WHERE action_id = ?', [iso(clock), actionId]);
     const result = actionResult(actionId, outcome, messageKey, receiptId);
     store.run(
       `INSERT INTO action_results (action_id, outcome, receipt_id, message_key, created_at)
@@ -959,6 +970,7 @@ export function createApp(config, deps = {}) {
       [result.action_id, result.outcome, result.receipt_id, result.message_key, iso(clock)],
     );
     return result;
+    });
   }
 
   function defaultActions(session) {

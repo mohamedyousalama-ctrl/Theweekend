@@ -26,8 +26,11 @@ export function openStore(dbPath) {
   const db = new DatabaseSync(dbPath);
   db.exec(SCHEMA);
   migrate(db);
-  return {
+  const store = {
     db,
+    exec(sql) {
+      db.exec(sql);
+    },
     run(sql, params = []) {
       return db.prepare(sql).run(...params);
     },
@@ -37,6 +40,17 @@ export function openStore(dbPath) {
     all(sql, params = []) {
       return db.prepare(sql).all(...params);
     },
+    transaction(fn) {
+      db.exec('BEGIN IMMEDIATE');
+      try {
+        const result = fn();
+        db.exec('COMMIT');
+        return result;
+      } catch (err) {
+        try { db.exec('ROLLBACK'); } catch { /* no open transaction */ }
+        throw err;
+      }
+    },
     probe() {
       const row = db.prepare('SELECT 1 AS ok').get();
       return row?.ok === 1;
@@ -45,4 +59,5 @@ export function openStore(dbPath) {
       db.close();
     },
   };
+  return store;
 }

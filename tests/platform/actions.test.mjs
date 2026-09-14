@@ -92,3 +92,19 @@ test('preference proposals are not listed until the customer executes the action
   assert.equal(app.listPreferences(token)[0].provenance, 'approved_preference');
   app.close();
 });
+
+test('two concurrent clicks claim an action once', async () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const action = app.issueBookingAction(token);
+  const results = await Promise.all([
+    Promise.resolve().then(() => app.executeAction(token, action.action_id)),
+    Promise.resolve().then(() => app.executeAction(token, action.action_id)),
+  ]);
+  const outcomes = results.map(r => r.outcome).sort();
+  assert.deepEqual(outcomes, ['external_handoff', 'stale']);
+  const consumed = app.store.get('SELECT consumed_at FROM allowed_actions WHERE action_id = ?', [action.action_id]);
+  assert.ok(consumed.consumed_at);
+  assert.equal(app.store.get('SELECT COUNT(*) AS n FROM action_results WHERE action_id = ?', [action.action_id]).n, 1);
+  app.close();
+});
