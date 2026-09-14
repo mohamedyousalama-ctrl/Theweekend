@@ -193,6 +193,16 @@ export function estimateCostMinor(modelId, usage) {
   return Math.ceil(nano20 / (20 * 10_000_000)); // one cent = 10^7 nano-USD
 }
 
+/**
+ * Upper bound of one turn's cost in cents, for the server to reserve BEFORE the paid call: two attempts, each with a
+ * generous 40k-token input (prompt + knowledge + history), the full MAX_TOKENS output and a 20k-token cache write.
+ * The server replaces it by the real cost after the call. null for an unknown model id.
+ */
+export function maxCostMinorPerTurn(modelId) {
+  const perAttempt = estimateCostMinor(modelId, { input_tokens: 40_000, output_tokens: MAX_TOKENS, cache_creation_input_tokens: 20_000 });
+  return perAttempt == null ? null : perAttempt * 2;
+}
+
 function riyadhClock(nowIso) {
   try {
     return new Intl.DateTimeFormat('en-GB', {
@@ -654,7 +664,7 @@ export function createRakanAdapter(config, deps = {}) {
    * @param signal optional AbortSignal from the server's turn deadline: no retry starts after it fires and a late
    *   completion is never remembered as history. Provider work already done stays in the usage record.
    */
-  return async function adapter({ context, input, now, image_bytes, signal }) {
+  const turn = async function adapter({ context, input, now, image_bytes, signal }) {
     const started = clock();
     const deadline = started + serverTimeout - 400;
     const base = { sessionId: context.session_id, turnId: input.turn_id, provider: 'anthropic', modelId, promptVersion: PROMPT_VERSION, now };
@@ -740,4 +750,7 @@ export function createRakanAdapter(config, deps = {}) {
     remember(context.session_id, input.text || '(صورة)', output.messages.map((m) => m.text).join('\n'));
     return { usage, output };
   };
+  // Declared for the server's pre-call reservation (src/server/index.mjs reads adapter.costCeilingMinor).
+  turn.costCeilingMinor = maxCostMinorPerTurn(modelId);
+  return turn;
 }

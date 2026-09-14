@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -396,4 +396,14 @@ test('post-merge review: share_photo_ref is bound to the photo of this turn, nev
   assert.ok(validateContract('ChatTurnOutput', withImage).ok);
   const noRef = mapModelOutput(json, { context: context(), input: input('نص'), usageId: 'use_x', hasImage: true, byId: knowledge.byId, now: '2026-09-14T06:00:00Z' });
   assert.deepEqual(noRef.proposed_actions, [], 'no image reference in the turn → no share action');
+});
+
+test('the adapter declares a per-turn cost ceiling for the server to reserve before the call', () => {
+  const { adapter } = adapterWith([response(modelJson())]);
+  assert.equal(adapter.costCeilingMinor, maxCostMinorPerTurn('claude-opus-5'));
+  assert.ok(Number.isInteger(adapter.costCeilingMinor) && adapter.costCeilingMinor > 0);
+  assert.ok(adapter.costCeilingMinor < 500, 'well under the daily cap of a few dollars');
+  assert.equal(maxCostMinorPerTurn('claude-opus-5'), 2 * estimateCostMinor('claude-opus-5', { input_tokens: 40_000, output_tokens: 4096, cache_creation_input_tokens: 20_000 }));
+  assert.equal(maxCostMinorPerTurn('claude-unknown'), null);
+  assert.ok(maxCostMinorPerTurn('claude-sonnet-5') < maxCostMinorPerTurn('claude-opus-5'));
 });
