@@ -1,0 +1,919 @@
+{
+  "_about": "Sanitized excerpt of E01/E03/E04 (see EVIDENCE-INDEX.md). Public catalogue observation, 2026-09-13. Not merchant-approved. Images, creator ids, internal add-on ids and empty fields removed. Prices as displayed by the storefront API; VAT inclusion unknown (see MISSING-FACTS.md).",
+  "label": "public observation",
+  "branches": [
+    {
+      "id": "3a1ca9a9-bd6c-aed1-6596-5521e64d1179",
+      "name": "فرع الروضة",
+      "map_url": "https://maps.app.goo.gl/T5gj8iYafhgSUdxZ9"
+    },
+    {
+      "id": "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+      "name": "فرع روشن Zone C",
+      "map_url": "https://www.google.com/maps/search/?api=1&query=THE%20WEEKEND%20%7C%20ROSHN%20(C)&query_place_id=ChIJae-OJQD7Lj4RRqZ0FJY_BGA"
+    },
+    {
+      "id": "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+      "name": "فرع النرجس (مرسية)",
+      "map_url": "https://maps.app.goo.gl/E8qK9oVsFauRFRh2A"
+    },
+    {
+      "id": "3a2345ca-741e-7f78-0de1-55094159db88",
+      "name": "النرجس ( نساج تاون )",
+      "map_url": "https://www.google.com/maps/search/?api=1&query=WJJV%2BJRJ%D8%8C%20%D9%85%D8%B7%D8%A7%D8%B1%20%D8%A7%D9%84%D9%85%D9%84%D9%83%20%D8%AE%D8%A7%D9%84%D8%AF%20%D8%A7%D9%84%D8%AF%D9%88%D9%84%D9%8A%D8%8C%20%D8%A7%D9%84%D8%B1%D9%8A%D8%A7%D8%B6%20%D8%A7%D9%84%D8%B3%D8%B9%D9%88%D8%AF%D9%8A%D8%A9&query_place_id=EkBXSkpWK0pSSiwgS2luZyBLaGFsaWQgSW50ZXJuYXRpb25hbCBBaXJwb3J0LCBSaXlhZGggU2F1ZGkgQXJhYmlhIiY6JAoKDSNC3A4VZGPNGxALGhQKEgllCiy41fsuPhHJd7hSjZGNOA"
+    },
+    {
+      "id": "3a215907-6a26-1920-342a-de5862380a70",
+      "name": "فرع روشن Zone i",
+      "map_url": null
+    }
+  ],
+  "services": [
+    {
+      "id": "3a211f49-836b-8c4f-9809-fa47bf7c6be9",
+      "name": {
+        "ar": "جلسة شعر بلس (شعر طويل)",
+        "en": "Hair Treatment Plus (Long Hair)"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 349,
+      "discounted_amount_sar": 349,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": true,
+      "badge": null,
+      "slug": "anayh-alshar-1-1",
+      "description_text": "جلسة شعر بلس بالكيراتين مصممة لتنعيم وفرد الشعر بعمق، مع علاج متكامل يقلل من الهيشان ويزيد من اللمعان. التجربة تمنحك شعراً صحياً، مفروداً، وسهل التصفيف لأسابيع، مع عناية احترافية تراعي صحة شعرك من الجذور حتى الأطراف.",
+      "official_url": "https://theweekendhairstyling.com/products/3a211f49-836b-8c4f-9809-fa47bf7c6be9",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "966a21c5-cfdc-4b03-a04a-c2e20d7ff0de",
+      "name": {
+        "ar": "جلسة إخفاء فوري لعيوب وفراغات الشعر (باتشي)",
+        "en": "Batci Hair Concealer Service"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 49,
+      "discounted_amount_sar": 49,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar-4-1",
+      "description_text": "تغطية فورية للفراغات وتوحيد لون الشعر بنتيجة تدوم من 2 إلى 15 يومًا بحسب نوع الشعر والعناية بعد الخدمة. تنفيذ سريع خلال 5 إلى 10 دقائق فقط، يمنحك مظهرًا ممتلئًا وطبيعيًا دون فوضى أو انتظار. تعتمد الجلسة على منتجات باتشي الاحترافية الآمنة والمعتمدة للاستخدام على فروة الرأس. نتيجة طبيعية 100٪ مثالية لإخفاء الفراغات أو الشيب أو تفاوت الكثافة دون الحاجة لصبغات دائمة. مناسبة لجميع أنواع الشعر ويمكن تكرارها دوريًا للحفاظ على مظهر متناسق ومكتمل.",
+      "official_url": "https://theweekendhairstyling.com/products/966a21c5-cfdc-4b03-a04a-c2e20d7ff0de",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "97ba2499-97c3-4242-ac9b-1c22cf8f9d75",
+      "name": {
+        "ar": "جلسة تنظيف وجه اكسبرس",
+        "en": "Fresh Face Express (Copy)"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 69,
+      "discounted_amount_sar": 69,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": true,
+      "badge": null,
+      "slug": "anayh-alwjh-3-1",
+      "description_text": "استمتع بجلسة عناية سريعة تبدأ بالبخار لفتح المسام، يليها تقشير لطيف لإزالة الشوائب، ثم منشفة دافئة مهدئة، وتنتهي بترطيب يمنح بشرتك إشراقة وانتعاش يدوم.",
+      "official_url": "https://theweekendhairstyling.com/products/97ba2499-97c3-4242-ac9b-1c22cf8f9d75",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "87c00712-9a27-4309-b3ba-7fc9fee75ce6",
+      "name": {
+        "ar": "حلاقة الشعر و الدقن",
+        "en": "Haircut and/or beard shave"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 30,
+      "discounted_amount_sar": 30,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع روشن Zone i"
+      ],
+      "giftable": true,
+      "badge": null,
+      "slug": "qs-alshar-walanayh-alrjalyh-2",
+      "description_text": "اختر إطلالتك: قص شعر أنيق، تهذيب لحية مرتب، أو باقة كومبو تجمع الاثنين. بخطوات دقيقة وخدمة مريحة، نضمن لك مظهراً متجدد يليق بك.",
+      "official_url": "https://theweekendhairstyling.com/products/87c00712-9a27-4309-b3ba-7fc9fee75ce6",
+      "duration_min": 35,
+      "customer_may_choose_provider": true,
+      "add_ons": [
+        {
+          "label": "تسريحة شعر (استشوار)",
+          "amount_sar": 20,
+          "required": false
+        },
+        {
+          "label": "غسيل شعر",
+          "amount_sar": 10,
+          "required": false
+        },
+        {
+          "label": "صبغة اللحية و الشارب (أسود)",
+          "amount_sar": 39,
+          "required": false
+        },
+        {
+          "label": "إزالة الشعر بالشمع",
+          "amount_sar": 49,
+          "required": false
+        },
+        {
+          "label": "صبغة شعر (أسود)",
+          "amount_sar": 69,
+          "required": false
+        },
+        {
+          "label": "جلسة شعر اكسبرس",
+          "amount_sar": 79,
+          "required": false
+        },
+        {
+          "label": "جلسة تنظيف وجه اكسبرس",
+          "amount_sar": 69,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "e4d1d61a-6b6b-4f37-a466-b45ff98cf892",
+      "name": {
+        "ar": "حلاقة الشعر و الدقن",
+        "en": "Haircut and/or beard shave"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 25,
+      "discounted_amount_sar": 25,
+      "branch_ids": [
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179"
+      ],
+      "branches": [
+        "فرع الروضة"
+      ],
+      "giftable": true,
+      "badge": null,
+      "slug": "qs-alshar-walanayh-alrjalyh-1",
+      "description_text": "اختر إطلالتك: قص شعر أنيق، تهذيب لحية مرتب، أو باقة كومبو تجمع الاثنين. بخطوات دقيقة وخدمة مريحة، نضمن لك مظهراً متجدد يليق بك.",
+      "official_url": "https://theweekendhairstyling.com/products/e4d1d61a-6b6b-4f37-a466-b45ff98cf892",
+      "duration_min": 35,
+      "customer_may_choose_provider": true,
+      "add_ons": [
+        {
+          "label": "إزالة الشعر بالشمع",
+          "amount_sar": 30,
+          "required": false
+        },
+        {
+          "label": "صبغة شعر (أسود)",
+          "amount_sar": 30,
+          "required": false
+        },
+        {
+          "label": "صبغة اللحية و الشارب (أسود)",
+          "amount_sar": 30,
+          "required": false
+        },
+        {
+          "label": "جلسة شعر اكسبرس",
+          "amount_sar": 25,
+          "required": false
+        },
+        {
+          "label": "تسريحة شعر (استشوار)",
+          "amount_sar": 10,
+          "required": false
+        },
+        {
+          "label": "جلسة تنظيف وجه اكسبرس",
+          "amount_sar": 25,
+          "required": false
+        },
+        {
+          "label": "غسيل شعر",
+          "amount_sar": 10,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "1eaa0379-d18d-443a-98ae-c7c724b13db8",
+      "name": {
+        "ar": "حلاقة الشعر و الدقن",
+        "en": "Haircut and/or beard shave"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 30,
+      "discounted_amount_sar": 30,
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": true,
+      "badge": null,
+      "slug": "qs-alshar-walanayh-alrjalyh-1-1",
+      "description_text": "اختر إطلالتك: قص شعر أنيق، تهذيب لحية مرتب، أو باقة كومبو تجمع الاثنين. بخطوات دقيقة وخدمة مريحة، نضمن لك مظهراً متجدد يليق بك.",
+      "official_url": "https://theweekendhairstyling.com/products/1eaa0379-d18d-443a-98ae-c7c724b13db8",
+      "duration_min": 35,
+      "customer_may_choose_provider": true,
+      "add_ons": [
+        {
+          "label": "تسريحة شعر (استشوار)",
+          "amount_sar": 15,
+          "required": false
+        },
+        {
+          "label": "صبغة اللحية و الشارب (أسود)",
+          "amount_sar": 25,
+          "required": false
+        },
+        {
+          "label": "إزالة الشعر بالشمع",
+          "amount_sar": 30,
+          "required": false
+        },
+        {
+          "label": "غسيل شعر",
+          "amount_sar": 10,
+          "required": false
+        },
+        {
+          "label": "صبغة شعر (أسود)",
+          "amount_sar": 45,
+          "required": false
+        },
+        {
+          "label": "جلسة شعر اكسبرس",
+          "amount_sar": 49,
+          "required": false
+        },
+        {
+          "label": "جلسة تنظيف وجه اكسبرس",
+          "amount_sar": 49,
+          "required": false
+        }
+      ]
+    },
+    {
+      "id": "0ca64d47-f07a-42a4-b653-d7683c0be36c",
+      "name": {
+        "ar": "جلسة تنظيف وجه اكسبرس",
+        "en": "Fresh Face Express"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 69,
+      "discounted_amount_sar": 69,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع روشن Zone i"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alwjh",
+      "description_text": "استمتع بجلسة عناية سريعة تبدأ بالبخار لفتح المسام، يليها تقشير لطيف لإزالة الشوائب، ثم منشفة دافئة مهدئة، وتنتهي بترطيب يمنح بشرتك إشراقة وانتعاش يدوم.",
+      "official_url": "https://theweekendhairstyling.com/products/0ca64d47-f07a-42a4-b653-d7683c0be36c",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "57095240-3493-4bba-9cdf-91f90b101692",
+      "name": {
+        "ar": "جلسة تنظيف وجه اكسبرس",
+        "en": "Fresh Face Express"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 49,
+      "discounted_amount_sar": 49,
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alwjh-2",
+      "description_text": "استمتع بجلسة عناية سريعة تبدأ بالبخار لفتح المسام، يليها تقشير لطيف لإزالة الشوائب، ثم منشفة دافئة مهدئة، وتنتهي بترطيب يمنح بشرتك إشراقة وانتعاش يدوم.",
+      "official_url": "https://theweekendhairstyling.com/products/57095240-3493-4bba-9cdf-91f90b101692",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "8e8ffcf2-a8b1-415a-9ddd-e6b331e7df49",
+      "name": {
+        "ar": "جلسة تنظيف وجه بلس",
+        "en": "Fresh Face Plus"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 99,
+      "discounted_amount_sar": 99,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع روشن Zone i"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alwjh-1",
+      "description_text": "استمتع بجلسة عناية متكاملة تبدأ بالبخار لفتح المسام، يتبعها تقشير لطيف لإزالة الخلايا الميتة، ثم تنظيف فعّال للرؤوس السوداء. بعدها، تُطبق المنشفة الدافئة لتسكين البشرة، وتنتهي بترطيب يترك وجهك أكثر إشراقاً ونضارة. جلسة مثالية لمن يبحث عن مظهر صحي ومتجدد.",
+      "official_url": "https://theweekendhairstyling.com/products/8e8ffcf2-a8b1-415a-9ddd-e6b331e7df49",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "67253dd5-e919-455a-bbcc-cf9a2eb3a1ae",
+      "name": {
+        "ar": "جلسة تنظيف وجه بلس",
+        "en": "Fresh Face Plus"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 79,
+      "discounted_amount_sar": 79,
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alwjh-1-1",
+      "description_text": "استمتع بجلسة عناية متكاملة تبدأ بالبخار لفتح المسام، يتبعها تقشير لطيف لإزالة الخلايا الميتة، ثم تنظيف فعّال للرؤوس السوداء. بعدها، تُطبق المنشفة الدافئة لتسكين البشرة، وتنتهي بترطيب يترك وجهك أكثر إشراقاً ونضارة. جلسة مثالية لمن يبحث عن مظهر صحي ومتجدد.",
+      "official_url": "https://theweekendhairstyling.com/products/67253dd5-e919-455a-bbcc-cf9a2eb3a1ae",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "a8239a94-8612-4b40-b78e-cfa0905ccfb9",
+      "name": {
+        "ar": "جلسة تنظيف وجه اكسبرس",
+        "en": "Fresh Face Express"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 25,
+      "discounted_amount_sar": 25,
+      "branch_ids": [
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179"
+      ],
+      "branches": [
+        "فرع الروضة"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alwjh-3",
+      "description_text": "استمتع بجلسة عناية سريعة تبدأ بالبخار لفتح المسام، يليها تقشير لطيف لإزالة الشوائب، ثم منشفة دافئة مهدئة، وتنتهي بترطيب يمنح بشرتك إشراقة وانتعاش يدوم.",
+      "official_url": "https://theweekendhairstyling.com/products/a8239a94-8612-4b40-b78e-cfa0905ccfb9",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "5ca36dfa-49f4-409f-9640-47b0fc7dbedc",
+      "name": {
+        "ar": "جلسة شعر اكسبرس",
+        "en": "Hair Treatment Express"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 79,
+      "discounted_amount_sar": 79,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع روشن Zone i"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar",
+      "description_text": "جلسة تنظيف فروة رأس و شعر مصممة لتوفير عناية مزدوجة في وقت قصير. تبدأ بتنظيف عميق لفروة الرأس لإزالة الشوائب المتراكمة وإنعاشها، يليها ترطيب يغذي خصلات الشعر بعمق ويعيد لها حيويتها. النتيجة: شعور فوري بالانتعاش ومظهر شعر صحي ولامع في وقت قياسي.",
+      "official_url": "https://theweekendhairstyling.com/products/5ca36dfa-49f4-409f-9640-47b0fc7dbedc",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "1e2a55ac-2381-485f-a0d2-a798956cfc44",
+      "name": {
+        "ar": "جلسة شعر اكسبرس",
+        "en": "Hair Treatment Express"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 25,
+      "discounted_amount_sar": 25,
+      "branch_ids": [
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179"
+      ],
+      "branches": [
+        "فرع الروضة"
+      ],
+      "giftable": true,
+      "badge": null,
+      "slug": "anayh-alshar-4",
+      "description_text": "جلسة تنظيف فروة رأس و شعر مصممة لتوفير عناية مزدوجة في وقت قصير. تبدأ بتنظيف عميق لفروة الرأس لإزالة الشوائب المتراكمة وإنعاشها، يليها ترطيب يغذي خصلات الشعر بعمق ويعيد لها حيويتها. النتيجة: شعور فوري بالانتعاش ومظهر شعر صحي ولامع في وقت قياسي.",
+      "official_url": "https://theweekendhairstyling.com/products/1e2a55ac-2381-485f-a0d2-a798956cfc44",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "624bd5ca-949f-4c5b-ba61-1acd68a6fac3",
+      "name": {
+        "ar": "جلسة شعر اكسبرس",
+        "en": "Hair Treatment Express"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 49,
+      "discounted_amount_sar": 49,
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar-3",
+      "description_text": "جلسة تنظيف فروة رأس و شعر مصممة لتوفير عناية مزدوجة في وقت قصير. تبدأ بتنظيف عميق لفروة الرأس لإزالة الشوائب المتراكمة وإنعاشها، يليها ترطيب يغذي خصلات الشعر بعمق ويعيد لها حيويتها. النتيجة: شعور فوري بالانتعاش ومظهر شعر صحي ولامع في وقت قياسي.",
+      "official_url": "https://theweekendhairstyling.com/products/624bd5ca-949f-4c5b-ba61-1acd68a6fac3",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "708df8c0-15c1-4940-b033-523b9f8c1261",
+      "name": {
+        "ar": "جلسة شعر بلس (شعر قصير)",
+        "en": "Hair Treatment Plus (Short Hair)"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 249,
+      "discounted_amount_sar": 249,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar-1",
+      "description_text": "جلسة شعر بلس بالكيراتين مصممة لتنعيم وفرد الشعر بعمق، مع علاج متكامل يقلل من الهيشان ويزيد من اللمعان. التجربة تمنحك شعراً صحياً، مفروداً، وسهل التصفيف لأسابيع، مع عناية احترافية تراعي صحة شعرك من الجذور حتى الأطراف.",
+      "official_url": "https://theweekendhairstyling.com/products/708df8c0-15c1-4940-b033-523b9f8c1261",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "129e7a67-41c7-417d-bcfe-a016278254ba",
+      "name": {
+        "ar": "جيم الوجه",
+        "en": "Face Gym (3 Sessions of Face Muscle Toning & Lifting Treatment)"
+      },
+      "category": [
+        "عنايه"
+      ],
+      "amount_sar": 149,
+      "discounted_amount_sar": 149,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar-2-1",
+      "description_text": "جيم الوجه من يامان هو برنامج مكوّن من ٣ جلسات يعتمد على تقنية يابانية متطورة لتمرين وتحفيز عضلات الوجه العميقة. يعمل على شد البشرة، تقليل الانتفاخ، وتحسين مرونة العضلات، مما يمنحك تحديداً أوضح للملامح ومظهراً مشدوداً وأكثر إشراقاً. النتيجة: عناية يابانية دقيقة تضمن لك إطلالة مليئة بالثقة والحيوية.",
+      "official_url": "https://theweekendhairstyling.com/products/129e7a67-41c7-417d-bcfe-a016278254ba",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    },
+    {
+      "id": "fcd607e5-df9b-4024-841f-3a9274c1a19a",
+      "name": {
+        "ar": "باي باي قشرة",
+        "en": "Dandruff Clear Treatment (3 Sess. of Anti-Dandruff Wash + Full Organic Sidr Mask)"
+      },
+      "category": [
+        "حلاقه"
+      ],
+      "amount_sar": 149,
+      "discounted_amount_sar": 149,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "anayh-alshar-2",
+      "description_text": "باي باي قشرة\" برنامج من 3 جلسات متكاملة يبدأ بغسيل سحري مخصص لإزالة القشرة وتنظيف فروة الرأس بعمق، يليه تطبيق ماسك سدر عضوي يغذي الشعر ويقوي جذوره. النتيجة فروة خالية من القشرة، وإحساس دائم بالانتعاش مع شعر صحي وأقوى بطبيعته.",
+      "official_url": "https://theweekendhairstyling.com/products/fcd607e5-df9b-4024-841f-3a9274c1a19a",
+      "duration_min": 45,
+      "customer_may_choose_provider": true,
+      "add_ons": []
+    }
+  ],
+  "merchandise": [
+    {
+      "id": "f699d32c-4ec6-47a5-b8ae-e52ccdaea277",
+      "name": {
+        "ar": "ذا ويكند عود | Perfume",
+        "en": "The Weekend Oud | Perfume"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 119,
+      "discounted_amount_sar": 119,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179",
+        "3a215907-6a26-1920-342a-de5862380a70",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع النرجس (مرسية)",
+        "فرع الروضة",
+        "فرع روشن Zone i",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "oud-perfume",
+      "description_text": "\"ذا ويكند عود\" هو عطر يأخذك إلى عالم من الفخامة والهيبة. برائحة شرقية غنية تبدأ بلمسة دافئة من الفلفل الوردي والبرغموت ، وتتدرج إلى قلب نابض بأناقة اللافندر وزهر البرتقال ، قبل أن تستقر على قاعدة عميقة من العود والباتشولي والعنبر . والأجمل؟ عند مزجه مع ذا ويكند بيسك ، تتشكل تركيبة فريدة تمنحك سحراً خاصاً لا يشبه أحد. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/f699d32c-4ec6-47a5-b8ae-e52ccdaea277",
+      "stock_fields": [
+        {
+          "availableQuantity": 201,
+          "allocatedQuantity": 0,
+          "isUnlimited": false,
+          "remainingQuantity": 201
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "fbc5bc25-8656-40a0-bc11-5d3555926e1a",
+      "name": {
+        "ar": "ذا ويك اند بيسك | All Over Spray",
+        "en": "The Weekend Basic | All Over Spray"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 99,
+      "discounted_amount_sar": 99,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179",
+        "3a215907-6a26-1920-342a-de5862380a70",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع النرجس (مرسية)",
+        "فرع الروضة",
+        "فرع روشن Zone i",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "atr-bysk",
+      "description_text": "رذاذ خفيف وسهل الاستخدام، يعطيك انتعاش يومي بدون تعقيد. ريحته مستوحاة من النقاء وتضبط مع أي وقت؛ منعشة للصيف ومريحة للشتا. تقدر تستخدمه لحاله لإطلالة نظيفة وبسيطة، أو تخليه قاعدة تضيف عليها أي عطر ثاني. أسلوب عملي ومرن يناسب كل يومك. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/fbc5bc25-8656-40a0-bc11-5d3555926e1a",
+      "stock_fields": [
+        {
+          "availableQuantity": 24,
+          "allocatedQuantity": 0,
+          "isUnlimited": false,
+          "remainingQuantity": 24
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "90818abe-b198-4ff4-8552-15692de11bc0",
+      "name": {
+        "ar": "مكثّف فوري لتغطية فراغات الشعر (باتشي - 30 مل) + شامبو برو فيتامين B5  (باتشي - 500 مل)",
+        "en": "BATCI Hair Concealer – 30 ml + BATCI Pro-Vitamin B5 Shampoo – 500 ml"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 219,
+      "discounted_amount_sar": 219,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": "خصم",
+      "slug": "atr-bysk-1-1-2",
+      "description_text": "الفوائد الرئيسية تجمع هذه الباقة بين منتج يمنحك تغطية فورية للفراغات ولمسة كثافة طبيعية من أول استخدام، مع شامبو مغذٍ يحتوي على بروفيتامين B5 ومزيج غني من الزيوت الطبيعية التي تعزز لمعان الشعر وحيويته. الشامبو الخالي من الكبريتات ينظف بلطف دون تجفيف، يساعد في الحفاظ على توازن فروة الرأس، ويمنح الشعر نعومة ولمعانًا ملحوظين، مما يجعله مناسبًا لجميع أنواع الشعر — من الجاف إلى المصبوغ. النتيجة؟ مظهر كثيف فورًا… وعناية مستمرة تحافظ على صحة الشعر ومظهره الحيوي. باقة ذكية تجمع بين التأثير السريع والعناية اليومية في خطوة واحدة. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/90818abe-b198-4ff4-8552-15692de11bc0",
+      "stock_fields": [
+        {
+          "availableQuantity": null,
+          "allocatedQuantity": 0,
+          "isUnlimited": true,
+          "remainingQuantity": null
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "c65bc7f1-c981-423e-9065-635f3b019cc0",
+      "name": {
+        "ar": "مكثّف فوري لتغطية فراغات الشعر (باتشي - 50 مل) + شامبو برو فيتامين B5  (باتشي - 500 مل)",
+        "en": "BATCI Hair Concealer – 50 ml + BATCI Pro-Vitamin B5 Shampoo – 500 ml"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 269,
+      "discounted_amount_sar": 269,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": "خصم",
+      "slug": "atr-bysk-1-1-2-1",
+      "description_text": "الفوائد الرئيسية تجمع هذه الباقة بين منتج يمنحك تغطية فورية للفراغات ولمسة كثافة طبيعية من أول استخدام، مع شامبو مغذٍ يحتوي على بروفيتامين B5 ومزيج غني من الزيوت الطبيعية التي تعزز لمعان الشعر وحيويته. الشامبو الخالي من الكبريتات ينظف بلطف دون تجفيف، يساعد في الحفاظ على توازن فروة الرأس، ويمنح الشعر نعومة ولمعانًا ملحوظين، مما يجعله مناسبًا لجميع أنواع الشعر — من الجاف إلى المصبوغ. النتيجة؟ مظهر كثيف فورًا… وعناية مستمرة تحافظ على صحة الشعر ومظهره الحيوي. باقة ذكية تجمع بين التأثير السريع والعناية اليومية في خطوة واحدة. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/c65bc7f1-c981-423e-9065-635f3b019cc0",
+      "stock_fields": [
+        {
+          "availableQuantity": null,
+          "allocatedQuantity": 0,
+          "isUnlimited": true,
+          "remainingQuantity": null
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "5ba3318c-76e4-4a2b-bc2b-74c45ababf27",
+      "name": {
+        "ar": "مكثّف فوري لتغطية فراغات الشعر (باتشي - 30 مل)",
+        "en": "BATCI Hair Concealer – 30 ml"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 195,
+      "discounted_amount_sar": 195,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "atr-bysk-1-1",
+      "description_text": "الفوائد الرئيسية - يمنح تغطية فورية تدوم من 2 إلى 15 يومًا حسب نوع فروة الرأس وطريقة الاستخدام. - سريع وسهل التطبيق، يستغرق 5 دقائق للحصول على مظهر ممتلئ وطبيعي. - مكونات طبيعية ومعتمدة من هيئة الغذاء والدواء السعودية. - مظهر طبيعي تمامًا دون أي آثار واضحة. - مناسب للرجال والنساء و قابل للاستخدام اليومي لجميع أنواع الشعر. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/5ba3318c-76e4-4a2b-bc2b-74c45ababf27",
+      "stock_fields": [
+        {
+          "availableQuantity": 0,
+          "allocatedQuantity": 0,
+          "isUnlimited": false,
+          "remainingQuantity": 0
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "fabb11ba-1cea-47b1-91ee-568c4e0711e4",
+      "name": {
+        "ar": "مكثّف فوري لتغطية فراغات الشعر  (باتشي - 50 مل)",
+        "en": "BATCI Hair Concealer – 50 ml (Copy)"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 268,
+      "discounted_amount_sar": 268,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "atr-bysk-1-1-1",
+      "description_text": "الفوائد الرئيسية - يمنح تغطية فورية تدوم من 2 إلى 15 يومًا حسب نوع فروة الرأس وطريقة الاستخدام. - سريع وسهل التطبيق، يستغرق 5 دقائق للحصول على مظهر ممتلئ وطبيعي. - مكونات طبيعية ومعتمدة من هيئة الغذاء والدواء السعودية. - مظهر طبيعي تمامًا دون أي آثار واضحة. - مناسب للرجال والنساء و قابل للاستخدام اليومي لجميع أنواع الشعر. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/fabb11ba-1cea-47b1-91ee-568c4e0711e4",
+      "stock_fields": [
+        {
+          "availableQuantity": 21,
+          "allocatedQuantity": 0,
+          "isUnlimited": false,
+          "remainingQuantity": 21
+        }
+      ],
+      "is_out_of_stock_flag": false
+    },
+    {
+      "id": "ff493e3a-e6ac-4141-9839-e531311e6aa6",
+      "name": {
+        "ar": "شامبو برو فيتامين B5  (باتشي - 500 مل)",
+        "en": "BATCI Pro-Vitamin B5 Shampoo – 500 ml"
+      },
+      "category": [
+        "منتجات"
+      ],
+      "amount_sar": 99,
+      "discounted_amount_sar": 99,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "atr-bysk-1",
+      "description_text": "الفوائد الرئيسية - يحتوي على برو فيتامين B5 الذي يعزز مرونة الشعر ويقوّيه من الجذور حتى الأطراف. - غني بـ زيت الأفوكادو، زيت الزيتون، زبدة المانجو، ومستخلص بذور القطن لترطيب ناعم وفاخر. - خالٍ من الكبريتات، البارابين، الأملاح، والمنثول — آمن للاستخدام اليومي. - يقلل من الجفاف والبهتان ويحمي الشعر من التقصف والتلف. - مثالي للشعر الطبيعي، الجاف، التالف، والمصبوغ. السعر لا يشمل رسوم التوصيل. رسوم التوصيل للطلب كامل هي 30 ريال سعودي .",
+      "official_url": "https://theweekendhairstyling.com/products/ff493e3a-e6ac-4141-9839-e531311e6aa6",
+      "stock_fields": [
+        {
+          "availableQuantity": 142,
+          "allocatedQuantity": 0,
+          "isUnlimited": false,
+          "remainingQuantity": 142
+        }
+      ],
+      "is_out_of_stock_flag": false
+    }
+  ],
+  "memberships": [
+    {
+      "id": "3a234c14-fbf9-bfb5-22a6-256101ffc539",
+      "name": {
+        "ar": "عضوية سنوية - سولو فل أوبشن ( تشمل جميع فروع The Weekend)",
+        "en": "Solo Full Option Membership"
+      },
+      "category": [
+        "عضوية"
+      ],
+      "amount_sar": 2499,
+      "discounted_amount_sar": 2499,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": false,
+      "badge": null,
+      "slug": "baqat-alashtrak-1-1",
+      "description_text": "\"سولو فل أوبشن\" هي عضوية شاملة للرجل الذي يبحث عن عناية متكاملة. تشمل 60 زيارات في السنة تجمع بين قص شعر احترافي، تهذيب لحية أنيق، إلى جانب علاجات أساسية للوجه تمنحك مظهراً صحياً ومنتعشاً. كل زيارة مصممة لتضمن لك تجربة مريحة وإطلالة متجددة تعكس أناقتك طوال العام.",
+      "official_url": "https://theweekendhairstyling.com/memberships/3a234c14-fbf9-bfb5-22a6-256101ffc539",
+      "billing_period_days": 360,
+      "billing_cycle": 1,
+      "package_total_quantity": 60,
+      "package_items_listed": 0,
+      "pause_config": null,
+      "required_custom_fields": [
+        "صورة المشترك"
+      ]
+    },
+    {
+      "id": "3a213065-7293-e49d-f1c9-c6188a5703e4",
+      "name": {
+        "ar": "عضوية سنوية - سولو بيسك (تشمل جميع فروع The Weekend)",
+        "en": "Solo Basic Membership"
+      },
+      "category": [
+        "عضوية"
+      ],
+      "amount_sar": 1995,
+      "discounted_amount_sar": 1995,
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c",
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179",
+        "3a215907-6a26-1920-342a-de5862380a70",
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "فرع روشن Zone C",
+        "فرع النرجس (مرسية)",
+        "فرع الروضة",
+        "فرع روشن Zone i",
+        "النرجس ( نساج تاون )"
+      ],
+      "giftable": false,
+      "badge": null,
+      "slug": "baqat-alashtrak-5",
+      "description_text": "\"سولو بيسك\" هي عضوية عملية مصممة للرجل الذي يفضّل العناية المستمرة بمظهره. تشمل 60 زيارات في السنة تتضمن قص شعر احترافي وتهذيب لحية أنيق، بخدمة سريعة ومريحة تضمن لك إطلالة متجددة طوال .",
+      "official_url": "https://theweekendhairstyling.com/memberships/3a213065-7293-e49d-f1c9-c6188a5703e4",
+      "billing_period_days": 360,
+      "billing_cycle": 1,
+      "package_total_quantity": 60,
+      "package_items_listed": 0,
+      "pause_config": null,
+      "required_custom_fields": [
+        "صورة المشترك"
+      ]
+    },
+    {
+      "id": "e7483d5c-158a-49fa-a706-1bd0d68afee8",
+      "name": {
+        "ar": "عضوية سولو بيسك (تشمل جميع فروع ذا ويكند)",
+        "en": "Solo Basic Membership"
+      },
+      "category": [
+        "عضوية"
+      ],
+      "amount_sar": 169,
+      "discounted_amount_sar": 169,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": true,
+      "badge": null,
+      "slug": "baqat-alashtrak",
+      "description_text": "\"سولو بيسك\" هي عضوية عملية مصممة للرجل الذي يفضّل العناية المستمرة بمظهره. تشمل ٥ زيارات في الشهر تتضمن قص شعر احترافي وتهذيب لحية أنيق، بخدمة سريعة ومريحة تضمن لك إطلالة متجددة طوال الشهر.",
+      "official_url": "https://theweekendhairstyling.com/memberships/e7483d5c-158a-49fa-a706-1bd0d68afee8",
+      "billing_period_days": 30,
+      "billing_cycle": 1,
+      "package_total_quantity": 5,
+      "package_items_listed": 0,
+      "pause_config": null,
+      "required_custom_fields": [
+        "صورة المشترك"
+      ]
+    },
+    {
+      "id": "aaef5dd0-8211-4f51-8f7f-df579ba7469a",
+      "name": {
+        "ar": "عضوية سولو فل اوبشن  (تشمل جميع فروع ذا ويكند)",
+        "en": "Solo Full Option Membership"
+      },
+      "category": [
+        "عضوية"
+      ],
+      "amount_sar": 249,
+      "discounted_amount_sar": 249,
+      "branch_ids": [],
+      "branches": [],
+      "giftable": true,
+      "badge": null,
+      "slug": "baqat-alashtrak-1",
+      "description_text": "\"سولو فل أوبشن\" هي عضوية شاملة للرجل الذي يبحث عن عناية متكاملة. تشمل ٥ زيارات في الشهر تجمع بين قص شعر احترافي، تهذيب لحية أنيق، إلى جانب علاجات أساسية للوجه تمنحك مظهراً صحياً ومنتعشاً. كل زيارة مصممة لتضمن لك تجربة مريحة وإطلالة متجددة تعكس أناقتك طوال الشهر.",
+      "official_url": "https://theweekendhairstyling.com/memberships/aaef5dd0-8211-4f51-8f7f-df579ba7469a",
+      "billing_period_days": 30,
+      "billing_cycle": 1,
+      "package_total_quantity": 5,
+      "package_items_listed": 0,
+      "pause_config": null,
+      "required_custom_fields": [
+        "صورة المشترك"
+      ]
+    }
+  ]
+}

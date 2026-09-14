@@ -1,0 +1,699 @@
+{
+  "_about": "Sanitized excerpt of E02 provider/read-only-list (2026-09-13). Public observation of the storefront's team list; not proof of current employment, availability or expertise. Days/spans/flags are computed from the schedule active on 2026-09-13 only; expired or future schedules are listed separately. Removed: image URLs, iCal listing ids, creator ids, commission field (null in all records), descriptions, holiday/override contents.",
+  "label": "public observation",
+  "records": [
+    {
+      "record": 1,
+      "name": "بلال",
+      "provider_id": "3a1ca9ab-1e7b-9fee-f974-af80636da57f",
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c"
+      ],
+      "branches": [
+        "فرع روشن Zone C"
+      ],
+      "current_schedule": {
+        "from": "2026-05-29T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-16:00",
+          "13:00-16:00",
+          "16:30-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 2,
+      "name": "وسام",
+      "provider_id": "3a1ca9ac-10c6-59d3-956d-15be39f5552a",
+      "branch_ids": [
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone i"
+      ],
+      "current_schedule": {
+        "from": "2026-05-29T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:00",
+          "13:00-15:00",
+          "15:30-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 3,
+      "name": "كريم",
+      "provider_id": "3a1ca9ac-6328-b6ed-75cc-fde90e67f20f",
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c"
+      ],
+      "branches": [
+        "فرع روشن Zone C"
+      ],
+      "current_schedule": {
+        "from": "2026-07-20T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:00",
+          "13:00-15:00",
+          "15:30-23:45"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 4,
+      "name": "عمر",
+      "provider_id": "3a1ca9ac-c89b-d199-fb0b-bb31117ceed4",
+      "branch_ids": [
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone i"
+      ],
+      "current_schedule": {
+        "from": "2026-05-29T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-14:00",
+          "15:00-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 5,
+      "name": "صلاح",
+      "provider_id": "3a1ca9ae-659c-c180-1bf6-ed71029558bd",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:00",
+          "13:00-15:00",
+          "16:00-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 6,
+      "name": "فرقان",
+      "provider_id": "3a1ca9af-75c9-1dd0-09c8-9c06404f63d7",
+      "branch_ids": [
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179"
+      ],
+      "branches": [
+        "فرع الروضة"
+      ],
+      "current_schedule": {
+        "from": "2026-03-24T21:00:00Z",
+        "to": "2029-02-26T21:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "03:30-00:00",
+          "09:00-12:00",
+          "15:30-00:00",
+          "15:30-11:00"
+        ]
+      },
+      "other_schedules": [
+        {
+          "from": "2026-02-17T21:00:00Z",
+          "to": "2026-03-22T21:00:00Z",
+          "status": "expired",
+          "items": 14
+        }
+      ],
+      "schedule_overrides": 5,
+      "flags": [
+        "7-day schedule",
+        "end-before-start 15:30–11:00 (day Sun)"
+      ]
+    },
+    {
+      "record": 7,
+      "name": "مبين",
+      "provider_id": "3a1d8a5f-5b17-07a9-7cf9-749364935bc0",
+      "branch_ids": [
+        "3a1ca9a9-bd6c-aed1-6596-5521e64d1179"
+      ],
+      "branches": [
+        "فرع الروضة"
+      ],
+      "current_schedule": {
+        "from": "2026-06-03T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-00:00",
+          "12:30-00:00",
+          "13:30-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": [
+        "7-day schedule"
+      ]
+    },
+    {
+      "record": 8,
+      "name": "مروان",
+      "provider_id": "3a1d8a76-9844-e769-6dc5-90e013215e25",
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c"
+      ],
+      "branches": [
+        "فرع روشن Zone C"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:30",
+          "13:00-15:30",
+          "16:00-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 9,
+      "name": "محمد",
+      "provider_id": "3a1ee2d2-c34c-ef0d-8dce-d494630707cc",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:00-14:00",
+          "15:00-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 10,
+      "name": "اسامه",
+      "provider_id": "3a1fd20e-95bb-d928-90be-b61eb4b7bef2",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:00-15:00",
+          "16:00-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 11,
+      "name": "مروان",
+      "provider_id": "3a215926-63fb-4d9e-7f04-2769f9423dc8",
+      "branch_ids": [
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone i"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:30",
+          "12:00-16:30",
+          "13:00-16:30",
+          "16:15-00:00",
+          "17:15-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 1,
+      "flags": []
+    },
+    {
+      "record": 12,
+      "name": "كرم",
+      "provider_id": "3a215929-1227-affc-b674-5d9581b8fb52",
+      "branch_ids": [
+        "3a1ca9a5-e7ef-54e4-f1c7-73180cef908c"
+      ],
+      "branches": [
+        "فرع روشن Zone C"
+      ],
+      "current_schedule": {
+        "from": "2026-05-30T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-14:30",
+          "13:00-14:30",
+          "15:00-00:00"
+        ]
+      },
+      "other_schedules": [
+        {
+          "from": "2026-05-24T21:00:00Z",
+          "to": "2026-05-30T21:00:00Z",
+          "status": "expired",
+          "items": 12
+        }
+      ],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 13,
+      "name": "مهدي",
+      "provider_id": "3a22206d-c487-91b1-d66f-b6c2406a0c84",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-06-19T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:30-16:00",
+          "17:00-01:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 14,
+      "name": "محمود",
+      "provider_id": "3a2226bc-beb8-c6c1-0e92-42f08ea4506b",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-06-28T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:00-15:00",
+          "16:00-01:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 15,
+      "name": "هادي",
+      "provider_id": "3a227d6f-2b27-a9e9-76f1-91a077ed3d28",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-07-15T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:00-14:00",
+          "15:00-01:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 16,
+      "name": "عبدالرحمن",
+      "provider_id": "3a22d190-387a-4191-9bda-8fd21ffbcdeb",
+      "branch_ids": [
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "النرجس ( نساج تاون )"
+      ],
+      "current_schedule": {
+        "from": "2026-08-01T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:30",
+          "13:00-15:30",
+          "16:15-00:00",
+          "16:15-01:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 17,
+      "name": "علي",
+      "provider_id": "3a22e592-e49f-d904-58e7-909223bf79fd",
+      "branch_ids": [
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "النرجس ( نساج تاون )"
+      ],
+      "current_schedule": {
+        "from": "2026-08-04T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-15:00",
+          "13:00-15:00",
+          "15:45-00:00",
+          "15:45-01:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 18,
+      "name": "سعيد",
+      "provider_id": "3a230dd4-438f-05ea-2070-3672e105f5dd",
+      "branch_ids": [
+        "3a2345ca-741e-7f78-0de1-55094159db88"
+      ],
+      "branches": [
+        "النرجس ( نساج تاون )"
+      ],
+      "current_schedule": {
+        "from": "2026-08-12T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-14:30",
+          "13:00-14:30",
+          "15:00-13:00",
+          "15:00-23:45"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": [
+        "end-before-start 15:00–13:00 (day Fri)"
+      ]
+    },
+    {
+      "record": 19,
+      "name": "مقريني",
+      "provider_id": "3a238453-504a-19cb-ed24-780b1ad0c02f",
+      "branch_ids": [
+        "3a215907-6a26-1920-342a-de5862380a70"
+      ],
+      "branches": [
+        "فرع روشن Zone i"
+      ],
+      "current_schedule": {
+        "from": "2026-09-04T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": true,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "12:00-16:30",
+          "17:15-23:45"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 20,
+      "name": "مروان",
+      "provider_id": "3a239854-faba-f0a5-7342-6a1c7b598b64",
+      "branch_ids": [
+        "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe"
+      ],
+      "branches": [
+        "فرع النرجس (مرسية)"
+      ],
+      "current_schedule": {
+        "from": "2026-09-08T21:00:00Z",
+        "to": "2050-01-01T00:00:00Z",
+        "has_custom_dates": false,
+        "weekly_days": [
+          "Sun",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "13:00-14:30",
+          "15:15-00:00"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": []
+    },
+    {
+      "record": 21,
+      "name": "مزود الخدمة الافتراضي",
+      "provider_id": "47bb578e-0a1c-434f-81ab-08a6ad2fe370",
+      "branch_ids": [],
+      "branches": [],
+      "current_schedule": {
+        "from": "2025-09-28T00:00:00Z",
+        "to": "2125-09-29T00:00:00Z",
+        "has_custom_dates": false,
+        "weekly_days": [
+          "Sun",
+          "Mon",
+          "Tue",
+          "Wed",
+          "Thu",
+          "Fri",
+          "Sat"
+        ],
+        "time_spans": [
+          "00:00-01:00",
+          "12:00-23:59",
+          "14:00-23:59"
+        ]
+      },
+      "other_schedules": [],
+      "schedule_overrides": 0,
+      "flags": [
+        "7-day schedule",
+        "no branch (system default provider)"
+      ]
+    }
+  ]
+}
