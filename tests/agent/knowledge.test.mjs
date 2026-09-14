@@ -59,7 +59,7 @@ test('post-merge review: product availability, treatment claims, annual expiry a
   const dandruff = pack.records.find((r) => r.knowledge_id.startsWith('kno_mrs_service_dandruff'));
   assert.equal(dandruff.enabled, false, 'a service whose name names a condition waits for the owner');
   for (const r of pack.records.filter((x) => x.enabled)) {
-    assert.doesNotMatch(`${r.text_ar}\n${r.text_en}`, /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema/iu, `${r.knowledge_id} names a condition`);
+    assert.doesNotMatch(`${r.text_ar}\n${r.text_en}`, /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema|صدفية|psoriasis/iu, `${r.knowledge_id} names a condition`);
   }
   assert.match(dandruff.text_en, /availability at Marsiya is unconfirmed/);
   assert.doesNotMatch(dandruff.text_en, /is confirmed/);

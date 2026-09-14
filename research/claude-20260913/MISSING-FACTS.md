@@ -21,6 +21,8 @@ This is the complete list of facts M1 needs that public sources cannot supply. I
 | 15 | Approved project-only model provider, credentials route and spend cap (no values in Git) | real inference (issues #3, #5) | owner |
 | 16 | Hosting/store choice for the dedicated Weekend application and who holds the accounts | issue #3 item 7 | owner |
 | 17 | Permitted adult test subjects/images for the cosmetic-vision evaluation | issue #5 acceptance | owner |
+| 18 | May Rakan name/price «باي باي قشرة» (149 SAR) when a customer asks about dandruff — and separately, may any of the storefront's own claim wording ("removes dandruff", EXCERPTS.md §4) ever be used? | correction 4; the record is disabled in the model's knowledge (`knowledge/build.mjs`) until answered | owner + qualified reviewer |
+| 19 | Do unused **annual** membership visits (Solo Basic 1995 / Full Option 2499, 60 visits per 360 days) carry over after the period or expire? The 2026-09-14 answer covered the monthly plan only. Also: which branch channel should «تتأكد من الفرع» point to (row 11)? | membership answers (issue #5) | owner |
 
 Not needed for M1 (deferred with issues #9/#10): live availability, booking creation, POS, WhatsApp Business API, per-branch calendars.
 
@@ -49,6 +51,8 @@ The owner asked for only the important questions. Rows not listed below are **de
 | 15 | no real model calls until the owner creates a project-only key and a daily cap (proposal: Claude via a new Anthropic key, cap USD 5/day, 40 calls/session; model id verified by Cursor against provider docs in #3) | `model = unavailable` until then |
 | 16 | run locally for the first owner walkthrough; hosting decided when #7 is ready | none now |
 | 17 | first owner-review build **without** the photo feature unless the owner supplies 3–5 permitted adult test photos | `photo = disabled` |
+| 18 | the «باي باي قشرة» service stays out of the model's knowledge; a dandruff question gets the clinician line (`refusal_medical`) | one enabled record fewer |
+| 19 | Rakan states the 360-day period and says carry-over of unused annual visits is unconfirmed; the annual break-even record is `verified_public` («حسبة تقريبية») | none |
 
 ## Owner answers (2026-09-14)
 

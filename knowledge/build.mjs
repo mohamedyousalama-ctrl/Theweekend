@@ -260,7 +260,7 @@ export function buildPack() {
     });
   }
   // A service whose name itself names a condition (dandruff, hair loss…) is kept in the pack but disabled: offering it by name
-  // is a treatment framing the persona forbids; the owner decides whether Rakan may name it (open question, 2026-09-14).
+  // is a treatment framing the persona forbids; MISSING-FACTS row 18 (owner + qualified reviewer) decides whether Rakan may name it.
   const CONDITION_NAME_RE = /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema|صدفية|psoriasis/iu;
   for (const s of services.filter((x) => x !== haircut && (atBranch(x) || noBranch(x)) && !(x.name.en || '').includes('(Copy)'))) {
     const where = atBranch(s) ? '' : ' معروضة في الموقع، وما أقدر أأكد إنها متوفرة بفرع مرسية — تبين لك في صفحة الحجز لما تختار الفرع.';
@@ -313,8 +313,8 @@ export function buildPack() {
       knowledge_id: `kno_mrs_membership_${slug(en)}_${m.amount_sar}`,
       kind: 'membership',
       ref: m.id,
-      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. ${monthly ? 'الزيارات غير المستخدمة تنتهي مع نهاية الـ30 يوم؛ ما فيه ترحيل.' : `مدة العضوية ${m.billing_period_days} يوم من التفعيل؛ ترحيل الزيارات غير المستخدمة بعد نهاية المدة غير مؤكد — يتأكد من الفرع.`} تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
-      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. ${monthly ? 'Unused visits expire at the end of the 30 days; no rollover.' : `The plan runs ${m.billing_period_days} days from activation; whether unused visits carry over after the period is unconfirmed — ask the branch.`} All branches.`,
+      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. ${monthly ? 'الزيارات غير المستخدمة تنتهي مع نهاية الـ30 يوم؛ ما فيه ترحيل.' : `مدة العضوية ${m.billing_period_days} يوم من التفعيل؛ ترحيل الزيارات غير المستخدمة بعد نهاية المدة غير مؤكد — تتأكد من الفرع.`} تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
+      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. ${monthly ? 'Unused visits expire at the end of the 30 days; no rollover.' : `The plan runs ${m.billing_period_days} days from activation. Whether unused visits carry over afterward is unconfirmed — ask the branch.`} All branches.`,
       source: OWNER.source,
       source_hash: OWNER.hash,
       status: 'merchant_approved',

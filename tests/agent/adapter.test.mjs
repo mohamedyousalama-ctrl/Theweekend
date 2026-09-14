@@ -224,6 +224,7 @@ test('post-merge review: amounts are compared as full values and only against cu
     ['kno_beard', { text_ar: 'تهذيب اللحية: 20 ريال', text_en: 'Beard trim: 20 SAR' }],
     ['kno_half', { text_ar: 'عرض: 12.5 ريال', text_en: 'Offer: 12.5 SAR' }],
     ['kno_plan', { text_ar: 'عضوية: 5 زيارات خلال 30 يوم؛ زيارتان = 100 ريال؛ الجلسة 30 دقيقة', text_en: 'Plan: 5 visits per 30 days; 2 visits = 100 SAR; a 30-minute session' }],
+    ['kno_glued', { text_ar: 'تنتهي مع نهاية الـ30 يوم', text_en: '' }],
   ]);
   assert.equal(canonicalAmount('2,499'), '2499');
   assert.equal(canonicalAmount('2,5'), '2.5');
@@ -247,6 +248,7 @@ test('post-merge review: amounts are compared as full values and only against cu
   assert.deepEqual(ungroundedFacts([{ text: 'تقريباً نص ساعة' }], ['kno_hair'], byId), ['minutes:30'], 'half an hour is a duration');
   assert.deepEqual(ungroundedFacts([{ text: 'تقريباً نصف ساعة' }], ['kno_plan'], byId), [], 'half an hour equals a 30-minute record');
   assert.deepEqual(ungroundedFacts([{ text: 'المدة ساعة' }], ['kno_hair'], byId), ['minutes:60']);
+  assert.deepEqual(ungroundedFacts([{ text: 'وساعتين بعدها' }], ['kno_hair'], byId), ['minutes:120']);
   assert.deepEqual(ungroundedFacts([{ text: 'ساعتين تقريباً' }], ['kno_hair'], byId), ['minutes:120']);
   assert.deepEqual(ungroundedFacts([{ text: 'about 2 hours' }], ['kno_hair'], byId), ['minutes:120']);
   assert.deepEqual(ungroundedFacts([{ text: 'الساعة 3 العصر' }], ['kno_hair'], byId), [], 'o\'clock is not a duration');
@@ -255,6 +257,20 @@ test('post-merge review: amounts are compared as full values and only against cu
   assert.deepEqual(ungroundedFacts([{ text: 'ثلاث زيارات بالشهر' }], ['kno_plan'], byId), ['visits:3']);
   assert.deepEqual(ungroundedFacts([{ text: 'five visits a month' }], ['kno_plan'], byId), []);
   assert.deepEqual(ungroundedFacts([{ text: 'a 35-minute cut' }], ['kno_hair'], byId), [], 'hyphenated English durations');
+  assert.deepEqual(ungroundedFacts([{ text: 'about a 300-minute cut' }], ['kno_hair'], byId), ['minutes:300'], 'a hyphenated invented duration is caught');
+  assert.deepEqual(ungroundedFacts([{ text: 'و5 دقايق زيادة' }], ['kno_hair'], byId), ['minutes:5'], 'a proclitic glued to a digit does not hide it');
+  assert.deepEqual(ungroundedFacts([{ text: 'وخمس زيارات' }], ['kno_plan'], byId), [], 'a proclitic glued to a number word');
+  assert.deepEqual(ungroundedFacts([{ text: 'بثلاث زيارات' }], ['kno_plan'], byId), ['visits:3']);
+  assert.deepEqual(ungroundedFacts([{ text: '5زيارات' }], ['kno_plan'], byId), [], 'no space between digit and unit');
+  assert.deepEqual(ungroundedFacts([{ text: 'المدة 30 يوم من التفعيل' }], ['kno_glued'], byId), [], 'a record that only says «الـ30 يوم» still grounds 30 days');
+  assert.deepEqual(ungroundedFacts([{ text: 'عندك يومين وثلاث زيارات' }], ['kno_plan'], byId).sort(), ['days:2', 'visits:3']);
+  assert.deepEqual(ungroundedFacts([{ text: 'كم ساعة تحتاج؟' }], ['kno_hair'], byId), [], 'a question is not a duration');
+  assert.deepEqual(ungroundedFacts([{ text: 'ساعة الافتتاح غير معروفة' }], ['kno_hair'], byId), [], 'the opening hour is not a duration');
+  assert.deepEqual(ungroundedFacts([{ text: 'حوالي ساعة' }], ['kno_hair'], byId), ['minutes:60'], 'a framed bare hour is a duration');
+  assert.deepEqual(ungroundedFacts([{ text: 'ساعة واحدة تقريباً' }], ['kno_hair'], byId), ['minutes:60']);
+  assert.deepEqual(ungroundedFacts([{ text: 'it takes an hour' }], ['kno_hair'], byId), ['minutes:60']);
+  assert.deepEqual(ungroundedFacts([{ text: 'we reply within a day, book a visit' }], ['kno_hair'], byId), [], 'English articles are hedges, not counts');
+  assert.deepEqual(ungroundedFacts([{ text: 'an hour and a half' }], ['kno_hair'], byId), ['minutes:90']);
   assert.deepEqual(ungroundedFacts([{ text: 'تقريباً 35 دقيقة' }], ['kno_hair'], byId), []);
 });
 
@@ -267,6 +283,9 @@ test('post-merge review: links must come from a knowledge record', () => {
   assert.deepEqual(ungroundedLinks([{ text: 'see http://evil.example/book' }], links), ['http://evil.example/book']);
   assert.deepEqual(ungroundedLinks([{ text: 'شوف “https://theweekendhairstyling.com/book”' }], links), [], 'curly quotes are not part of the link');
   assert.deepEqual(ungroundedLinks([{ text: 'https://THEWEEKENDHAIRSTYLING.COM/book' }], links), [], 'hosts are case-insensitive');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/BOOK' }], links), ['https://theweekendhairstyling.com/BOOK'], 'paths are case-sensitive');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/book?branchid=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe' }], links), ['https://theweekendhairstyling.com/book?branchid=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe'], 'query strings are case-sensitive');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe#top' }], links), [], 'a fragment does not change the page');
   assert.deepEqual(ungroundedLinks([{ text: 'https://t' }], links), ['https://t'], 'only the query string may be dropped, not an arbitrary tail');
   assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/boo' }], links), ['https://theweekendhairstyling.com/boo']);
   assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com.evil.tld/book' }], links), ['https://theweekendhairstyling.com.evil.tld/book']);

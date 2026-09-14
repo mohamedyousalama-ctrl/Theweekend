@@ -285,10 +285,14 @@ export function ungroundedPrices(messages, refs, byId) {
 const NUMBER_WORDS = {
   'واحد': 1, 'واحدة': 1, 'وحدة': 1, 'اثنين': 2, 'اثنتين': 2, 'ثنتين': 2, 'ثلاث': 3, 'ثلاثة': 3, 'ثلاثه': 3, 'أربع': 4, 'اربع': 4, 'أربعة': 4, 'اربعة': 4,
   'خمس': 5, 'خمسة': 5, 'خمسه': 5, 'ست': 6, 'ستة': 6, 'سته': 6, 'سبع': 7, 'سبعة': 7, 'ثمان': 8, 'ثماني': 8, 'ثمانية': 8, 'تسع': 9, 'تسعة': 9, 'عشر': 10, 'عشرة': 10,
-  a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
 };
-const NUM = `(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?|${Object.keys(NUMBER_WORDS).join('|')})\\s+`;
-const UNIT_RE = (unit) => new RegExp(`(?<![\\p{L}])${NUM}(?:${unit})(?![\\p{L}])`, 'giu');
+// Digits take no letter boundary: Arabic proclitics and «الـ» glue to a number («و5 دقايق», «الـ30 يوم»), and a hyphen may join the
+// unit («35-minute»). A number word may carry one glued proclitic (و ف ب ك ل: «وخمس زيارات»). English «a»/«an» are not counted
+// («within a day» is a hedge, not a fact); «an hour» is a phrase below.
+const PROCLITIC = '(?:[وفبكل])?';
+const NUM = `(?:(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?)[\\s-]*|(?<![\\p{L}])${PROCLITIC}(${Object.keys(NUMBER_WORDS).join('|')})[\\s-]+)`;
+const UNIT_RE = (unit) => new RegExp(`${NUM}(?:${unit})(?![\\p{L}])`, 'giu');
 const FACT_UNITS = [
   ['minutes', UNIT_RE('دقيقة|دقيقه|دقايق|دقائق|min(?:ute)?s?'), 1],
   ['minutes', UNIT_RE('ساعة|ساعه|ساعات|hours?|hrs?'), 60],
@@ -296,17 +300,20 @@ const FACT_UNITS = [
   ['visits', UNIT_RE('زيارة|زياره|زيارات|visits?'), 1],
   ['percent', new RegExp(`(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?)\\s*(?:%|٪|بالمئة|بالمية|بالمائة|percent)`, 'giu'), 1],
 ];
-// Duals and fixed phrases carry their own value.
+// Duals and fixed phrases carry their own value (longer phrases first: they are blanked before the shorter ones run).
+// A bare «ساعة» counts as one hour only after a duration framing word («المدة ساعة», «حوالي ساعة»); «كم ساعة؟», «الساعة 3»
+// and «ساعة الافتتاح» are not durations.
 const FACT_PHRASES = [
-  ['minutes', /(?<![\p{L}])(?:دقيقتين|دقيقتان|two minutes)(?![\p{L}])/giu, 2],
-  ['minutes', /(?<![\p{L}])(?:ربع ساعة|ربع ساعه|quarter of an hour|quarter-hour)(?![\p{L}])/giu, 15],
-  ['minutes', /(?<![\p{L}])(?:ثلث ساعة|ثلث ساعه)(?![\p{L}])/giu, 20],
-  ['minutes', /(?<![\p{L}])(?:نصف ساعة|نص ساعة|نصف ساعه|نص ساعه|half an hour|half-hour|half hour)(?![\p{L}])/giu, 30],
-  ['minutes', /(?<![\p{L}])(?:ساعة ونص|ساعة ونصف|ساعه ونص|an hour and a half|one and a half hours)(?![\p{L}])/giu, 90],
-  ['minutes', /(?<![\p{L}])(?:ساعتين|ساعتان|two hours)(?![\p{L}])/giu, 120],
-  ['minutes', /(?<![\p{L}\p{N}])(?:ساعة|ساعه)(?![\p{L}])/giu, 60], // a bare «ساعة» = one hour; «الساعة 3» (o'clock) is excluded by the lookbehind
-  ['days', /(?<![\p{L}])(?:يومين|يومان|two days)(?![\p{L}])/giu, 2],
-  ['visits', /(?<![\p{L}])(?:زيارتين|زيارتان|two visits)(?![\p{L}])/giu, 2],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعة ونص|ساعة ونصف|ساعه ونص|an hour and a half|one and a half hours)(?![\p{L}])/giu, 90],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعتين|ساعتان|two hours)(?![\p{L}])/giu, 120],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ربع ساعة|ربع ساعه|quarter of an hour|quarter-hour)(?![\p{L}])/giu, 15],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ثلث ساعة|ثلث ساعه)(?![\p{L}])/giu, 20],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:نصف ساعة|نص ساعة|نصف ساعه|نص ساعه|half an hour|half-hour|half hour)(?![\p{L}])/giu, 30],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعة واحدة|ساعة وحدة|ساعه واحدة|ساعه وحدة|an hour|one hour)(?![\p{L}])/giu, 60],
+  ['minutes', /(?<=(?:المدة|مدتها|مدته|تاخذ|تأخذ|ياخذ|يأخذ|حوالي|تقريباً|تقريبا|قرابة|لمدة|خلال|نحو)\s+)(?:ساعة|ساعه)(?![\p{L}])/giu, 60],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:دقيقتين|دقيقتان|two minutes)(?![\p{L}])/giu, 2],
+  ['days', /(?<![\p{L}])(?:[وفبكل])?(?:يومين|يومان|two days)(?![\p{L}])/giu, 2],
+  ['visits', /(?<![\p{L}])(?:[وفبكل])?(?:زيارتين|زيارتان|two visits)(?![\p{L}])/giu, 2],
 ];
 
 function numberOf(token) {
@@ -324,7 +331,7 @@ function factsIn(text) {
   }
   for (const [kind, re, factor] of FACT_UNITS) {
     for (const m of t.matchAll(re)) {
-      const n = numberOf(m[1]) * factor;
+      const n = numberOf(m[1] ?? m[2]) * factor;
       if (Number.isFinite(n)) out.add(`${kind}:${canonicalAmount(String(n))}`);
     }
   }
@@ -352,13 +359,23 @@ export function linksIn(records) {
   return out;
 }
 
+/** Scheme and host are case-insensitive; path and query are not (/BOOK or ?branchid= is a different page). Fragments are dropped. */
+function normalizeUrl(u) {
+  try {
+    const x = new URL(u);
+    return `${x.protocol}//${x.host}${x.pathname}${x.search}`;
+  } catch {
+    return u;
+  }
+}
+
 /** Every link in the reply must be a record link, exactly, or the same page without its query string (the booking page without ?branchId=). */
 export function ungroundedLinks(messages, links) {
-  const allowed = [...links].map((a) => a.toLowerCase());
+  const allowed = [...links].map(normalizeUrl);
   const missing = [];
   for (const m of messages) {
     for (const u of urlsIn(m.text)) {
-      const l = u.toLowerCase();
+      const l = normalizeUrl(u);
       if (!allowed.some((a) => a === l || a.startsWith(`${l}?`)) && !missing.includes(u)) missing.push(u);
     }
   }

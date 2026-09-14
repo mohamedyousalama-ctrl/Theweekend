@@ -37,7 +37,7 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'kno_mrs_membership_compare_monthly_basic',
     'run 360 days from activation',
     'Never repeat a wrong price or figure the customer wrote',
-    'Never offer a service whose name names a condition',
+    'whose own name names a condition',
     'availability at the branch is unconfirmed',
   ]) assert.ok(body.includes(needle), `missing rule: ${needle}`);
 });
