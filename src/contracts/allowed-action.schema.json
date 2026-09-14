@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "allowed-action.schema.json",
+  "title": "AllowedAction",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "action_id",
+    "kind",
+    "label_ar",
+    "label_en",
+    "bound",
+    "requires_receipt_kind",
+    "expires_at",
+    "url"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "action_id": { "type": "string", "pattern": "^act_[A-Za-z0-9_-]{1,80}$" },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "open_official_booking",
+        "request_pending_booking",
+        "share_brief_text",
+        "share_photo_ref",
+        "save_preference",
+        "delete_preference",
+        "talk_to_staff",
+        "decline",
+        "continue_without_photo"
+      ]
+    },
+    "label_ar": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "label_en": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "bound": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["session_id", "subject_id", "object_id", "object_version"],
+      "properties": {
+        "session_id": { "type": "string", "pattern": "^ses_[A-Za-z0-9_-]{1,80}$" },
+        "subject_id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" },
+        "object_id": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "object_version": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "requires_receipt_kind": {
+      "type": ["string", "null"],
+      "enum": ["photo_analysis", "text_preferences", "staff_sharing_text", "staff_sharing_photo", null]
+    },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "url": { "type": ["string", "null"], "format": "uri" }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "kind": { "const": "open_official_booking" } },
+        "required": ["kind"]
+      },
+      "then": { "properties": { "url": { "type": "string", "format": "uri" } } },
+      "else": { "properties": { "url": { "type": "null" } } }
+    }
+  ]
+}

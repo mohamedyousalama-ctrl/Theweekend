@@ -1,0 +1,10 @@
+{
+  "object": "ErrorShape",
+  "instance": {
+    "contract_version": "0.1.0",
+    "code": "CAPABILITY_UNAVAILABLE",
+    "message_key": "store.unavailable",
+    "retryable": true,
+    "details": { "capability": "store" }
+  }
+}

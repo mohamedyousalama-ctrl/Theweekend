@@ -1,0 +1,16 @@
+{
+  "contract_version": "0.1.0",
+  "knowledge_id": "kno_syn_booking_url",
+  "kind": "policy",
+  "branch_id": "br_syn_m1",
+  "ref": null,
+  "text_ar": "الحجز عبر الصفحة الرسمية فقط في هذه المرحلة.",
+  "text_en": "Booking in this stage is the official page only.",
+  "source": "owner-2026-09-14",
+  "source_hash": "9e16cf653829d7dc9eb671df1b652b8a0e0d38e90a249dfa7fdf98483e83f3fe",
+  "status": "merchant_approved",
+  "enabled": true,
+  "version": 1,
+  "valid_from": "2026-09-14T00:00:00Z",
+  "valid_to": null
+}

@@ -31,7 +31,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 | `messages` | `[{ text, lang }]` (1–3) | customer-facing text; no markdown tables |
 | `observations` | CosmeticObservations \| null | only when an image was permitted and supplied this turn |
 | `style_options` | StyleOption[] (0–2) | `{ option_id, name_ar, name_en, why_ar, upkeep_ar, feasible_in_person: true\|unknown, reference_kind: none\|public_style }` |
-| `proposed_actions` | `[{ kind, label_ar, label_en, payload }]` (0–3) | **proposals**; C converts accepted ones into `AllowedAction`s with server ids |
+| `proposed_actions` | `[{ kind, label_ar, label_en, payload }]` (0–3) | **proposals**; C converts accepted ones into `AllowedAction`s bound to a real object id+version. `payload` may include `preference_id`, `brief_id`, `image_ref`, `option_id`, and for a new save, `preference_kind` + `value_text`. |
 | `knowledge_refs` | id[] | every merchant fact used must reference an enabled `KnowledgeRecord`; ungrounded price/staff/stock claims fail validation |
 | `brief_draft` | BarberBrief (status `draft`) \| null | |
 | `usage_ref` | id | the `ModelUsageRecord` |

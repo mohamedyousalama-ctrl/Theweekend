@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "action-result.schema.json",
+  "title": "ActionResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "action_id",
+    "outcome",
+    "receipt_id",
+    "message_key"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "action_id": { "type": "string", "pattern": "^act_[A-Za-z0-9_-]{1,80}$" },
+    "outcome": {
+      "type": "string",
+      "enum": ["done", "external_handoff", "pending", "rejected", "expired", "revoked", "stale"]
+    },
+    "receipt_id": { "type": ["string", "null"], "pattern": "^rcp_[A-Za-z0-9_-]{1,80}$" },
+    "message_key": { "type": "string", "pattern": "^[a-z][a-z0-9_.]{0,79}$" }
+  }
+}

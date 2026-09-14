@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "delivery-receipt.schema.json",
+  "title": "DeliveryReceipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "brief_id",
+    "delivered_at",
+    "staff_view_id",
+    "acknowledged_at",
+    "acknowledged_by"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "brief_id": { "type": "string", "pattern": "^brf_[A-Za-z0-9_-]{1,80}$" },
+    "delivered_at": { "type": "string", "format": "date-time" },
+    "staff_view_id": { "type": "string", "pattern": "^svw_[A-Za-z0-9_-]{1,80}$" },
+    "acknowledged_at": { "type": ["string", "null"], "format": "date-time" },
+    "acknowledged_by": { "type": ["string", "null"], "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" }
+  }
+}

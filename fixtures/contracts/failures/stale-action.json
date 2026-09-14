@@ -1,0 +1,10 @@
+{
+  "object": "ActionResult",
+  "instance": {
+    "contract_version": "0.1.0",
+    "action_id": "act_syn_stale_a",
+    "outcome": "stale",
+    "receipt_id": null,
+    "message_key": "action.stale"
+  }
+}

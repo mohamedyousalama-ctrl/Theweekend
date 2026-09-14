@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trusted-context.schema.json",
+  "title": "TrustedContext",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "session_id",
+    "subject_id",
+    "role",
+    "verified",
+    "branch_id",
+    "locale",
+    "capabilities",
+    "consents",
+    "issued_at"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "session_id": { "type": "string", "pattern": "^ses_[A-Za-z0-9_-]{1,80}$" },
+    "subject_id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]{1,80}$" },
+    "role": { "type": "string", "enum": ["customer", "staff", "owner"] },
+    "verified": { "type": "boolean" },
+    "branch_id": { "type": ["string", "null"], "pattern": "^br_[A-Za-z0-9_-]{1,80}$" },
+    "locale": { "type": "string", "enum": ["ar", "en"] },
+    "capabilities": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "photo", "booking_handoff", "staff_inbox", "preferences"],
+      "properties": {
+        "model": { "type": "string", "enum": ["real", "mock", "unavailable"] },
+        "photo": { "type": "string", "enum": ["enabled", "disabled"] },
+        "booking_handoff": { "type": "string", "enum": ["official_link", "pending_request", "unavailable"] },
+        "staff_inbox": { "type": "string", "enum": ["enabled", "unavailable"] },
+        "preferences": { "type": "string", "enum": ["enabled", "unavailable"] }
+      }
+    },
+    "consents": {
+      "type": "array",
+      "items": { "$ref": "permission-receipt.schema.json" }
+    },
+    "issued_at": { "type": "string", "format": "date-time" }
+  }
+}

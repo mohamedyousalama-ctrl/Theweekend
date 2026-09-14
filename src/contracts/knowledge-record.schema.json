@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "knowledge-record.schema.json",
+  "title": "KnowledgeRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "knowledge_id",
+    "kind",
+    "branch_id",
+    "ref",
+    "text_ar",
+    "text_en",
+    "source",
+    "source_hash",
+    "status",
+    "enabled",
+    "version",
+    "valid_from",
+    "valid_to"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "knowledge_id": { "type": "string", "pattern": "^kno_[A-Za-z0-9_-]{1,80}$" },
+    "kind": {
+      "type": "string",
+      "enum": ["branch", "service", "price", "addon", "product", "membership", "policy", "staff", "claim", "faq"]
+    },
+    "branch_id": { "type": ["string", "null"], "pattern": "^br_[A-Za-z0-9_-]{1,80}$" },
+    "ref": { "type": ["string", "null"], "minLength": 1, "maxLength": 80 },
+    "text_ar": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "text_en": { "type": "string", "minLength": 1, "maxLength": 500 },
+    "source": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,80}$" },
+    "source_hash": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "status": {
+      "type": "string",
+      "enum": ["collaborator_reported", "verified_public", "merchant_approved", "retired"]
+    },
+    "enabled": { "type": "boolean" },
+    "version": { "type": "integer", "minimum": 1 },
+    "valid_from": { "type": "string", "format": "date-time" },
+    "valid_to": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "enabled": { "const": true } }, "required": ["enabled"] },
+      "then": {
+        "properties": {
+          "status": { "enum": ["merchant_approved", "verified_public"] }
+        }
+      }
+    }
+  ]
+}

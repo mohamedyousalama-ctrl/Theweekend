@@ -1,0 +1,19 @@
+{
+  "contract_version": "0.1.0",
+  "session_id": "ses_syn_customer_a",
+  "subject_id": "sub_syn_guest_a",
+  "role": "customer",
+  "verified": true,
+  "branch_id": "br_syn_m1",
+  "locale": "ar",
+  "capabilities": {
+    "model": "unavailable",
+    "photo": "disabled",
+    "booking_handoff": "official_link",
+    "staff_inbox": "unavailable",
+    "preferences": "enabled"
+  },
+  "consents": [],
+  "issued_at": "2026-09-14T10:05:00Z",
+  "demo": true
+}

@@ -1,0 +1,11 @@
+{
+  "contract_version": "0.1.0",
+  "receipt_id": "rcp_syn_bad",
+  "subject_id": "sub_syn_guest_a",
+  "kind": "photo_analysis",
+  "notice_version": "notice_photo_v1",
+  "granted_at": "2026-09-14T10:00:00Z",
+  "revoked_at": null,
+  "retention_policy_key": "ret_photo_v1",
+  "granted_via": "owner_override"
+}

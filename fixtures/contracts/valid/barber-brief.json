@@ -1,0 +1,22 @@
+{
+  "contract_version": "0.1.0",
+  "brief_id": "brf_syn_a",
+  "subject_id": "sub_syn_guest_a",
+  "branch_id": "br_syn_m1",
+  "barber_preference": null,
+  "requested_look": {
+    "option_id": "opt_syn_short_taper",
+    "text_ar": "تaper قصير مع تهذيب اللحية"
+  },
+  "do_not": ["لا تقص كثير من الأعلى"],
+  "reference": {
+    "kind": "none",
+    "image_ref": null,
+    "receipt_id": null
+  },
+  "provenance": {
+    "approved_by_subject_at": null,
+    "version": 1
+  },
+  "status": "draft"
+}

@@ -1,0 +1,16 @@
+{
+  "contract_version": "0.1.0",
+  "action_id": "act_syn_book_link_a",
+  "kind": "open_official_booking",
+  "label_ar": "صفحة الحجز الرسمية",
+  "label_en": "Official booking page",
+  "bound": {
+    "session_id": "ses_syn_customer_a",
+    "subject_id": "sub_syn_guest_a",
+    "object_id": "handoff_official_booking",
+    "object_version": 1
+  },
+  "requires_receipt_kind": null,
+  "expires_at": "2026-09-14T11:05:00Z",
+  "url": "https://example.invalid/book"
+}

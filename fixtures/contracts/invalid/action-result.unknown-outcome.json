@@ -1,0 +1,7 @@
+{
+  "contract_version": "0.1.0",
+  "action_id": "act_syn_book_link_a",
+  "outcome": "confirmed",
+  "receipt_id": null,
+  "message_key": "booking.confirmed"
+}

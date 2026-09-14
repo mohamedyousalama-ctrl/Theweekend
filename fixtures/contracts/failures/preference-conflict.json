@@ -1,0 +1,10 @@
+{
+  "object": "ErrorShape",
+  "instance": {
+    "contract_version": "0.1.0",
+    "code": "CONFLICT",
+    "message_key": "preference.version_conflict",
+    "retryable": false,
+    "details": { "field": "version" }
+  }
+}

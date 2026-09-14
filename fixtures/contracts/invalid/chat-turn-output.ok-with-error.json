@@ -1,0 +1,20 @@
+{
+  "contract_version": "0.1.0",
+  "turn_id": "3d1c6e2a-4b7f-4c11-9a20-0c8d1e2f3a4b",
+  "state": "ok",
+  "messages": [{ "text": "ok", "lang": "en" }],
+  "observations": null,
+  "style_options": [],
+  "proposed_actions": [],
+  "knowledge_refs": [],
+  "brief_draft": null,
+  "usage_ref": "use_syn_turn_a",
+  "flags": [],
+  "error": {
+    "contract_version": "0.1.0",
+    "code": "MODEL_UNAVAILABLE",
+    "message_key": "model.unavailable",
+    "retryable": true,
+    "details": { "capability": "model" }
+  }
+}

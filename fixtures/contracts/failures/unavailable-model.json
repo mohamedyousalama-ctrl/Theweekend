@@ -1,0 +1,35 @@
+{
+  "object": "ChatTurnOutput",
+  "instance": {
+    "contract_version": "0.1.0",
+    "turn_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee1",
+    "state": "unavailable",
+    "messages": [
+      {
+        "text": "المحادثة غير متاحة الآن لأن النموذج غير مُعد.",
+        "lang": "ar"
+      }
+    ],
+    "observations": null,
+    "style_options": [],
+    "proposed_actions": [
+      {
+        "kind": "talk_to_staff",
+        "label_ar": "تحدث مع الفريق",
+        "label_en": "Talk to staff",
+        "payload": {}
+      }
+    ],
+    "knowledge_refs": [],
+    "brief_draft": null,
+    "usage_ref": "use_syn_model_unavail",
+    "flags": [],
+    "error": {
+      "contract_version": "0.1.0",
+      "code": "MODEL_UNAVAILABLE",
+      "message_key": "model.unavailable",
+      "retryable": true,
+      "details": { "capability": "model" }
+    }
+  }
+}

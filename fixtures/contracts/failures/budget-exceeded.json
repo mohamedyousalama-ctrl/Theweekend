@@ -1,0 +1,28 @@
+{
+  "object": "ChatTurnOutput",
+  "instance": {
+    "contract_version": "0.1.0",
+    "turn_id": "aaaaaaaa-bbbb-4ccc-8ddd-eeeeeeeeeee2",
+    "state": "unavailable",
+    "messages": [
+      {
+        "text": "توقفنا عند حد الاستخدام اليومي.",
+        "lang": "ar"
+      }
+    ],
+    "observations": null,
+    "style_options": [],
+    "proposed_actions": [],
+    "knowledge_refs": [],
+    "brief_draft": null,
+    "usage_ref": "use_syn_budget",
+    "flags": [],
+    "error": {
+      "contract_version": "0.1.0",
+      "code": "BUDGET_EXCEEDED",
+      "message_key": "model.budget_exceeded",
+      "retryable": false,
+      "details": { "capability": "model", "limit": 1 }
+    }
+  }
+}

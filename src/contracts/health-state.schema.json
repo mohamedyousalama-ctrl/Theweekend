@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "health-state.schema.json",
+  "title": "HealthState",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "model",
+    "photo",
+    "booking_handoff",
+    "staff_inbox",
+    "preferences",
+    "store",
+    "checked_at"
+  ],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "model": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "photo": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "booking_handoff": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "staff_inbox": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "preferences": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "store": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
+    "checked_at": { "type": "string", "format": "date-time" }
+  }
+}

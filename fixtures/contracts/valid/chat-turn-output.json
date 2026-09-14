@@ -1,0 +1,36 @@
+{
+  "contract_version": "0.1.0",
+  "turn_id": "3d1c6e2a-4b7f-4c11-9a20-0c8d1e2f3a4b",
+  "state": "ok",
+  "messages": [
+    {
+      "text": "أقدر أساعدك بالنص. الصورة اختيارية.",
+      "lang": "ar"
+    }
+  ],
+  "observations": null,
+  "style_options": [
+    {
+      "option_id": "opt_syn_short_taper",
+      "name_ar": "قصة قصيرة مدرّجة",
+      "name_en": "short taper",
+      "why_ar": "قصة عملية وصيانتها أوضح من القصات الطويلة.",
+      "upkeep_ar": "تهذيب كل ثلاثة إلى أربعة أسابيع تقريباً.",
+      "feasible_in_person": "unknown",
+      "reference_kind": "none"
+    }
+  ],
+  "proposed_actions": [
+    {
+      "kind": "open_official_booking",
+      "label_ar": "صفحة الحجز الرسمية",
+      "label_en": "Official booking page",
+      "payload": {}
+    }
+  ],
+  "knowledge_refs": ["kno_syn_booking_url"],
+  "brief_draft": null,
+  "usage_ref": "use_syn_turn_a",
+  "flags": [],
+  "error": null
+}
