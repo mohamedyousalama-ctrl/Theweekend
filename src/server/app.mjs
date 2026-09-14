@@ -1150,30 +1150,41 @@ export function createApp(config, deps = {}) {
       usage = result.usage;
       assertContract('ChatTurnOutput', output); // inside the guard: a malformed output must release the reservation too
     } catch (err) {
-      settle(0); // nothing billable is known; the reservation is released, the claimed call stays counted
-      if (err instanceof AppError) throw err;
-      if (err?.code !== 'TIMEOUT') throw err;
-      const late = await settledOrSoon(adapterSettled, adapterPromise);
-      const adapterUsage = late?.usage?.outcome === 'timeout' ? late.usage : null;
-      usage = adapterUsage && validateContract('ModelUsageRecord', adapterUsage).ok
-        ? adapterUsage
-        : {
-          contract_version: '0.1.0',
-          usage_id: newId('use_'),
-          session_id: session.session_id,
-          turn_id: input.turn_id,
-          provider: 'none',
-          model_id: 'unavailable',
-          prompt_version: 'none',
-          input_tokens: 0,
-          output_tokens: 0,
-          latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
-          cost_estimate_minor: null,
-          outcome: 'timeout',
-          created_at: now,
-        };
-      persistUsage(usage);
-      fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+      if (err instanceof AppError) {
+        settle(0);
+        throw err;
+      }
+      if (err?.code === 'TIMEOUT') {
+        const late = await settledOrSoon(adapterSettled, adapterPromise);
+        const adapterUsage = late?.usage?.outcome === 'timeout' ? late.usage : null;
+        usage = adapterUsage && validateContract('ModelUsageRecord', adapterUsage).ok
+          ? adapterUsage
+          : {
+            contract_version: '0.1.0',
+            usage_id: newId('use_'),
+            session_id: session.session_id,
+            turn_id: input.turn_id,
+            provider: 'none',
+            model_id: 'unavailable',
+            prompt_version: 'none',
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
+            cost_estimate_minor: null,
+            outcome: 'timeout',
+            created_at: now,
+          };
+        persistUsage(usage);
+        settle(usage.cost_estimate_minor ?? 0);
+        fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+      }
+      if (usage && validateContract('ModelUsageRecord', usage).ok) {
+        persistUsage(usage);
+        settle(usage.cost_estimate_minor ?? 0);
+      } else {
+        settle(0);
+      }
+      throw err;
     } finally {
       const left = (inflight.get(session.session_id) || 1) - 1;
       if (left > 0) inflight.set(session.session_id, left);
