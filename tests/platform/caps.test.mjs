@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError } from '../../src/server/app.mjs';
+import { AppError, costCeilingFor } from '../../src/server/app.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
-import { OWNER_PASS, testApp } from './helpers.mjs';
+import { OWNER_PASS, testApp, testEnv } from './helpers.mjs';
+import { loadConfig } from '../../src/server/config.mjs';
 
 const turn = (sessionId, turnId = '11111111-2222-4333-8444-555555555555') => ({
   contract_version: '0.1.0',
@@ -55,15 +56,18 @@ test('a turn whose cost ceiling does not fit under the daily cap is refused befo
     result.usage.cost_estimate_minor = 150;
     return result;
   };
-  const { app } = testApp({ WEEKEND_SPEND_CAP_USD_PER_DAY: '1' }, { adapter: costly, costCeilingMinor: 150 });
+  const { app } = testApp({ WEEKEND_SPEND_CAP_USD_PER_DAY: '1' }, { adapter: costly, costCeilingMinor: 50 });
   const { token, context } = app.createSession('customer', OWNER_PASS);
+  const today = new Date().toISOString().slice(0, 10);
+  app.store.run('INSERT INTO daily_spend (day, calls, cost_minor) VALUES (?, 3, 90)', [today]); // 90 of 100 cents already spent
   await assert.rejects(
     () => app.submitTurn(token, turn(context.session_id, '11111111-2222-4333-8444-555555555553')),
     err => err instanceof AppError && err.shape.code === 'BUDGET_EXCEEDED',
   );
   assert.equal(calls, 0, 'no paid call was made');
   const spend = app.store.get('SELECT * FROM daily_spend');
-  assert.equal(spend.cost_minor, 0);
+  assert.equal(spend.cost_minor, 90, 'nothing was reserved');
+  assert.equal(spend.calls, 3);
   assert.equal(app.store.get('SELECT COUNT(*) AS n FROM usage_records').n, 0);
   app.close();
 });
@@ -142,5 +146,41 @@ test('a timed-out or failed call releases its reservation', async () => {
   await assert.rejects(() => failing.app.submitTurn(s2.token, turn(s2.context.session_id)), /provider down/);
   assert.equal(failing.app.store.get('SELECT * FROM daily_spend').cost_minor, 0);
   failing.app.close();
+  app.close();
+});
+
+test('costCeilingFor: explicit dep, the adapter declaration, the tenth-of-cap fallback, mock mode, clamped to the cap', () => {
+  const real = loadConfig(testEnv({ WEEKEND_ENV: 'owner-review', WEEKEND_MODEL_MODE: 'real', WEEKEND_SPEND_CAP_USD_PER_DAY: '5' }));
+  const mock = loadConfig(testEnv());
+  const declared = async () => ({});
+  declared.costCeilingMinor = 86;
+  const plain = async () => ({});
+  assert.equal(costCeilingFor(real, { adapter: declared, costCeilingMinor: 40 }), 40, 'an explicit ceiling wins');
+  assert.equal(costCeilingFor(real, { adapter: declared }), 86, 'the adapter declares its own');
+  assert.equal(costCeilingFor(real, { adapter: plain }), 50, 'a tenth of a 500-cent cap');
+  assert.equal(costCeilingFor(mock, { adapter: plain }), 0, 'no reservation without a real adapter');
+  assert.equal(costCeilingFor(mock, {}), 0);
+  const tiny = loadConfig(testEnv({ WEEKEND_ENV: 'owner-review', WEEKEND_MODEL_MODE: 'real', WEEKEND_SPEND_CAP_USD_PER_DAY: '1' }));
+  assert.equal(costCeilingFor(tiny, { adapter: declared }), 86, 'fits under a 100-cent cap');
+  declared.costCeilingMinor = 5000;
+  assert.equal(costCeilingFor(tiny, { adapter: declared }), 100, 'a ceiling above the cap is clamped so the day is not refused outright');
+  for (const bad of [0, -5, 1.5, '10', null, NaN]) assert.equal(costCeilingFor(real, { adapter: plain, costCeilingMinor: bad }), 50, `invalid explicit value ${bad} falls back`);
+});
+
+test('a malformed adapter output releases the reservation and frees the session slot', async () => {
+  let calls = 0;
+  const broken = async () => {
+    calls += 1;
+    if (calls === 1) return { output: { contract_version: '0.1.0', turn_id: 'not-a-uuid' }, usage: null };
+    return runModelTurn({ context: {}, input: turn('x'), now: new Date().toISOString() });
+  };
+  const { app } = testApp({ WEEKEND_SPEND_CAP_USD_PER_DAY: '1', WEEKEND_MAX_CALLS_PER_SESSION: '2' }, { adapter: broken, costCeilingMinor: 100 });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(() => app.submitTurn(token, turn(context.session_id, '11111111-2222-4333-8444-555555555591')), (err) => !(err instanceof AppError));
+  const spend = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spend.cost_minor, 0, 'the whole-cap reservation was released');
+  assert.equal(spend.calls, 1);
+  assert.equal(app.store.get('SELECT COUNT(*) AS n FROM usage_records').n, 0);
+  await assert.rejects(() => app.submitTurn(token, turn(context.session_id, '11111111-2222-4333-8444-555555555592')), (err) => err instanceof AppError && err.shape.code === 'BUDGET_EXCEEDED' || !(err instanceof AppError));
   app.close();
 });

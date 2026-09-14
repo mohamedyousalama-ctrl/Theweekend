@@ -174,16 +174,32 @@ function bytesMatchType(bytes, contentType) {
   return false;
 }
 
+/**
+ * Upper bound of one turn's provider cost (minor units), reserved in the day ledger BEFORE a paid call and replaced by
+ * the real cost afterwards. An explicit `deps.costCeilingMinor` wins; a real adapter may declare its own
+ * (`adapter.costCeilingMinor`, stream A); otherwise a real adapter gets a tenth of the daily cap. Never above the cap
+ * (a ceiling above the cap would refuse every turn), 0 when no real adapter is injected (mock mode, most tests).
+ */
+export function costCeilingFor(config, deps = {}) {
+  const positive = (v) => Number.isInteger(v) && v > 0;
+  const realAdapter = Boolean(deps.adapter) && config.WEEKEND_MODEL_MODE === 'real';
+  const cap = Math.max(0, Math.floor((Number(config.WEEKEND_SPEND_CAP_USD_PER_DAY) || 0) * 100));
+  let ceiling;
+  if (positive(deps.costCeilingMinor)) ceiling = deps.costCeilingMinor;
+  else if (realAdapter && positive(deps.adapter.costCeilingMinor)) ceiling = deps.adapter.costCeilingMinor;
+  else if (realAdapter) ceiling = Math.max(1, Math.ceil(cap / 10));
+  else return 0;
+  return Math.min(ceiling, Math.max(cap, 1));
+}
+
 export function createApp(config, deps = {}) {
   const clock = deps.clock || (() => new Date().toISOString());
   const store = deps.store || openStore(config.WEEKEND_DB_PATH);
   const adapter = deps.adapter || runModelTurn;
   const realAdapter = Boolean(deps.adapter) && config.WEEKEND_MODEL_MODE === 'real';
-  // Upper bound of one turn's provider cost (minor units), reserved in the day ledger BEFORE the paid call and replaced
-  // by the real cost afterwards; 0 when nothing is injected (mock mode, tests). The in-flight count per session lives in
-  // memory: this application runs as one process on one instance (docs/16 §6), so the synchronous check-and-increment
-  // is atomic for concurrent turns.
-  const costCeilingMinor = Number.isInteger(deps.costCeilingMinor) && deps.costCeilingMinor > 0 ? deps.costCeilingMinor : 0;
+  // See costCeilingFor. The in-flight count per session lives in memory: this application runs as one process on one
+  // instance (docs/16 §6), so the synchronous check-and-increment is atomic for concurrent turns.
+  const costCeilingMinor = costCeilingFor(config, deps);
   const inflight = new Map();
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
@@ -913,6 +929,7 @@ export function createApp(config, deps = {}) {
       );
       output = result.output;
       usage = result.usage;
+      assertContract('ChatTurnOutput', output); // inside the guard: a malformed output must release the reservation too
     } catch (err) {
       settle(0); // nothing billable is known; the reservation is released, the claimed call stays counted
       if (err instanceof AppError) throw err;
@@ -939,9 +956,8 @@ export function createApp(config, deps = {}) {
       if (left > 0) inflight.set(session.session_id, left);
       else inflight.delete(session.session_id);
     }
-    assertContract('ChatTurnOutput', output);
     // The real cost always lands in the ledger, even when it exceeds what was reserved; only later turns are refused.
-    settle(usage.cost_estimate_minor ?? 0);
+    settle(usage?.cost_estimate_minor ?? 0);
     persistUsage(usage);
     if (input.image_ref && output.observations) {
       store.run(
