@@ -233,7 +233,7 @@ export function createApp(config, deps = {}) {
       const listed = store.all(
         `SELECT image_ref FROM images
          WHERE image_ref IN (${[...photoBytes.keys()].map(() => '?').join(',')})
-         ORDER BY created_at ASC`,
+         ORDER BY created_at ASC, rowid ASC`,
         [...photoBytes.keys()],
       );
       const extra = listed.length - photoBytesMax;
@@ -1055,7 +1055,7 @@ export function createApp(config, deps = {}) {
   async function runTurn(token, session, input) {
     const context = contextOf(session);
     sweepPhotoRetention();
-    let imageBytes = null;
+    let pendingImageRef = null;
     if (input.image_ref) {
       if (context.capabilities.photo !== 'enabled') {
         fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
@@ -1067,7 +1067,7 @@ export function createApp(config, deps = {}) {
       if (!image || image.subject_id !== session.subject_id) {
         fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
       }
-      imageBytes = consumePhotoBytes(input.image_ref);
+      pendingImageRef = input.image_ref;
     }
 
     if (input.client_action_id) {
@@ -1090,6 +1090,7 @@ export function createApp(config, deps = {}) {
       }, 429);
     }
     inflight.set(session.session_id, inFlight + 1);
+    const imageBytes = pendingImageRef ? consumePhotoBytes(pendingImageRef) : null;
 
     let output;
     let usage;

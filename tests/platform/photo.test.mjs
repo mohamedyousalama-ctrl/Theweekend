@@ -50,6 +50,49 @@ test('upload bytes reach the adapter once, then are discarded', async () => {
   app.close();
 });
 
+test('photo bytes survive a rejected turn and a client-action turn', async () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true', WEEKEND_MAX_CALLS_PER_SESSION: '1' });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(token, {
+    byteLength: JPEG_HEAD.length, contentType: 'image/jpeg', bytes: JPEG_HEAD,
+  });
+  const booking = app.issueBookingAction(token);
+  await app.submitTurn(token, {
+    contract_version: '0.1.0',
+    session_id: context.session_id,
+    turn_id: '11111111-2222-4333-8444-555555555801',
+    text: '',
+    image_ref: up.image_ref,
+    client_action_id: booking.action_id,
+    locale_hint: 'ar',
+  });
+  assert.equal(app.peekPhotoBytes(up.image_ref), true);
+  await app.submitTurn(token, {
+    contract_version: '0.1.0',
+    session_id: context.session_id,
+    turn_id: '11111111-2222-4333-8444-555555555802',
+    text: 'أبغى قصة',
+    image_ref: null,
+    client_action_id: null,
+    locale_hint: 'ar',
+  });
+  await assert.rejects(
+    () => app.submitTurn(token, {
+      contract_version: '0.1.0',
+      session_id: context.session_id,
+      turn_id: '11111111-2222-4333-8444-555555555803',
+      text: '',
+      image_ref: up.image_ref,
+      client_action_id: null,
+      locale_hint: 'ar',
+    }),
+    (err) => err.shape?.code === 'BUDGET_EXCEEDED',
+  );
+  assert.equal(app.peekPhotoBytes(up.image_ref), true);
+  app.close();
+});
+
 test('abandoned upload bytes expire after the 10-minute TTL and the entry cap', () => {
   let now = Date.parse('2026-09-14T10:00:00.000Z');
   const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' }, {
