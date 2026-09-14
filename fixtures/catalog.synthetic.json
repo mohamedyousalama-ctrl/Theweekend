@@ -1,0 +1,38 @@
+{
+  "fixture": true,
+  "environment": "test_only",
+  "merchant_approved": false,
+  "brand": "Fictional test shop - not The Weekend operational data",
+  "currency": "SAR",
+  "branches": [
+    {
+      "id": "branch_test_01",
+      "name": "Synthetic branch",
+      "timezone": "Asia/Riyadh",
+      "address": null,
+      "map_url": null
+    }
+  ],
+  "services": [
+    {
+      "id": "service_test_cut",
+      "name": "Synthetic haircut",
+      "branch_id": "branch_test_01",
+      "price_minor": 10000,
+      "duration_minutes": 30,
+      "synthetic": true
+    },
+    {
+      "id": "service_test_beard",
+      "name": "Synthetic beard trim",
+      "branch_id": "branch_test_01",
+      "price_minor": 5000,
+      "duration_minutes": 15,
+      "synthetic": true
+    }
+  ],
+  "products": [],
+  "staff": [],
+  "slots": [],
+  "note": "No address, real staff, live stock, or live availability. Test prices must never enter a live quote."
+}

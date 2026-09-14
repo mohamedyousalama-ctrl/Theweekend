@@ -1,56 +1,64 @@
 # The Weekend / Rakan
 
-**Rakan (راكان)** is the proposed digital grooming concierge for The Weekend: useful styling consultation, appropriate product advice, trustworthy booking assistance, and a customer-approved style history.
+Rakan (راكان) is The Weekend's proposed digital grooming concierge: practical style choices, trustworthy booking assistance and a customer-approved barber brief.
 
 ## Status — 13 September 2026
 
-**DOCUMENTATION ONLY. NOT IMPLEMENTED. NOT RELEASED FOR LIVE CUSTOMER USE.**
+**Reviewed planning plus a small tested implementation scaffold. Not a running agent or a customer release.**
 
-The repository owner requested a review of the complete proposed experience before implementation. This is the corrected planning baseline, not proof of a functioning agent, integration, commercial result, or legal compliance. Rakan is a working name requiring brand approval. This is an assistant-led requirements review, **not an independent audit or certification**.
+This revision reconciles the documents attributed to Grok with the owner's latest instructions and our unfinished changes. Existing documents 00–10 are preserved; [14 — Collaborative review](docs/14-COLLABORATIVE-REVIEW.md) explicitly corrects the identified passages and records source limitations. Read that amendment before implementing the older specifications. This is an assistant-led review, not an independent audit, legal approval or clinical certification.
 
-## Start here
+## Completely separate from Kivo
+
+The Weekend owns its Rakan persona, grooming knowledge, code, customer records, credentials, deployment, messaging configuration and release lifecycle. It is not a Kivo tenant. No Kivo live service, production data, voice donor asset, moving dependency or shared customer memory is used. Selected source reuse requires review and then local Weekend ownership; see [11](docs/11-REUSE-MANIFEST.md) and [13](docs/13-STANDALONE-AND-REAL-SERVICE.md). No source extraction has been completed.
+
+## What is actually here
+
+- The product, persona, booking, privacy, visual-consultation and evidence documents.
+- A candidate [system prompt](prompts/rakan.system.md), not model-tested or production-approved.
+- A clearly fictional [catalog fixture](fixtures/catalog.synthetic.json), not The Weekend's prices or availability.
+- A dependency-free [next-action selector](src/domain/next-actions.mjs) and [30 synthetic scenario contexts](evals/next-actions.synthetic.json).
+- [40 local unit tests](tests/next-actions.test.mjs) for action selection and malformed input. They do not evaluate language understanding, images, real transactions or authentication.
+
+Run with Node supporting the built-in test runner:
+
+```sh
+node --test tests/*.test.mjs
+```
+
+Verified locally on Node v22.16.0. No dependency installation, API key or provider call is needed. There is no chat server or deployed UI in this scaffold.
+
+## Document map
 
 | Document | Purpose |
 |---|---|
-| [Review and corrections](docs/00-REVIEW-AND-CORRECTIONS.md) | Errors, unsupported claims, scope problems and their corrections. |
-| [Complete product specification](docs/01-PRODUCT-SPECIFICATION.md) | Revised coverage of all 40 original specification sections. |
-| [Persona and conversations](docs/02-PERSONA-AND-CONVERSATION.md) | Saudi Arabic character, transparent identity, sales rules and examples. |
-| [Business truth and integration](docs/03-TRUTH-AND-INTEGRATION.md) | Verified public observations, missing merchant data and integration discovery. |
-| [Booking states and tool contracts](docs/04-BOOKING-STATE-AND-TOOLS.md) | Correct transactions, confirmation, payment separation and failure recovery. |
-| [Visual consultation and products](docs/05-VISUAL-CONSULTATION-AND-PRODUCTS.md) | Cosmetic photo advice, product suitability and the barber brief. |
-| [Privacy, security and handoff](docs/06-PRIVACY-SECURITY-AND-HANDOFF.md) | Permissions, retention, channel rules, human operations and security. |
-| [Acceptance and metrics](docs/07-ACCEPTANCE-AND-METRICS.md) | Proposed tests, release gates and honest business measurement. |
-| [Delivery plan and required inputs](docs/08-DELIVERY-PLAN-AND-INPUTS.md) | Small releases, the 25 original business inputs and decision log. |
-| [Sources and evidence](docs/09-SOURCES-AND-EVIDENCE.md) | Primary-source URLs, observations and limitations. |
-| [Coverage map](docs/10-COVERAGE-MAP.md) | Traceability of the original vision and all 40 specification sections. |
-| [Repository instructions](AGENTS.md) | Rules for future assistants and developers. |
+| [00 — Review](docs/00-REVIEW-AND-CORRECTIONS.md) | Historical R01–R30 requirements corrections |
+| [01 — Product](docs/01-PRODUCT-SPECIFICATION.md) | All 40 original specification sections |
+| [02 — Persona](docs/02-PERSONA-AND-CONVERSATION.md) | Saudi Arabic character and ethical selling |
+| [03 — Truth/integration](docs/03-TRUTH-AND-INTEGRATION.md) | Authority sources and integration discovery |
+| [04 — Transactions](docs/04-BOOKING-STATE-AND-TOOLS.md) | Booking/payment states and tool contracts |
+| [05 — Visual consultation](docs/05-VISUAL-CONSULTATION-AND-PRODUCTS.md) | Cosmetic advice, products and staff brief |
+| [06 — Privacy/handoff](docs/06-PRIVACY-SECURITY-AND-HANDOFF.md) | Permissions, retention and human operations |
+| [07 — Acceptance](docs/07-ACCEPTANCE-AND-METRICS.md) | Proposed production gates and metrics |
+| [08 — Delivery/inputs](docs/08-DELIVERY-PLAN-AND-INPUTS.md) | Staged implementation and merchant inputs |
+| [09 — Evidence](docs/09-SOURCES-AND-EVIDENCE.md) | Earlier source observations; read review qualifications in 14 |
+| [10 — Coverage](docs/10-COVERAGE-MAP.md) | Original 40-section coverage; historical pre-scaffold status |
+| [11 — Reuse](docs/11-REUSE-MANIFEST.md) | Candidate imports, not completed extraction |
+| [12 — Next actions](docs/12-CUSTOMER-NEXT-ACTIONS.md) | Customer choices and executable policy boundary |
+| [13 — Standalone decision](docs/13-STANDALONE-AND-REAL-SERVICE.md) | Owner-approved separation and real-service direction |
+| [14 — Reconciled review](docs/14-COLLABORATIVE-REVIEW.md) | Current corrective amendment, evidence and limits |
+| [AGENTS](AGENTS.md) | Contributor authority and collaboration rules |
 
-## Product direction
+## Product invariants
 
-**Help me choose -> book accurately -> brief the barber -> learn from feedback.**
+Help the customer choose, book accurately, brief the barber and learn only from permitted feedback. Customers may skip consultation, photos and marketing permission. Be natural while clearly identifying Rakan as a digital assistant; no fake employee biography.
 
-Customers who only want an appointment must be able to skip consultation. Photos are optional. Product advice serves the customer's expressed goal, not a sales quota. Natural conversation must not conceal that Rakan is a digital assistant.
+Never invent a price, slot, product, stock check, staff skill or completed action. Selected time, checkout link and payment screenshot do not prove a confirmed appointment. Separate booking, payment, notification and brief-delivery outcomes.
 
-The proposed pilot is one location, an approved service/product catalog, one authorized booking workflow, a staffed handoff, and optional cosmetic photo consultation after its privacy and quality gates. This pilot boundary is not a claim about the brand's number of locations.
+Photo advice is cosmetic, approximate and optional. No diagnosis, disease-treatment sales, identity recognition, demographic inference or attractiveness score. Separate permission for analysis, storage, staff sharing and marketing. No customer data or credentials in this public repository.
 
-The roadmap preserves style history, barber matching, memberships, occasions, feedback, website chat, Instagram, voice and hairstyle previews. These are staged rather than all promised in the first release.
+## Build versus release
 
-## Non-negotiables
+Internal fixtures and isolated components do not need a live merchant tenant. Actual customer use does require approved business representation, current catalog/policy truth, a supported booking or request-only route, real support, privacy/retention controls, qualified grooming/native review and feature-specific tests. A real configured consultation must never silently become scripted demo output. Unsupported operations remain unavailable or truthfully become staff requests.
 
-- No invented services, prices, staff qualifications, appointments, inventory, promotions or completed actions.
-- A selected slot, sent request, checkout link or payment screenshot is not a confirmed booking.
-- No medical diagnosis, disease-treatment promises, attractiveness scoring, facial recognition or identity inference from customer images.
-- No customer photos, conversations, credentials, signed URLs, private staff data or private business exports in this **public repository**.
-- Photo consultation permission does not authorize permanent storage, advertising, model training or marketing messages.
-- No selective positive-review solicitation, fake scarcity or repeated upselling after refusal.
-- Public website information does not demonstrate access to the merchant's operational systems.
-
-## Current evidence
-
-The public brand pages support premium grooming, memberships and curated products, but the observed booking pages expose no bookable services. That does **not** establish that the business has stopped taking bookings. A Rekaz-hosted asset is visible, and Rekaz publishes merchant integration documentation, but the merchant tenant, credentials and permitted capabilities remain unverified. See [evidence](docs/09-SOURCES-AND-EVIDENCE.md).
-
-## Next gate
-
-Resolve brand authorization, catalog/policy truth, booking-provider access, human operations, privacy design and the pilot boundary. Then prepare and test the implementation/prompt package. This documentation work does not authorize deployment, real appointments, customer outreach, paid provider usage or processing real customer photos.
-
-Unless labeled as verified evidence, names, conversations, prices, identifiers, thresholds and release boundaries are examples or proposals. Referencing The Weekend here does not assert a signed commercial partnership.
+The work is proposed through a separate review branch/PR to protect concurrent edits. No main rewrite, deployment, paid API use, live message, booking, payment or real customer-photo processing is part of this revision. Licensing remains an owner decision; [NOTICE](NOTICE.md) does not grant a new license.
