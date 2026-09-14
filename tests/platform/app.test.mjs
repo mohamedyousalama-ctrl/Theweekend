@@ -189,3 +189,27 @@ test('granting the same consent twice returns the active receipt; one revoke cle
   assert.notEqual(third.receipt_id, first.receipt_id);
   app.close();
 });
+
+test('revoking an already-revoked receipt does not purge a newer grant', () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const first = app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const revoked = app.revokeConsent(token, first.receipt_id);
+  assert.ok(revoked.revoked_at);
+  const second = app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, context.session_id, context.subject_id, '{"contract_version":"0.1.0"}', new Date().toISOString()],
+  );
+  const retry = app.revokeConsent(token, first.receipt_id);
+  assert.equal(retry.receipt_id, first.receipt_id);
+  assert.equal(retry.revoked_at, revoked.revoked_at);
+  assert.ok(app.store.get('SELECT * FROM images WHERE image_ref = ?', [up.image_ref]));
+  assert.ok(app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', [up.image_ref]));
+  const active = app.context(token).consents.find((c) => c.kind === 'photo_analysis');
+  assert.equal(active.receipt_id, second.receipt_id);
+  assert.equal(active.revoked_at, null);
+  app.close();
+});

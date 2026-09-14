@@ -606,7 +606,11 @@ export function createApp(config, deps = {}) {
     const row = store.get('SELECT * FROM permission_receipts WHERE receipt_id = ?', [receiptId]);
     if (!row || row.subject_id !== session.subject_id) fail('NOT_FOUND', 'consent.not_found', false, {}, 404);
     const now = iso(clock);
-    store.run('UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ?', [now, receiptId]);
+    const claimed = store.run(
+      'UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ? AND revoked_at IS NULL',
+      [now, receiptId],
+    );
+    if (claimed.changes !== 1) return rowReceipt(row);
     if (row.kind === 'photo_analysis') purgeSubjectPhotoMaterial(session.subject_id);
     if (row.kind === 'staff_sharing_text') {
       store.run(
