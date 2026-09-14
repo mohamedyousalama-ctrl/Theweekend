@@ -31,7 +31,7 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 4. **Run the checks** before every push: `npm test` (all `node --test tests/*.test.mjs`) plus your stream's own tests. A failing test is never skipped or deleted.
 5. **Open a draft PR** to `main` using `.github/pull_request_template.md`. Fill it truthfully: base commit, files, commands actually run, checks NOT run, model/vision tests `NOT RUN` if absent.
 6. **Report** on the issue with the exact format: `base <sha> → head <sha>; files: …; checks run: …; not run: …; blockers: …`. Then say `RELEASED` if you stop before finishing so the next agent can continue.
-7. **Reviews** are cross-stream (Grok reviews A behaviour, Claude Code reviews C platform/security, ChatGPT/Cursor reviews B fidelity). Nobody approves their own code. Only the owner merges.
+7. **Reviews** are cross-stream (Grok reviews A behaviour, Claude Code reviews C platform/security, ChatGPT/Cursor reviews B fidelity, the integrator reviews B's use of the contracts). Nobody approves their own code. Merges: the integrator, under decision D17 in `docs/18-HANDOVER-INTEGRATOR.md` §3 (two-agent review, green `npm test`, bot reviews read, no overlapping writer); the owner may also merge.
 
 ## 4. Hard limits (repeat of AGENTS.md — read the original)
 
