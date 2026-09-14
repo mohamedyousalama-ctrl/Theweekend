@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError } from '../../src/server/app.mjs';
+import { AppError, PHOTO_OBSERVATIONS_TTL_MS } from '../../src/server/app.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp } from './helpers.mjs';
 
 test('share brief action re-checks ownership and version on click', () => {
@@ -432,6 +432,56 @@ test('revoking staff_sharing_photo clears the staff photo reference and observat
   assert.equal(inbox[0].reference.kind, 'none');
   assert.equal(inbox[0].reference.image_ref, null);
   assert.equal(inbox[0].observations, null);
+  app.close();
+});
+
+test('expired observations never reach the staff inbox', () => {
+  let now = Date.parse('2026-09-01T00:00:00.000Z');
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' }, {
+    clock: () => new Date(now).toISOString(),
+  });
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  app.grantConsent(customer.token, 'photo_analysis', 'customer_ui');
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  app.grantConsent(customer.token, 'staff_sharing_photo', 'customer_ui');
+  const brief = app.createBrief(customer.token, { text_ar: 'ملاحظات تنتهي', do_not: [] });
+  const up = app.registerUpload(customer.token, { byteLength: 12, contentType: 'image/jpeg' });
+  const observations = {
+    contract_version: '0.1.0',
+    image_ref: up.image_ref,
+    observed: {
+      hair_length: 'short',
+      hair_texture: 'wavy',
+      beard: 'stubble',
+      top_density_visible: 'uncertain',
+      face_visible: 'partial',
+    },
+    limitations: ['lighting'],
+    confidence: 'low',
+    not_inferred: ['identity', 'age', 'ethnicity', 'health', 'attractiveness', 'gender'],
+    retention: 'stored_with_receipt',
+  };
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, customer.context.session_id, customer.context.subject_id, JSON.stringify(observations), new Date(now).toISOString()],
+  );
+  const textShare = app.issueShareActionsForBrief(customer.token, brief.brief_id)
+    .allowed_actions.find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, textShare.action_id).outcome, 'done');
+  const photoShare = app.issueSharePhotoAction(customer.token, { image_ref: up.image_ref });
+  assert.equal(app.executeAction(customer.token, photoShare.action_id).outcome, 'done');
+  assert.deepEqual(app.staffBriefs(staff.token)[0].observations, observations);
+  now += PHOTO_OBSERVATIONS_TTL_MS + 1;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ?',
+    [new Date(now + 8 * 3600000).toISOString()],
+  );
+  const inbox = app.staffBriefs(staff.token);
+  assert.equal(inbox.length, 1);
+  assert.equal(inbox[0].observations, null);
+  assert.equal(app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', [up.image_ref]), null);
   app.close();
 });
 

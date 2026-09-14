@@ -688,19 +688,29 @@ export function createApp(config, deps = {}) {
     if (session.role !== 'staff' && session.role !== 'owner') {
       fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
     }
+    sweepPhotoRetention();
     const rows = store.all(
       `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('delivered', 'acknowledged')`,
       [config.WEEKEND_BRANCH_ID],
     );
+    const refs = [...new Set(rows.map((row) => row.image_ref).filter(Boolean))];
+    const observationsByRef = new Map();
+    if (refs.length > 0) {
+      const cutoff = new Date(Date.parse(iso(clock)) - PHOTO_OBSERVATIONS_TTL_MS).toISOString();
+      const stored = store.all(
+        `SELECT image_ref, observations_json FROM photo_observations
+         WHERE image_ref IN (${refs.map(() => '?').join(',')}) AND created_at > ?`,
+        [...refs, cutoff],
+      );
+      for (const row of stored) {
+        observationsByRef.set(row.image_ref, parseObservations(row.observations_json));
+      }
+    }
     return rows.map((row) => {
       const brief = rowBrief(row);
       let observations = null;
       if (brief.reference.kind === 'photo_ref' && brief.reference.image_ref) {
-        const stored = store.get(
-          'SELECT observations_json FROM photo_observations WHERE image_ref = ?',
-          [brief.reference.image_ref],
-        );
-        observations = parseObservations(stored?.observations_json);
+        observations = observationsByRef.get(brief.reference.image_ref) ?? null;
       }
       return { ...brief, observations };
     });
