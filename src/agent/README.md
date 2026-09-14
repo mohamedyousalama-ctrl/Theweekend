@@ -2,10 +2,10 @@
 
 | Piece | File | Status |
 |---|---|---|
-| Persona and rules | `prompts/rakan.system.md` (`rakan.system.v0.3`) | `proposal` — native-speaker and barber review NOT_RUN |
-| Knowledge pack | `knowledge/build.mjs` → `knowledge/marsiya.v1.json` (45 records) | built from `research/claude-20260913/` + the owner's answers; every record validates against `KnowledgeRecord` |
+| Persona and rules | `prompts/rakan.system.md` (`rakan.system.v0.4`) | `proposal` — native-speaker and barber review NOT_RUN |
+| Knowledge pack | `knowledge/build.mjs` → `knowledge/marsiya.v1.json` (47 records, revision 2) | built from `research/claude-20260913/` + the owner's answers; every record validates against `KnowledgeRecord` |
 | Adapter | `src/agent/adapter.mjs` | Claude API via the official SDK, structured JSON output, grounding check, contract validation, in-memory bounded history, photo bytes in memory only |
-| Deterministic tests | `tests/agent/*.test.mjs` (26) | run by `npm test` with a fake client — no network, no key |
+| Deterministic tests | `tests/agent/*.test.mjs` (34) | run by `npm test` with a fake client — no network, no key |
 | Real-model evaluation | `src/agent/eval.mjs` + `tests/agent/cases.json` (30 text cases, optional images) | **NOT RUN** until the owner's key exists on the host |
 
 ## How a turn works

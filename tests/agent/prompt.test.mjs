@@ -33,6 +33,12 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'at most one question per turn',
     'No scarcity',
     'knowledge_refs',
+    'figures and links',
+    'kno_mrs_membership_compare_monthly_basic',
+    'run 360 days from activation',
+    'Never repeat a wrong price or figure the customer wrote',
+    'whose own name names a condition',
+    'availability at the branch is unconfirmed',
   ]) assert.ok(body.includes(needle), `missing rule: ${needle}`);
 });
 

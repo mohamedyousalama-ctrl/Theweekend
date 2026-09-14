@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.3';
+export const PROMPT_VERSION = 'rakan.system.v0.4';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -175,15 +175,32 @@ export function sniffImageMime(bytes) {
   return null;
 }
 
+/**
+ * Cost in whole US cents, computed in integer nano-dollars (no floating-point money) and rounded UP, so the
+ * daily ledger never under-counts a call. Cache reads cost 10% and cache writes 125% of the input price.
+ */
 export function estimateCostMinor(modelId, usage) {
   const price = PRICES_USD_PER_MTOK[modelId];
   if (!price || !usage) return null;
-  const input = usage.input_tokens || 0;
-  const output = usage.output_tokens || 0;
-  const cacheRead = usage.cache_read_input_tokens || 0;
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
-  const usd = (input * price.input + output * price.output + cacheRead * price.input * 0.1 + cacheWrite * price.input * 1.25) / 1_000_000;
-  return Math.max(0, Math.round(usd * 100));
+  const tokens = (v) => (Number.isFinite(v) && v > 0 ? Math.floor(v) : 0);
+  const input = tokens(usage.input_tokens);
+  const output = tokens(usage.output_tokens);
+  const cacheRead = tokens(usage.cache_read_input_tokens);
+  const cacheWrite = tokens(usage.cache_creation_input_tokens);
+  const nanoIn = Math.round(price.input * 1000); // nano-USD per token == USD per MTok × 1000
+  const nanoOut = Math.round(price.output * 1000);
+  const nano20 = 20 * input * nanoIn + 20 * output * nanoOut + 2 * cacheRead * nanoIn + 25 * cacheWrite * nanoIn;
+  return Math.ceil(nano20 / (20 * 10_000_000)); // one cent = 10^7 nano-USD
+}
+
+/**
+ * Upper bound of one turn's cost in cents, for the server to reserve BEFORE the paid call: two attempts, each with a
+ * generous 40k-token input (prompt + knowledge + history), the full MAX_TOKENS output and a 20k-token cache write.
+ * The server replaces it by the real cost after the call. null for an unknown model id.
+ */
+export function maxCostMinorPerTurn(modelId) {
+  const perAttempt = estimateCostMinor(modelId, { input_tokens: 40_000, output_tokens: MAX_TOKENS, cache_creation_input_tokens: 20_000 });
+  return perAttempt == null ? null : perAttempt * 2;
 }
 
 function riyadhClock(nowIso) {
@@ -234,29 +251,176 @@ export function normalizeDigits(text) {
     .replace(/\u066B/g, '.');
 }
 
-// No \b after Arabic: JS word boundaries are ASCII-only, so use a Unicode lookahead instead.
-const PRICE_RE = /(\d[\d,]*(?:\.\d+)?)\s*(?:ريال|ريالاً|ريالات|ر\.س|SAR|riyals?|SR)(?![\p{L}\p{N}])/giu;
+// No \b after Arabic: JS word boundaries are ASCII-only, so use Unicode lookarounds instead.
+const CURRENCY = '(?:ريال|ريالاً|ريالات|ر\\.س|SAR|riyals?|SR)';
+const PRICE_RE = new RegExp(`(?<![\\p{N}.,])(\\d[\\d,]*(?:\\.\\d+)?)\\s*${CURRENCY}(?![\\p{L}\\p{N}])`, 'giu');
+const PRICE_FIRST_RE = new RegExp(`(?<![\\p{L}\\p{N}])${CURRENCY}\\s*(\\d[\\d,]*(?:\\.\\d+)?)`, 'giu');
 
-/** "2,499" → "2499" (thousands), "2,5" → "2.5" (decimal); returns the integer part as a string. */
-function integerPart(raw) {
-  let s = raw;
-  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
-  else s = s.replace(',', '.');
-  return s.split('.')[0];
+/** "2,499" → "2499" (thousands), "2,5" → "2.5" (decimal comma), "30.50" → "30.5", "007" → "7". */
+export function canonicalAmount(raw) {
+  let v = String(raw);
+  if (/^\d{1,3}(,\d{3})+(\.\d+)?$/.test(v)) v = v.replace(/,/g, '');
+  else v = v.replace(',', '.');
+  if (v.includes('.')) v = v.replace(/0+$/, '').replace(/\.$/, '');
+  return v.replace(/^0+(?=\d)/, '');
 }
 
-/** Every amount quoted in the reply must appear in a cited knowledge record. Returns the unmatched amounts. */
+function amountsIn(text) {
+  const out = new Set();
+  const t = normalizeDigits(text);
+  for (const m of t.matchAll(PRICE_RE)) out.add(canonicalAmount(m[1]));
+  for (const m of t.matchAll(PRICE_FIRST_RE)) out.add(canonicalAmount(m[1]));
+  return out;
+}
+
+function citedText(refs, byId) {
+  return refs.map((id) => byId.get(id)).filter(Boolean).map((r) => `${r.text_ar}\n${r.text_en}`).join('\n');
+}
+
+/**
+ * Every amount quoted with a currency marker in the reply must appear, with a currency marker and the same
+ * value (35 ≠ 35.5; a 35-minute duration is not 35 riyals), in a cited knowledge record. There is no exemption
+ * for an amount the customer wrote: a wrong price is corrected by stating the right one, never by repeating it
+ * (a co-occurrence rule would let «أيوه 5 ريال … والدقن 20 ريال» through). Returns the unmatched amounts.
+ */
 export function ungroundedPrices(messages, refs, byId) {
-  const cited = refs.map((id) => byId.get(id)).filter(Boolean);
-  const haystack = normalizeDigits(cited.map((r) => `${r.text_ar}\n${r.text_en}`).join('\n')).replace(/(\d),(\d{3})/g, '$1$2');
+  const grounded = amountsIn(citedText(refs, byId));
+  const missing = [];
+  for (const m of messages) for (const a of amountsIn(m.text)) if (!grounded.has(a) && !missing.includes(a)) missing.push(a);
+  return missing;
+}
+
+// Figures with a unit the shop's catalogue defines: they are merchant facts, so they follow the price rule.
+// A figure may be digits or a number word (خمس زيارات, two visits, زيارتين); hours are normalised to minutes.
+const NUMBER_WORDS = {
+  'واحد': 1, 'واحدة': 1, 'وحدة': 1, 'اثنين': 2, 'اثنتين': 2, 'ثنتين': 2, 'ثلاث': 3, 'ثلاثة': 3, 'ثلاثه': 3, 'أربع': 4, 'اربع': 4, 'أربعة': 4, 'اربعة': 4,
+  'خمس': 5, 'خمسة': 5, 'خمسه': 5, 'ست': 6, 'ستة': 6, 'سته': 6, 'سبع': 7, 'سبعة': 7, 'ثمان': 8, 'ثماني': 8, 'ثمانية': 8, 'تسع': 9, 'تسعة': 9, 'عشر': 10, 'عشرة': 10,
+  one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10,
+};
+// Digits take no letter boundary: Arabic proclitics and «الـ» glue to a number («و5 دقايق», «الـ30 يوم»), and a hyphen may join the
+// unit («35-minute»). A number word may carry one glued proclitic (و ف ب ك ل: «وخمس زيارات»). English «a»/«an» are not counted
+// («within a day» is a hedge, not a fact); «an hour» is a phrase below.
+const PROCLITIC = '(?:[وفبكل])?';
+const NUM = `(?:(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?)[\\s-]*|(?<![\\p{L}])${PROCLITIC}(${Object.keys(NUMBER_WORDS).join('|')})[\\s-]+)`;
+const UNIT_RE = (unit) => new RegExp(`${NUM}(?:${unit})(?![\\p{L}])`, 'giu');
+const FACT_UNITS = [
+  ['minutes', UNIT_RE('دقيقة|دقيقه|دقايق|دقائق|min(?:ute)?s?'), 1],
+  ['minutes', UNIT_RE('ساعة|ساعه|ساعات|hours?|hrs?'), 60],
+  ['days', UNIT_RE('يوم|أيام|ايام|days?'), 1],
+  ['visits', UNIT_RE('زيارة|زياره|زيارات|visits?'), 1],
+  ['percent', new RegExp(`(?<![\\p{N}.,])(\\d+(?:[.,]\\d+)?)\\s*(?:%|٪|بالمئة|بالمية|بالمائة|percent)`, 'giu'), 1],
+];
+// Duals and fixed phrases carry their own value (longer phrases first: they are blanked before the shorter ones run).
+// A bare «ساعة» counts as one hour only after a duration framing word («المدة ساعة», «حوالي ساعة»); «كم ساعة؟», «الساعة 3»
+// and «ساعة الافتتاح» are not durations.
+const FACT_PHRASES = [
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعة ونص|ساعة ونصف|ساعه ونص|an hour and a half|one and a half hours)(?![\p{L}])/giu, 90],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعتين|ساعتان|two hours)(?![\p{L}])/giu, 120],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ربع ساعة|ربع ساعه|quarter of an hour|quarter-hour)(?![\p{L}])/giu, 15],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ثلث ساعة|ثلث ساعه)(?![\p{L}])/giu, 20],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:نصف ساعة|نص ساعة|نصف ساعه|نص ساعه|half an hour|half-hour|half hour)(?![\p{L}])/giu, 30],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:ساعة واحدة|ساعة وحدة|ساعه واحدة|ساعه وحدة|an hour|one hour)(?![\p{L}])/giu, 60],
+  ['minutes', /(?<=(?:المدة|مدتها|مدته|تاخذ|تأخذ|ياخذ|يأخذ|حوالي|تقريباً|تقريبا|قرابة|لمدة|خلال|نحو)\s+)(?:ساعة|ساعه)(?![\p{L}])/giu, 60],
+  ['minutes', /(?<![\p{L}])(?:[وفبكل])?(?:دقيقتين|دقيقتان|two minutes)(?![\p{L}])/giu, 2],
+  ['days', /(?<![\p{L}])(?:[وفبكل])?(?:يومين|يومان|two days)(?![\p{L}])/giu, 2],
+  ['visits', /(?<![\p{L}])(?:[وفبكل])?(?:زيارتين|زيارتان|two visits)(?![\p{L}])/giu, 2],
+];
+
+function numberOf(token) {
+  const key = token.toLowerCase();
+  if (key in NUMBER_WORDS) return NUMBER_WORDS[key];
+  return Number(canonicalAmount(token));
+}
+
+function factsIn(text) {
+  const out = new Set();
+  let t = normalizeDigits(text);
+  for (const [kind, re, value] of FACT_PHRASES) {
+    if (re.test(t)) out.add(`${kind}:${value}`);
+    t = t.replace(re, ' ');
+  }
+  for (const [kind, re, factor] of FACT_UNITS) {
+    for (const m of t.matchAll(re)) {
+      const n = numberOf(m[1] ?? m[2]) * factor;
+      if (Number.isFinite(n)) out.add(`${kind}:${canonicalAmount(String(n))}`);
+    }
+  }
+  return out;
+}
+
+/** Durations, day counts, visit counts and percentages in the reply must come from a cited record — no exemption for the customer's own figures. */
+export function ungroundedFacts(messages, refs, byId) {
+  const grounded = factsIn(citedText(refs, byId));
+  const missing = [];
+  for (const m of messages) for (const f of factsIn(m.text)) if (!grounded.has(f) && !missing.includes(f)) missing.push(f);
+  return missing;
+}
+
+const URL_RE = /https?:\/\/[^\s<>"'()[\]{}«»“”‘’]+/giu;
+
+function urlsIn(text) {
+  return [...String(text).matchAll(URL_RE)].map((m) => m[0].replace(/[.,،؛;:!?“”‘’]+$/u, ''));
+}
+
+/** All links that appear in the given knowledge records (the only links Rakan may send). */
+export function linksIn(records) {
+  const out = new Set();
+  for (const r of records) for (const u of urlsIn(`${r.text_ar}\n${r.text_en}`)) out.add(u);
+  return out;
+}
+
+/** Scheme and host are case-insensitive; path and query are not (/BOOK or ?branchid= is a different page). Fragments are dropped. */
+function normalizeUrl(u) {
+  try {
+    const x = new URL(u);
+    return `${x.protocol}//${x.host}${x.pathname}${x.search}`;
+  } catch {
+    return u;
+  }
+}
+
+/** Every link in the reply must be a record link, exactly, or the same page without its query string (the booking page without ?branchId=). */
+export function ungroundedLinks(messages, links) {
+  const allowed = [...links].map(normalizeUrl);
   const missing = [];
   for (const m of messages) {
-    for (const match of normalizeDigits(m.text).matchAll(PRICE_RE)) {
-      const integer = integerPart(match[1]);
-      if (!new RegExp(`(^|[^\\d])${integer}([^\\d]|$)`).test(haystack)) missing.push(integer);
+    for (const u of urlsIn(m.text)) {
+      const l = normalizeUrl(u);
+      if (!allowed.some((a) => a === l || a.startsWith(`${l}?`)) && !missing.includes(u)) missing.push(u);
     }
   }
   return missing;
+}
+
+/** The deterministic checks a draft output must pass before it reaches the customer; each problem carries its retry hint. */
+export function groundingProblems(draft, knowledge) {
+  const problems = [];
+  const prices = ungroundedPrices(draft.messages, draft.knowledge_refs, knowledge.byId);
+  if (prices.length) {
+    problems.push({
+      messageKey: 'agent.ungrounded_price',
+      text: 'خلني أتأكد من السعر قبل أقوله لك. تقدر تشوف الأسعار كاملة في صفحة الحجز.',
+      correction: `You quoted amounts (${prices.join(', ')}) that are not in any knowledge record you cited. Quote only prices that appear in the records and list their ids in knowledge_refs; otherwise say the price is on the booking page.`,
+    });
+  }
+  const facts = ungroundedFacts(draft.messages, draft.knowledge_refs, knowledge.byId);
+  if (facts.length) {
+    problems.push({
+      messageKey: 'agent.ungrounded_fact',
+      text: 'خلني أتأكد من التفاصيل قبل أقولها لك. التفاصيل كاملة في صفحة الحجز.',
+      correction: `You stated figures (${facts.map((f) => f.replace(':', ' ')).join(', ')}) that are not in any knowledge record you cited. State durations, days, visit counts and percentages only as the cited records give them, or leave them out.`,
+    });
+  }
+  const cited = draft.knowledge_refs.map((id) => knowledge.byId.get(id)).filter(Boolean);
+  const links = ungroundedLinks(draft.messages, linksIn(cited));
+  if (links.length) {
+    problems.push({
+      messageKey: 'agent.ungrounded_link',
+      text: 'ما عندي رابط مؤكد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
+      correction: `You included links (${links.join(', ')}) that are not in a knowledge record you cited. Send only links that appear in a record and list that record's id in knowledge_refs, or send none.`,
+    });
+  }
+  return problems;
 }
 
 function sanitizeToken(s) {
@@ -355,6 +519,11 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
       const v = clipText(a.payload.value_text, 300);
       if (v) payload.value_text = v;
       if (!payload.value_text) continue;
+    }
+    if (a.kind === 'share_photo_ref') {
+      // Bound to the photo of this turn (validated server state), never to an id the model chose.
+      if (typeof input.image_ref !== 'string' || !input.image_ref) continue;
+      payload.image_ref = input.image_ref;
     }
     proposedActions.push({
       kind: a.kind,
@@ -465,7 +634,7 @@ export function createRakanAdapter(config, deps = {}) {
     if (h.messages.length > HISTORY_MAX_MESSAGES) h.messages.splice(0, h.messages.length - HISTORY_MAX_MESSAGES);
   }
 
-  async function callModel({ context, input, now, imageBytes, correction }) {
+  async function callModel({ context, input, now, imageBytes, correction, signal }) {
     const hasImage = Boolean(imageBytes);
     const content = [];
     if (hasImage) {
@@ -480,18 +649,24 @@ export function createRakanAdapter(config, deps = {}) {
     ];
     if (correction) system.push({ type: 'text', text: correction });
     const messages = [...history(context.session_id).messages, { role: 'user', content }];
-    return client.messages.create({
+    const params = {
       model: modelId,
       max_tokens: MAX_TOKENS,
       system,
       messages,
       thinking: { type: 'adaptive' },
       output_config: { effort: 'medium', format: { type: 'json_schema', schema: MODEL_OUTPUT_SCHEMA } },
-    });
+    };
+    return signal ? client.messages.create(params, { signal }) : client.messages.create(params);
   }
 
-  return async function adapter({ context, input, now, image_bytes }) {
+  /**
+   * @param signal optional AbortSignal from the server's turn deadline: no retry starts after it fires and a late
+   *   completion is never remembered as history. Provider work already done stays in the usage record.
+   */
+  const turn = async function adapter({ context, input, now, image_bytes, signal }) {
     const started = clock();
+    const deadline = started + serverTimeout - 400;
     const base = { sessionId: context.session_id, turnId: input.turn_id, provider: 'anthropic', modelId, promptVersion: PROMPT_VERSION, now };
 
     if (context.capabilities.model !== 'real') {
@@ -505,44 +680,64 @@ export function createRakanAdapter(config, deps = {}) {
       return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'CONSENT_REQUIRED', messageKey: 'photo.consent_required', retryable: false, text: 'أحتاج موافقتك على تحليل الصورة أول، أو نكمل بالنص.', state: 'error' }) };
     }
 
+    // Every provider attempt is charged, so tokens are summed across attempts (a corrective retry is not free).
+    const totals = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+    let calls = 0;
+    const tally = (u) => {
+      calls += 1;
+      for (const k of Object.keys(totals)) totals[k] += Number(u?.[k]) || 0;
+    };
+    const spent = () => (calls ? totals : null);
+    const aborted = () => Boolean(signal?.aborted);
+    const timedOut = () => ({
+      usage: usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: 'timeout' }),
+      output: errorOutput({ turnId: input.turn_id, usageId: 'use_pending', code: 'MODEL_UNAVAILABLE', messageKey: 'model.timeout', retryable: true, text: 'تأخرت عليك، أعد رسالتك لو سمحت.' }),
+    });
+
     let response;
     let raw;
     let correction = null;
-    let lastUsage = null;
+    let grounding = null; // the problem that still stands after the last attempt
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      // A retry that cannot finish inside the server's turn window is not started; the customer gets the closed error instead.
+      if (attempt > 0 && (aborted() || clock() + 2000 > deadline)) break;
       try {
-        response = await callModel({ context, input, now, imageBytes: image_bytes, correction });
+        response = await callModel({ context, input, now, imageBytes: image_bytes, correction, signal });
       } catch (err) {
+        if (aborted()) { const t = timedOut(); t.output.usage_ref = t.usage.usage_id; return t; }
         const latency = clock() - started;
         const retryable = !(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError || err instanceof Anthropic.NotFoundError);
-        const usage = usageRecord({ ...base, usage: null, latencyMs: latency, outcome: 'error' });
+        const usage = usageRecord({ ...base, usage: spent(), latencyMs: latency, outcome: 'error' });
         return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: retryable ? 'model.temporarily_unavailable' : 'model.misconfigured', retryable, text: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.' }) };
       }
-      lastUsage = response.usage;
+      tally(response.usage);
       if (response.stop_reason === 'refusal') {
-        const usage = usageRecord({ ...base, usage: lastUsage, latencyMs: clock() - started, outcome: 'ok' });
+        const usage = usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: 'ok' });
         return { usage, output: { ...errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.refused', retryable: false, text: 'ما أقدر أساعد بهذا الطلب. لو تبي، نكمل بشي ثاني.', state: 'ok' }), error: null, flags: ['refusal_model'] } };
       }
       raw = extractJson(response);
       if (!raw) {
+        grounding = null;
         correction = 'Your previous reply was not valid JSON for the schema. Return only the JSON object.';
         continue;
       }
       const draft = mapModelOutput(raw, { context, input, usageId: 'use_pending', hasImage, byId: knowledge.byId, now });
-      const missing = ungroundedPrices(draft.messages, draft.knowledge_refs, knowledge.byId);
-      if (missing.length && attempt === 0) {
-        correction = `You quoted amounts (${missing.join(', ')}) that are not in any knowledge record you cited. Quote only prices that appear in the records and list their ids in knowledge_refs; otherwise say the price is on the booking page.`;
-        raw = null;
-        continue;
-      }
-      if (missing.length) {
-        const usage = usageRecord({ ...base, usage: lastUsage, latencyMs: clock() - started, outcome: 'error' });
-        return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.ungrounded_price', retryable: true, text: 'خلني أتأكد من السعر قبل أقوله لك. تقدر تشوف الأسعار كاملة في صفحة الحجز.', state: 'error', flags: ['unknown_fact'] }) };
-      }
-      break;
+      const problems = groundingProblems(draft, knowledge);
+      if (!problems.length) break;
+      raw = null;
+      grounding = problems[0];
+      correction = problems.map((p) => p.correction).join(' ');
     }
 
-    const usage = usageRecord({ ...base, usage: lastUsage, latencyMs: clock() - started, outcome: raw ? 'ok' : 'error' });
+    if (aborted()) {
+      const t = timedOut();
+      t.output.usage_ref = t.usage.usage_id;
+      return t;
+    }
+    const usage = usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: raw ? 'ok' : 'error' });
+    if (!raw && grounding) {
+      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: grounding.messageKey, retryable: true, text: grounding.text, state: 'error', flags: ['unknown_fact'] }) };
+    }
     if (!raw) {
       return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.invalid_output', retryable: true, text: 'صار خلل بسيط عندي. أعد رسالتك لو سمحت.', state: 'error' }) };
     }
@@ -555,4 +750,7 @@ export function createRakanAdapter(config, deps = {}) {
     remember(context.session_id, input.text || '(صورة)', output.messages.map((m) => m.text).join('\n'));
     return { usage, output };
   };
+  // Declared for the server's pre-call reservation (src/server/index.mjs reads adapter.costCeilingMinor).
+  turn.costCeilingMinor = maxCostMinorPerTurn(modelId);
+  return turn;
 }

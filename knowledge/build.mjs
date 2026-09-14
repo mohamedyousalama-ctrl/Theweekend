@@ -68,6 +68,16 @@ function firstSentence(text, max = 220) {
   return clip(s, max);
 }
 
+/**
+ * Website wording is allowed (owner D7) but never as a treatment claim (persona: no condition names, no
+ * "removes", "strengthens roots", "regrows"): a first sentence that makes such a claim is replaced by `fallback`.
+ */
+const CLAIM_RE = /قشرة|تساقط|يعالج|علاج|يزيل|إزالة|يقوي|يقوّي|تقوية|يغذي|مغذ|تعزز|يعزز|حيوي|مرونة|جذور|الصلع|حب الشباب|إكزيما|التهاب|فطر|ينبت|نمو الشعر|dandruff|treat|cure|regrow|nourish|strengthen|roots|hair loss/iu;
+function safeSentence(text, fallback) {
+  const sentence = firstSentence(text);
+  return CLAIM_RE.test(sentence) ? fallback : sentence;
+}
+
 function displayName(name) {
   return String(name).replace(/^اسامه$/u, 'أسامة').replace(/ و /g, ' و').trim();
 }
@@ -249,21 +259,24 @@ export function buildPack() {
       enabled: true,
     });
   }
+  // A service whose name itself names a condition (dandruff, hair loss…) is kept in the pack but disabled: offering it by name
+  // is a treatment framing the persona forbids; MISSING-FACTS row 18 (owner + qualified reviewer) decides whether Rakan may name it.
+  const CONDITION_NAME_RE = /قشرة|dandruff|تساقط|hair ?loss|صلع|bald|حب الشباب|acne|إكزيما|eczema|صدفية|psoriasis/iu;
   for (const s of services.filter((x) => x !== haircut && (atBranch(x) || noBranch(x)) && !(x.name.en || '').includes('(Copy)'))) {
     const where = atBranch(s) ? '' : ' معروضة في الموقع، وما أقدر أأكد إنها متوفرة بفرع مرسية — تبين لك في صفحة الحجز لما تختار الفرع.';
-    const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is confirmed on the booking page once the branch is selected.';
+    const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is unconfirmed — the booking page shows it once the branch is selected.';
     const en = s.name.en || s.name.ar;
     const durationNote = /concealer/i.test(en) ? ` (الوقت المحجوز ${s.duration_min} دقيقة؛ التطبيق نفسه دقائق حسب وصف الموقع)` : ` المدة ${s.duration_min} دقيقة`;
     add({
       knowledge_id: `kno_mrs_service_${slug(en)}_${s.amount_sar}`,
       kind: 'service',
       ref: s.id,
-      text_ar: `${s.name.ar}: ${s.amount_sar} ريال شامل الضريبة،${durationNote}.${where} ${firstSentence(s.description_text)}`,
+      text_ar: `${s.name.ar}: ${s.amount_sar} ريال شامل الضريبة،${durationNote}.${where} ${safeSentence(s.description_text, 'الوصف الكامل على صفحة الخدمة في الموقع؛ راكان يذكر الاسم والسعر والمدة فقط.')}`,
       text_en: `${en}: ${s.amount_sar} SAR, ${s.duration_min} minutes, VAT inclusive.${whereEn}`,
       source: 'E03',
       source_hash: EVIDENCE.E03,
       status: atBranch(s) ? 'merchant_approved' : 'verified_public',
-      enabled: true,
+      enabled: !CONDITION_NAME_RE.test(`${s.name.ar} ${en}`),
     });
   }
 
@@ -272,15 +285,19 @@ export function buildPack() {
     const en = p.name.en || p.name.ar;
     const duplicate = /\(Copy\)/i.test(en); // the site's duplicate 50 ml row (268 next to the 269 bundle) — kept, disabled
     const desc = p.description_text.replace(/السعر لا يشمل رسوم التوصيل\.?.*$/, '').replace(/الفوائد الرئيسية/g, '').trim();
+    // An empty storefront branch list proves nothing about the branch (EXCERPTS §4, MISSING-FACTS): say so instead of "sold at the branch".
+    const listedAtBranch = atBranch(p);
+    const whereAr = listedAtBranch ? 'يُباع في الفرع' : 'معروض في الموقع، وما أقدر أأكد توفره في فرع مرسية — تتأكد من الموقع';
+    const whereEn = listedAtBranch ? '' : ' Listed on the site; availability at Marsiya is unconfirmed.';
     add({
       knowledge_id: `kno_mrs_product_${slug(en)}`,
       kind: 'product',
       ref: p.id,
-      text_ar: `${p.name.ar.replace(/\s*\|\s*/g, ' — ')}: ${p.amount_sar} ريال شامل الضريبة. ${firstSentence(desc)} (يُباع في الفرع؛ التوصيل ما يُعرض عبر راكان.)`,
-      text_en: `${en}: ${p.amount_sar} SAR VAT inclusive. Product page: https://theweekendhairstyling.com/products/${p.id}`,
+      text_ar: `${p.name.ar.replace(/\s*\|\s*/g, ' — ')}: ${p.amount_sar} ريال شامل الضريبة. ${safeSentence(desc, 'الوصف الكامل على صفحة المنتج في الموقع.')} (${whereAr}؛ التوصيل ما يُعرض عبر راكان.)`,
+      text_en: `${en}: ${p.amount_sar} SAR VAT inclusive.${whereEn} Product page: https://theweekendhairstyling.com/products/${p.id}`,
       source: 'E03',
       source_hash: EVIDENCE.E03,
-      status: duplicate ? 'retired' : 'merchant_approved',
+      status: duplicate ? 'retired' : listedAtBranch ? 'merchant_approved' : 'verified_public',
       enabled: !duplicate,
     });
   }
@@ -296,14 +313,43 @@ export function buildPack() {
       knowledge_id: `kno_mrs_membership_${slug(en)}_${m.amount_sar}`,
       kind: 'membership',
       ref: m.id,
-      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. الزيارات غير المستخدمة تنتهي مع نهاية ${monthly ? 'الـ30 يوم' : 'السنة'}؛ ما فيه ترحيل. تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
-      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. Unused visits expire at the end of the period; no rollover. All branches.`,
+      text_ar: `${m.name.ar.replace(/\s+/g, ' ')}: ${m.amount_sar} ريال شامل الضريبة، ${m.package_total_quantity} زيارات خلال ${m.billing_period_days} يوم. ${basket}. ${monthly ? 'الزيارات غير المستخدمة تنتهي مع نهاية الـ30 يوم؛ ما فيه ترحيل.' : `مدة العضوية ${m.billing_period_days} يوم من التفعيل؛ ترحيل الزيارات غير المستخدمة بعد نهاية المدة غير مؤكد — تتأكد من الفرع.`} تشمل جميع الفروع.${monthly ? '' : ' تُذكر فقط إذا سأل العميل عنها.'} صفحة العضوية: https://theweekendhairstyling.com/memberships/${m.id}`,
+      text_en: `${en}: ${m.amount_sar} SAR VAT inclusive, ${m.package_total_quantity} visits per ${m.billing_period_days} days. ${en.includes('Full') ? 'Visit = haircut + beard + basic face care' : 'Visit = haircut + beard'}. ${monthly ? 'Unused visits expire at the end of the 30 days; no rollover.' : `The plan runs ${m.billing_period_days} days from activation. Whether unused visits carry over afterward is unconfirmed — ask the branch.`} All branches.`,
       source: OWNER.source,
       source_hash: OWNER.hash,
       status: 'merchant_approved',
       enabled: true,
     });
   }
+
+  // 9b. Owner-approved arithmetic (D5 + the persona's membership rule) as records, so every total Rakan states is citable
+  const monthlyBasic = catalogue.memberships.find((m) => m.billing_period_days === 30 && !/Full/i.test(m.name.en || ''));
+  const annualBasic = catalogue.memberships.find((m) => m.billing_period_days !== 30 && !/Full/i.test(m.name.en || ''));
+  if (!monthlyBasic || !annualBasic) throw new Error('Solo Basic memberships not found');
+  add({
+    knowledge_id: 'kno_mrs_membership_compare_monthly_basic',
+    kind: 'membership',
+    ref: monthlyBasic.id,
+    text_ar: `مقارنة اشتراك سولو بيسك الشهري (${monthlyBasic.amount_sar} ريال، ${monthlyBasic.package_total_quantity} زيارات) مع الدفع كل زيارة (حلاقة الشعر والدقن 50 ريال): زيارتان = 100 ريال، 3 زيارات = 150 ريال، 4 زيارات = 200 ريال، 5 زيارات = 250 ريال. الاشتراك أوفر عند 4 زيارات أو 5 زيارات في الشهر؛ عند 3 زيارات أو أقل الدفع كل مرة أرخص. ما فيه مقارنة لعضوية فل أوبشن لأن سلة عناية الوجه غير مؤكدة.`,
+    text_en: `Solo Basic monthly (${monthlyBasic.amount_sar} SAR, ${monthlyBasic.package_total_quantity} visits) versus paying per visit (haircut + beard 50 SAR): 2 visits = 100 SAR, 3 visits = 150 SAR, 4 visits = 200 SAR, 5 visits = 250 SAR. The membership pays off at 4 visits or 5 visits a month; at 3 visits or fewer, paying per visit is cheaper. No comparison for Full Option (face-care basket unconfirmed).`,
+    source: OWNER.source,
+    source_hash: OWNER.hash,
+    status: 'merchant_approved',
+    enabled: true,
+  });
+  add({
+    knowledge_id: 'kno_mrs_membership_compare_annual_basic',
+    kind: 'membership',
+    ref: annualBasic.id,
+    text_ar: `حسبة تقريبية من أسعار الموقع: الاشتراك السنوي سولو بيسك (${annualBasic.amount_sar} ريال، ${annualBasic.package_total_quantity} زيارة خلال ${annualBasic.billing_period_days} يوم) يعادل تقريباً 40 زيارة بسعر 50 ريال (${annualBasic.amount_sar} ÷ 50 ≈ 40)؛ يبدأ يوفر بعد نحو 40 زيارة في السنة، وما يُحسب أبداً كـ${annualBasic.package_total_quantity} × 50. يُذكر فقط إذا سأل العميل عن السنوية.`,
+    text_en: `Approximate arithmetic from the storefront prices: Solo Basic annual (${annualBasic.amount_sar} SAR, ${annualBasic.package_total_quantity} visits per ${annualBasic.billing_period_days} days) equals about 40 visits at 50 SAR (${annualBasic.amount_sar} ÷ 50 ≈ 40); it pays off after about 40 visits in the year and is never computed as ${annualBasic.package_total_quantity} × 50. Mentioned only when the customer asks about annual plans.`,
+    // Storefront figures (E03) plus arithmetic; the owner's worked example (OWNER-ANSWERS row 4) covers the monthly plan only,
+    // so this is verified_public (its text says «تقريبية») until the owner confirms the annual wording.
+    source: 'E03',
+    source_hash: EVIDENCE.E03,
+    status: 'verified_public',
+    enabled: true,
+  });
 
   // 10. Not-known facts (explicit, so the prompt can say them honestly)
   add({
@@ -320,6 +366,7 @@ export function buildPack() {
 
   return {
     pack_version: PACK_VERSION,
+    pack_revision: 2,
     branch_id: BRANCH_ID,
     storefront_branch_id: STOREFRONT_BRANCH_ID,
     built_from: ['research/claude-20260913/catalogue.sanitized.json', 'research/claude-20260913/staff.sanitized.json', 'research/claude-20260913/OWNER-ANSWERS-2026-09-14.md'],
