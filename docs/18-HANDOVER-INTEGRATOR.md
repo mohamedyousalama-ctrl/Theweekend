@@ -22,7 +22,7 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 |---|---|
 | `main` | contains PR #1, #11 (via #12), #12, #13, #15, #16: plan, rules, `CONTINUE.md`, design archive, contracts v0.1 definitions, hosting decision, evidence handback, Grok's component map |
 | PR #14 (Cursor: contract schemas + server foundation + Railway + in-memory photo path) | fix commit `0026d9b` pushed after review; 198 tests pass on Node 22; narrow re-review in progress; owner merges after the integrator's confirmation on the PR |
-| #5 stream A brain | **not started** — §4 below is the brief |
+| #5 stream A brain | **built** — draft PR #19 (prompt v0.3, knowledge pack, Claude adapter with photo path, 225 tests); real-model evaluation NOT RUN until the owner's key is on the host |
 | #6 Grok second handback (components) | waits for PR #14 merge |
 | #7 Cursor | after PR #14: provider adapter (§5), then integration |
 | #8 owner walkthrough | not started |
@@ -52,7 +52,7 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 
 Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Consumes `src/contracts/` schemas from PR #14. Real calls only with the owner's key on Railway; local tests use the labelled mock.
 
-**4.1 Knowledge pack (`knowledge/`)** — one JSON record per fact in the `KnowledgeRecord` shape, generated from `research/claude-20260913/catalogue.sanitized.json`, `staff.sanitized.json`, `EXCERPTS.md` and `OWNER-ANSWERS-2026-09-14.md`; `status: merchant_approved` only where D2–D7 cover it, otherwise `verified_public` and `enabled: false`. Scope: مرسية services and price rows (VAT-inclusive), add-ons, products (website wording), memberships (D5), policy text (no-show/late, as written), branch map link, the 7 barber names, charity line. Never: ratings, review counts, stock, delivery promises, other branches' hours, iCal.
+**4.1 Knowledge pack (`knowledge/`)** — one JSON record per fact in the `KnowledgeRecord` shape, generated from `research/claude-20260913/catalogue.sanitized.json`, `staff.sanitized.json`, `EXCERPTS.md` and `OWNER-ANSWERS-2026-09-14.md`; `status: merchant_approved` only where D2–D7 cover it, otherwise `verified_public`. A `verified_public` record may be enabled only if its text states the uncertainty itself (e.g. «ما أقدر أأكد إنها متوفرة بفرع مرسية»); anything else stays `enabled: false`. Implemented in PR #19 (`knowledge/build.mjs`, 45 records). Scope: مرسية services and price rows (VAT-inclusive), add-ons, products (website wording), memberships (D5), policy text (no-show/late, as written), branch map link, the 7 barber names, charity line. Never: ratings, review counts, stock, delivery promises, other branches' hours, iCal.
 
 **4.2 Persona and language (`prompts/rakan.system.md` — replace the older draft from PR #1, keep its useful lines)**
 - Rakan (راكان), The Weekend's digital assistant. Says it is digital when asked («إي، أنا راكان، مساعد ذا ويكند الرقمي»). No invented human biography, no head-receptionist identity, no «خميس».
