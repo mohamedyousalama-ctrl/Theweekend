@@ -72,7 +72,7 @@ function firstSentence(text, max = 220) {
  * Website wording is allowed (owner D7) but never as a treatment claim (persona: no condition names, no
  * "removes", "strengthens roots", "regrows"): a first sentence that makes such a claim is replaced by `fallback`.
  */
-const CLAIM_RE = /قشرة|تساقط|يعالج|علاج|يزيل|إزالة|يقوي|يقوّي|تقوية|يغذي|جذور|الصلع|حب الشباب|إكزيما|التهاب|فطر|ينبت|نمو الشعر|dandruff|treat|cure|regrow|roots|hair loss/iu;
+const CLAIM_RE = /قشرة|تساقط|يعالج|علاج|يزيل|إزالة|يقوي|يقوّي|تقوية|يغذي|مغذ|تعزز|يعزز|حيوي|مرونة|جذور|الصلع|حب الشباب|إكزيما|التهاب|فطر|ينبت|نمو الشعر|dandruff|treat|cure|regrow|nourish|strengthen|roots|hair loss/iu;
 function safeSentence(text, fallback) {
   const sentence = firstSentence(text);
   return CLAIM_RE.test(sentence) ? fallback : sentence;
@@ -261,7 +261,7 @@ export function buildPack() {
   }
   for (const s of services.filter((x) => x !== haircut && (atBranch(x) || noBranch(x)) && !(x.name.en || '').includes('(Copy)'))) {
     const where = atBranch(s) ? '' : ' معروضة في الموقع، وما أقدر أأكد إنها متوفرة بفرع مرسية — تبين لك في صفحة الحجز لما تختار الفرع.';
-    const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is confirmed on the booking page once the branch is selected.';
+    const whereEn = atBranch(s) ? '' : ' Listed on the site; availability at Marsiya is unconfirmed — the booking page shows it once the branch is selected.';
     const en = s.name.en || s.name.ar;
     const durationNote = /concealer/i.test(en) ? ` (الوقت المحجوز ${s.duration_min} دقيقة؛ التطبيق نفسه دقائق حسب وصف الموقع)` : ` المدة ${s.duration_min} دقيقة`;
     add({
@@ -284,7 +284,7 @@ export function buildPack() {
     const desc = p.description_text.replace(/السعر لا يشمل رسوم التوصيل\.?.*$/, '').replace(/الفوائد الرئيسية/g, '').trim();
     // An empty storefront branch list proves nothing about the branch (EXCERPTS §4, MISSING-FACTS): say so instead of "sold at the branch".
     const listedAtBranch = atBranch(p);
-    const whereAr = listedAtBranch ? 'يُباع في الفرع' : 'معروض في الموقع، وتوفره في فرع مرسية غير مؤكد — يتأكد من الموقع';
+    const whereAr = listedAtBranch ? 'يُباع في الفرع' : 'معروض في الموقع، وما أقدر أأكد توفره في فرع مرسية — تتأكد من الموقع';
     const whereEn = listedAtBranch ? '' : ' Listed on the site; availability at Marsiya is unconfirmed.';
     add({
       knowledge_id: `kno_mrs_product_${slug(en)}`,
@@ -342,7 +342,9 @@ export function buildPack() {
     text_en: `Solo Basic annual (${annualBasic.amount_sar} SAR, ${annualBasic.package_total_quantity} visits per ${annualBasic.billing_period_days} days) equals about 40 visits at 50 SAR (${annualBasic.amount_sar} ÷ 50 ≈ 40); it pays off after about 40 visits in the year and is never computed as ${annualBasic.package_total_quantity} × 50. Unused visits expire at the end of the membership period. Mentioned only when the customer asks about annual plans.`,
     source: OWNER.source,
     source_hash: OWNER.hash,
-    status: 'merchant_approved',
+    // Arithmetic on approved prices, but the owner's worked example covers the monthly plan only (OWNER-ANSWERS row 4):
+    // verified_public (the text says «تقريباً») until the owner confirms the annual wording.
+    status: 'verified_public',
     enabled: true,
   });
 

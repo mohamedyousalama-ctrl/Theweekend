@@ -231,10 +231,15 @@ test('post-merge review: amounts are compared as full values and only against cu
   assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 30 today' }], ['kno_hair'], byId), [], 'currency-first amounts are matched');
   assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 300 today' }], ['kno_hair'], byId), ['300']);
   assert.deepEqual(ungroundedPrices([{ text: 'لا، مو 300 ريال — الحلاقة 30 ريال' }], ['kno_hair'], byId, 'سمعت إنها 300 ريال صح؟'), [], 'an amount the customer wrote may be repeated to correct it');
+  assert.deepEqual(ungroundedPrices([{ text: 'أيوه صحيح، الحلاقة اليوم بـ5 ريال بس' }], [], byId, 'صح إن الحلاقة صارت 5 ريال؟'), ['5'], 'agreeing with the customer\'s wrong price is not a correction');
+  assert.deepEqual(ungroundedPrices([{ text: 'أيوه 5 ريال' }], ['kno_hair'], byId, '5 ريال؟'), ['5'], 'citing a record does not help when the message states no grounded amount');
+  assert.deepEqual(ungroundedPrices([{ text: 'لا مو 5 ريال' }, { text: 'الحلاقة 30 ريال' }], ['kno_hair'], byId, '5 ريال؟'), ['5'], 'the correction must be in the same message');
   assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair'], byId), ['minutes:45']);
   assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair', 'kno_dand'], byId), []);
   assert.deepEqual(ungroundedFacts([{ text: 'العضوية 5 زيارات خلال 30 يوم وفيها خصم 15%' }], ['kno_hair'], byId).sort(), ['days:30', 'percent:15', 'visits:5']);
-  assert.deepEqual(ungroundedFacts([{ text: 'خلال ٣٠ يوم' }], [], byId, 'أبي أعرف عن الـ30 يوم'), [], 'figures from the customer text are exempt, Arabic-Indic digits included');
+  assert.deepEqual(ungroundedFacts([{ text: 'لا، المدة ٣٥ دقيقة مو 45 دقيقة' }], ['kno_hair'], byId, 'المدة 45 دقيقة؟'), [], 'the customer\'s figure may be repeated in a correction, Arabic-Indic digits included');
+  assert.deepEqual(ungroundedFacts([{ text: 'أيوه 45 دقيقة' }], ['kno_hair'], byId, 'المدة 45 دقيقة؟'), ['minutes:45'], 'agreeing with the customer\'s wrong figure is not a correction');
+  assert.deepEqual(ungroundedFacts([{ text: 'خلال ٣٠ يوم' }], [], byId, 'أبي أعرف عن الـ30 يوم'), ['days:30']);
   assert.deepEqual(ungroundedFacts([{ text: 'تقريباً 35 دقيقة' }], ['kno_hair'], byId), []);
 });
 
@@ -245,6 +250,11 @@ test('post-merge review: links must come from a knowledge record', () => {
   assert.deepEqual(ungroundedLinks([{ text: 'هنا https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe' }], links), []);
   assert.deepEqual(ungroundedLinks([{ text: 'شوف https://theweekendhairstyling.com/offers/ramadan' }], links), ['https://theweekendhairstyling.com/offers/ramadan']);
   assert.deepEqual(ungroundedLinks([{ text: 'see http://evil.example/book' }], links), ['http://evil.example/book']);
+  assert.deepEqual(ungroundedLinks([{ text: 'شوف “https://theweekendhairstyling.com/book”' }], links), [], 'curly quotes are not part of the link');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://THEWEEKENDHAIRSTYLING.COM/book' }], links), [], 'hosts are case-insensitive');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://t' }], links), ['https://t'], 'only the query string may be dropped, not an arbitrary tail');
+  assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com/boo' }], links), ['https://theweekendhairstyling.com/boo']);
+  assert.deepEqual(ungroundedLinks([{ text: 'https://theweekendhairstyling.com.evil.tld/book' }], links), ['https://theweekendhairstyling.com.evil.tld/book']);
 });
 
 test('post-merge review: an ungrounded figure or link gets one corrective retry, then a closed error', async () => {

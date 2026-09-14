@@ -52,14 +52,19 @@ test('post-merge review: product availability, treatment claims, annual expiry a
   for (const id of ['kno_mrs_product_batci_hair_concealer_30_ml', 'kno_mrs_product_batci_pro_vitamin_b5_shampoo_500_ml']) {
     const r = byId.get(id);
     assert.doesNotMatch(r.text_ar, /يُباع في الفرع/, `${id}: no branch claim without a branch in the source`);
-    assert.match(r.text_ar, /غير مؤكد/);
+    assert.match(r.text_ar, /ما أقدر أأكد توفره في فرع مرسية/);
     assert.match(r.text_en, /unconfirmed/);
     assert.equal(r.status, 'verified_public');
   }
   const dandruff = pack.records.find((r) => r.knowledge_id.startsWith('kno_mrs_service_dandruff'));
+  assert.match(dandruff.text_en, /availability at Marsiya is unconfirmed/);
+  assert.doesNotMatch(dandruff.text_en, /is confirmed/);
   assert.doesNotMatch(dandruff.text_ar, /إزالة القشرة|يقوي جذوره|تنظيف فروة/);
   assert.match(dandruff.text_ar, /باي باي قشرة: 149 ريال شامل الضريبة، المدة 45 دقيقة/);
   assert.doesNotMatch(byId.get('kno_mrs_product_batci_pro_vitamin_b5_shampoo_500_ml').text_ar, /يقوّيه من الجذور/);
+  for (const r of pack.records.filter((x) => x.enabled && (x.kind === 'product' || x.kind === 'service'))) {
+    assert.doesNotMatch(r.text_ar, /مغذ|تعزز|يعزز|يقوي|يقوّي|يغذي|جذور|إزالة القشرة|يعالج/, `${r.knowledge_id} still carries a nourish/strengthen/treatment claim`);
+  }
   for (const r of pack.records.filter((x) => x.kind === 'membership' && x.text_ar.includes('360 يوم') && !x.knowledge_id.includes('compare'))) {
     assert.match(r.text_ar, /تنتهي مع نهاية فترة العضوية \(360 يوم\)/, r.knowledge_id);
     assert.doesNotMatch(r.text_ar, /نهاية السنة/);
@@ -72,6 +77,8 @@ test('post-merge review: product availability, treatment claims, annual expiry a
   assert.match(annual.text_ar, /40 زيارة/);
   assert.match(annual.text_ar, /1995 ÷ 50/);
   assert.doesNotMatch(annual.text_ar, /3000/);
+  assert.equal(annual.status, 'verified_public', 'annual break-even waits for the owner; the text says تقريباً');
+  assert.match(annual.text_ar, /تقريباً/);
 });
 
 test('nothing forbidden is in the pack: no ratings, review counts, stock, phone numbers, iCal', () => {

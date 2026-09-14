@@ -269,14 +269,22 @@ function citedText(refs, byId) {
 
 /**
  * Every amount quoted with a currency marker in the reply must appear, with a currency marker and the same
- * value (35 ≠ 35.5; a 35-minute duration is not 35 riyals), in a cited knowledge record — or in the customer's
- * own words (exemptText), so Rakan may correct a wrong price the customer quoted. Returns the unmatched amounts.
+ * value (35 ≠ 35.5; a 35-minute duration is not 35 riyals), in a cited knowledge record. An amount the customer
+ * wrote (exemptText) may be repeated only in a message that also states a grounded amount — a correction
+ * («لا، مو 300 ريال — الحلاقة 30 ريال»), never an agreement («أيوه، 5 ريال»). Returns the unmatched amounts.
  */
 export function ungroundedPrices(messages, refs, byId, exemptText = '') {
-  const allowed = amountsIn(citedText(refs, byId));
-  for (const a of amountsIn(exemptText)) allowed.add(a);
+  const grounded = amountsIn(citedText(refs, byId));
+  const quoted = amountsIn(exemptText);
   const missing = [];
-  for (const m of messages) for (const a of amountsIn(m.text)) if (!allowed.has(a) && !missing.includes(a)) missing.push(a);
+  for (const m of messages) {
+    const amounts = amountsIn(m.text);
+    const corrects = [...amounts].some((a) => grounded.has(a));
+    for (const a of amounts) {
+      if (grounded.has(a) || (quoted.has(a) && corrects)) continue;
+      if (!missing.includes(a)) missing.push(a);
+    }
+  }
   return missing;
 }
 
@@ -295,19 +303,31 @@ function factsIn(text) {
   return out;
 }
 
-/** Durations, day counts, visit counts and percentages in the reply must come from a cited record or the customer's text. */
+/**
+ * Durations, day counts, visit counts and percentages in the reply must come from a cited record; a figure the
+ * customer wrote may be repeated only in a message that also states a grounded figure of the same kind (a correction).
+ */
 export function ungroundedFacts(messages, refs, byId, exemptText = '') {
-  const allowed = factsIn(citedText(refs, byId));
-  for (const f of factsIn(exemptText)) allowed.add(f);
+  const grounded = factsIn(citedText(refs, byId));
+  const quoted = factsIn(exemptText);
   const missing = [];
-  for (const m of messages) for (const f of factsIn(m.text)) if (!allowed.has(f) && !missing.includes(f)) missing.push(f);
+  for (const m of messages) {
+    const facts = factsIn(m.text);
+    const kindOf = (f) => f.split(':')[0];
+    for (const f of facts) {
+      if (grounded.has(f)) continue;
+      const corrects = [...facts].some((g) => g !== f && kindOf(g) === kindOf(f) && grounded.has(g));
+      if (quoted.has(f) && corrects) continue;
+      if (!missing.includes(f)) missing.push(f);
+    }
+  }
   return missing;
 }
 
-const URL_RE = /https?:\/\/[^\s<>"'()[\]{}«»]+/giu;
+const URL_RE = /https?:\/\/[^\s<>"'()[\]{}«»“”‘’]+/giu;
 
 function urlsIn(text) {
-  return [...String(text).matchAll(URL_RE)].map((m) => m[0].replace(/[.,،؛;:!?]+$/u, ''));
+  return [...String(text).matchAll(URL_RE)].map((m) => m[0].replace(/[.,،؛;:!?“”‘’]+$/u, ''));
 }
 
 /** All links that appear in the given knowledge records (the only links Rakan may send). */
@@ -317,13 +337,14 @@ export function linksIn(records) {
   return out;
 }
 
-/** Every link in the reply must be a record link or a shortening of one (the booking page without its query). */
+/** Every link in the reply must be a record link, exactly, or the same page without its query string (the booking page without ?branchId=). */
 export function ungroundedLinks(messages, links) {
-  const allowed = [...links];
+  const allowed = [...links].map((a) => a.toLowerCase());
   const missing = [];
   for (const m of messages) {
     for (const u of urlsIn(m.text)) {
-      if (!allowed.some((a) => a === u || a.startsWith(u)) && !missing.includes(u)) missing.push(u);
+      const l = u.toLowerCase();
+      if (!allowed.some((a) => a === l || a.startsWith(`${l}?`)) && !missing.includes(u)) missing.push(u);
     }
   }
   return missing;
@@ -353,7 +374,7 @@ export function groundingProblems(draft, input, knowledge) {
   if (links.length) {
     problems.push({
       messageKey: 'agent.ungrounded_link',
-      text: 'ما عندي رابط أكيد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
+      text: 'ما عندي رابط مؤكد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
       correction: `You included links (${links.join(', ')}) that are not in any knowledge record. Send only links that appear in a record, or none.`,
     });
   }
