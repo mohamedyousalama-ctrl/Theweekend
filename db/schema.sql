@@ -145,3 +145,13 @@ CREATE TABLE IF NOT EXISTS photo_observations (
 CREATE UNIQUE INDEX IF NOT EXISTS permission_receipts_one_active
   ON permission_receipts (subject_id, kind)
   WHERE revoked_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS turns (
+  session_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  response_json TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, turn_id),
+  FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+);

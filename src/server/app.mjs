@@ -215,6 +215,7 @@ export function createApp(config, deps = {}) {
   // instance (docs/16 §6), so the synchronous check-and-increment is atomic for concurrent turns.
   const costCeilingMinor = costCeilingFor(config, deps);
   const inflight = new Map();
+  const inflightTurns = new Map();
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -991,6 +992,67 @@ export function createApp(config, deps = {}) {
     if (input.session_id !== session.session_id) {
       fail('UNAUTHORIZED', 'turn.session', false, {}, 401);
     }
+    const key = `${session.session_id}:${input.turn_id}`;
+    const existing = store.get(
+      'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
+      [session.session_id, input.turn_id],
+    );
+    if (existing?.status === 'complete' && existing.response_json) {
+      return replayStoredTurn(existing);
+    }
+    if (inflightTurns.has(key)) return inflightTurns.get(key);
+    const claimed = store.run(
+      `INSERT OR IGNORE INTO turns (session_id, turn_id, status, response_json, created_at)
+       VALUES (?, ?, 'pending', NULL, ?)`,
+      [session.session_id, input.turn_id, iso(clock)],
+    );
+    if (claimed.changes !== 1) {
+      const row = store.get(
+        'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
+        [session.session_id, input.turn_id],
+      );
+      if (row?.status === 'complete' && row.response_json) return replayStoredTurn(row);
+      if (inflightTurns.has(key)) return inflightTurns.get(key);
+      fail('CONFLICT', 'turn.in_progress', true, {}, 409);
+    }
+    const work = (async () => {
+      try {
+        const result = await runTurn(token, session, input);
+        store.run(
+          `UPDATE turns SET status = 'complete', response_json = ? WHERE session_id = ? AND turn_id = ?`,
+          [JSON.stringify({ ok: true, body: result }), session.session_id, input.turn_id],
+        );
+        return result;
+      } catch (err) {
+        const payload = err instanceof AppError
+          ? { ok: false, shape: err.shape, status: err.status }
+          : { ok: false, internal: true };
+        store.run(
+          `UPDATE turns SET status = 'complete', response_json = ? WHERE session_id = ? AND turn_id = ?`,
+          [JSON.stringify(payload), session.session_id, input.turn_id],
+        );
+        throw err;
+      } finally {
+        inflightTurns.delete(key);
+      }
+    })();
+    inflightTurns.set(key, work);
+    return work;
+  }
+
+  function replayStoredTurn(row) {
+    let stored;
+    try {
+      stored = JSON.parse(row.response_json);
+    } catch {
+      stored = null;
+    }
+    if (stored?.ok) return stored.body;
+    if (stored?.shape) throw new AppError(stored.shape, stored.status || 400);
+    fail('CAPABILITY_UNAVAILABLE', 'http.internal', true, {}, 500);
+  }
+
+  async function runTurn(token, session, input) {
     const context = contextOf(session);
     sweepPhotoRetention();
     let imageBytes = null;
