@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, normalizeDigits, estimateCostMinor, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -39,7 +39,7 @@ test('grounded price reply → valid contract output, actions kept, usage costed
   assert.equal(first.output.observations, null);
   assert.equal(first.usage.provider, 'anthropic');
   assert.equal(first.usage.model_id, 'claude-opus-5');
-  assert.equal(first.usage.prompt_version, 'rakan.system.v0.3');
+  assert.equal(first.usage.prompt_version, 'rakan.system.v0.4');
   assert.equal(first.usage.input_tokens, 1200);
   assert.equal(first.usage.cost_estimate_minor, estimateCostMinor('claude-opus-5', { input_tokens: 1200, output_tokens: 180, cache_read_input_tokens: 900 }));
   const req = client.calls[0];
@@ -203,7 +203,7 @@ test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unkno
   assert.deepEqual(ungroundedPrices([{ text: 'بـ٣٠ ريال' }], ['kno_a'], byId), [], 'Arabic-Indic digits ground against Western digits');
   assert.deepEqual(ungroundedPrices([{ text: 'السنوية 2,499 ريال' }], ['kno_b'], byId), [], 'thousands separator is not a decimal point');
   assert.deepEqual(ungroundedPrices([{ text: 'السنوية 2,499 ريالاً' }], ['kno_a'], byId), ['2499']);
-  assert.deepEqual(ungroundedPrices([{ text: '30.5 ريال' }], ['kno_a'], byId), []);
+  assert.deepEqual(ungroundedPrices([{ text: '30.5 ريال' }], ['kno_a'], byId), ['30.5'], 'a different decimal amount is a different price');
   const json = modelJson({ proposed_actions: [{ kind: 'delete_preference', label_ar: 'احذف', label_en: 'Delete', payload: { preference_kind: 'style', value_text: 'x' } }] });
   const { adapter } = adapterWith([response(json)]);
   const r = await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
@@ -215,4 +215,132 @@ test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unkno
   const many = adapterWith(Array.from({ length: 520 }, () => response(modelJson())));
   for (let i = 0; i < 510; i += 1) await many.adapter({ context: context({ session_id: `ses_cap_${i}` }), input: input('x', { session_id: `ses_cap_${i}` }), now: '2026-09-14T06:00:00Z', image_bytes: null });
   assert.equal(many.client.calls.at(-1).messages.length, 1, 'new sessions still start empty under the cap');
+});
+
+test('post-merge review: amounts are compared as full values and only against currency-marked record amounts', () => {
+  const byId = new Map([
+    ['kno_hair', { text_ar: 'قص الشعر: 30 ريال، المدة 35 دقيقة، السعر شامل الضريبة.', text_en: 'Haircut: 30 SAR, 35 minutes, VAT inclusive.' }],
+    ['kno_dand', { text_ar: 'باي باي قشرة: 149 ريال شامل الضريبة، المدة 45 دقيقة.', text_en: 'Dandruff wash: 149 SAR, 45 minutes.' }],
+  ]);
+  assert.equal(canonicalAmount('2,499'), '2499');
+  assert.equal(canonicalAmount('2,5'), '2.5');
+  assert.equal(canonicalAmount('30.50'), '30.5');
+  assert.equal(canonicalAmount('007'), '7');
+  assert.deepEqual(ungroundedPrices([{ text: 'الحلاقة 35 ريال' }], ['kno_hair'], byId), ['35'], 'a 35-minute duration does not ground a 35-riyal price');
+  assert.deepEqual(ungroundedPrices([{ text: 'الحلاقة 30.5 ريال' }], ['kno_hair'], byId), ['30.5']);
+  assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 30 today' }], ['kno_hair'], byId), [], 'currency-first amounts are matched');
+  assert.deepEqual(ungroundedPrices([{ text: 'Haircut is SAR 300 today' }], ['kno_hair'], byId), ['300']);
+  assert.deepEqual(ungroundedPrices([{ text: 'لا، مو 300 ريال — الحلاقة 30 ريال' }], ['kno_hair'], byId, 'سمعت إنها 300 ريال صح؟'), [], 'an amount the customer wrote may be repeated to correct it');
+  assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair'], byId), ['minutes:45']);
+  assert.deepEqual(ungroundedFacts([{ text: 'المدة 45 دقيقة تقريباً' }], ['kno_hair', 'kno_dand'], byId), []);
+  assert.deepEqual(ungroundedFacts([{ text: 'العضوية 5 زيارات خلال 30 يوم وفيها خصم 15%' }], ['kno_hair'], byId).sort(), ['days:30', 'percent:15', 'visits:5']);
+  assert.deepEqual(ungroundedFacts([{ text: 'خلال ٣٠ يوم' }], [], byId, 'أبي أعرف عن الـ30 يوم'), [], 'figures from the customer text are exempt, Arabic-Indic digits included');
+  assert.deepEqual(ungroundedFacts([{ text: 'تقريباً 35 دقيقة' }], ['kno_hair'], byId), []);
+});
+
+test('post-merge review: links must come from a knowledge record', () => {
+  const links = linksIn(knowledge.enabled);
+  assert.ok(links.has('https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe'));
+  assert.deepEqual(ungroundedLinks([{ text: 'احجز من https://theweekendhairstyling.com/book.' }], links), [], 'a shortening of a record link is fine');
+  assert.deepEqual(ungroundedLinks([{ text: 'هنا https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe' }], links), []);
+  assert.deepEqual(ungroundedLinks([{ text: 'شوف https://theweekendhairstyling.com/offers/ramadan' }], links), ['https://theweekendhairstyling.com/offers/ramadan']);
+  assert.deepEqual(ungroundedLinks([{ text: 'see http://evil.example/book' }], links), ['http://evil.example/book']);
+});
+
+test('post-merge review: an ungrounded figure or link gets one corrective retry, then a closed error', async () => {
+  const badFact = modelJson({ reply: [{ text: 'قص الشعر بـ30 ريال والمدة 90 دقيقة', lang: 'ar' }] });
+  const a = adapterWith([response(badFact), response(badFact)]);
+  const r = await a.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(a.client.calls.length, 2);
+  assert.match(a.client.calls[1].system.at(-1).text, /minutes 90/);
+  assert.equal(r.output.state, 'error');
+  assert.equal(r.output.error.message_key, 'agent.ungrounded_fact');
+  assert.deepEqual(r.output.flags, ['unknown_fact']);
+  assert.ok(validateContract('ChatTurnOutput', r.output).ok);
+  assert.ok(validateContract('ModelUsageRecord', r.usage).ok);
+  const badLink = modelJson({ reply: [{ text: 'احجز من https://theweekendhairstyling.com/promo', lang: 'ar' }] });
+  const b = adapterWith([response(badLink), response(modelJson())]);
+  const r2 = await b.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(b.client.calls.length, 2);
+  assert.match(b.client.calls[1].system.at(-1).text, /links \(https:\/\/theweekendhairstyling\.com\/promo\)/);
+  assert.equal(r2.output.state, 'ok', 'the corrected second attempt is accepted');
+  const c = adapterWith([response(badLink), response(badLink)]);
+  const r3 = await c.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(r3.output.error.message_key, 'agent.ungrounded_link');
+  assert.ok(validateContract('ChatTurnOutput', r3.output).ok);
+});
+
+test('post-merge review: tokens of every attempt are charged, cost is integer arithmetic rounded up', async () => {
+  const { adapter, client } = adapterWith([response('not json at all'), response(modelJson())]);
+  const r = await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(client.calls.length, 2);
+  assert.equal(r.output.state, 'ok');
+  assert.equal(r.usage.input_tokens, 2400, 'both attempts are summed');
+  assert.equal(r.usage.output_tokens, 360);
+  assert.equal(r.usage.cost_estimate_minor, estimateCostMinor('claude-opus-5', { input_tokens: 2400, output_tokens: 360, cache_read_input_tokens: 1800, cache_creation_input_tokens: 0 }));
+  const failing = adapterWith([response('still not json'), badRequest()]);
+  const r2 = await failing.adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(r2.output.error.code, 'MODEL_UNAVAILABLE');
+  assert.equal(r2.usage.input_tokens, 1200, 'the first, paid attempt is still recorded when the retry throws');
+  assert.equal(estimateCostMinor('claude-opus-5', { input_tokens: 1_000_000 }), 500);
+  assert.equal(estimateCostMinor('claude-opus-5', { output_tokens: 1_000_000 }), 2500);
+  assert.equal(estimateCostMinor('claude-opus-5', { cache_read_input_tokens: 1_000_000 }), 50);
+  assert.equal(estimateCostMinor('claude-opus-5', { cache_creation_input_tokens: 1_000_000 }), 625);
+  assert.equal(estimateCostMinor('claude-opus-5', { input_tokens: 1 }), 1, 'a sub-cent call is rounded up, never to zero');
+  assert.equal(estimateCostMinor('claude-opus-5', { input_tokens: 0, output_tokens: 0 }), 0);
+  assert.equal(estimateCostMinor('claude-sonnet-5', { input_tokens: 333_333, output_tokens: 1 }), 67, 'ceil(66.67 + 0.001)');
+  assert.equal(estimateCostMinor('claude-unknown', { input_tokens: 5 }), null);
+});
+
+test('post-merge review: no retry after the turn deadline or an abort, and a late completion is never remembered', async () => {
+  const ticks = [1_000, 1_000, 7_500, 7_500, 7_500, 7_500];
+  let i = 0;
+  const clock = () => ticks[Math.min(i++, ticks.length - 1)];
+  const bad = modelJson({ reply: [{ text: 'الحلاقة بـ40 ريال بس', lang: 'ar' }], knowledge_refs: [] });
+  const client = fakeClient([response(bad), response(modelJson())]);
+  const adapter = createRakanAdapter(realConfig(), { client, knowledge, clock });
+  const r = await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(client.calls.length, 1, 'no second call with under 2 s left of the 8 s turn window');
+  assert.equal(r.output.error.message_key, 'agent.ungrounded_price');
+
+  const aborter = new AbortController();
+  const seen = [];
+  const abortingClient = {
+    messages: {
+      async create(params, opts) {
+        seen.push(opts?.signal);
+        aborter.abort();
+        return response(modelJson());
+      },
+    },
+  };
+  const adapter2 = createRakanAdapter(realConfig(), { client: abortingClient, knowledge, clock: () => 1_000 });
+  const r2 = await adapter2({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null, signal: aborter.signal });
+  assert.equal(seen[0], aborter.signal, 'the turn signal reaches the SDK request');
+  assert.equal(r2.output.state, 'unavailable');
+  assert.equal(r2.output.error.message_key, 'model.timeout');
+  assert.equal(r2.usage.outcome, 'timeout');
+  assert.equal(r2.usage.input_tokens, 1200, 'work the provider already did is still accounted');
+  assert.ok(validateContract('ChatTurnOutput', r2.output).ok);
+  assert.ok(validateContract('ModelUsageRecord', r2.usage).ok);
+  const plain = fakeClient([response(modelJson())]);
+  const adapter3 = createRakanAdapter(realConfig(), { client: plain, knowledge, clock: () => 1_000 });
+  await adapter3({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(plain.calls[0].messages.length, 1);
+  const abortedThenPlain = fakeClient([response(modelJson()), response(modelJson())]);
+  const adapter4 = createRakanAdapter(realConfig(), { client: abortedThenPlain, knowledge, clock: () => 1_000 });
+  const ac = new AbortController();
+  ac.abort();
+  await adapter4({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null, signal: ac.signal });
+  await adapter4({ context: context(), input: input('ثاني'), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(abortedThenPlain.calls[1].messages.length, 1, 'an aborted turn left no history behind');
+});
+
+test('post-merge review: share_photo_ref is bound to the photo of this turn, never to a model-chosen id', async () => {
+  const json = modelJson({ proposed_actions: [{ kind: 'share_photo_ref', label_ar: 'شارك الصورة', label_en: 'Share photo', payload: { preference_kind: 'none', value_text: '' } }] });
+  const withImage = mapModelOutput(json, { context: context({ consents: [photoConsent()] }), input: input('صورتي', { image_ref: 'img_turn_1' }), usageId: 'use_x', hasImage: true, byId: knowledge.byId, now: '2026-09-14T06:00:00Z' });
+  assert.deepEqual(withImage.proposed_actions.map((a) => [a.kind, a.payload]), [['share_photo_ref', { image_ref: 'img_turn_1' }]]);
+  assert.ok(validateContract('ChatTurnOutput', withImage).ok);
+  const noRef = mapModelOutput(json, { context: context(), input: input('نص'), usageId: 'use_x', hasImage: true, byId: knowledge.byId, now: '2026-09-14T06:00:00Z' });
+  assert.deepEqual(noRef.proposed_actions, [], 'no image reference in the turn → no share action');
 });

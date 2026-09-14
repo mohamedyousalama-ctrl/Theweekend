@@ -42,6 +42,38 @@ test('the branch pack carries the owner decisions of 2026-09-14', () => {
   assert.match(byId.get('kno_mrs_policy_changes').text_ar, /ما يوعد بتغيير/);
 });
 
+test('post-merge review: product availability, treatment claims, annual expiry and citable arithmetic', () => {
+  const byId = new Map(pack.records.map((r) => [r.knowledge_id, r]));
+  assert.equal(pack.pack_revision, 2);
+  assert.equal(pack.records.length, 47);
+  const perfume = byId.get('kno_mrs_product_the_weekend_oud_perfume');
+  assert.match(perfume.text_ar, /يُباع في الفرع/, 'a product the storefront lists for the branch');
+  assert.equal(perfume.status, 'merchant_approved');
+  for (const id of ['kno_mrs_product_batci_hair_concealer_30_ml', 'kno_mrs_product_batci_pro_vitamin_b5_shampoo_500_ml']) {
+    const r = byId.get(id);
+    assert.doesNotMatch(r.text_ar, /يُباع في الفرع/, `${id}: no branch claim without a branch in the source`);
+    assert.match(r.text_ar, /غير مؤكد/);
+    assert.match(r.text_en, /unconfirmed/);
+    assert.equal(r.status, 'verified_public');
+  }
+  const dandruff = pack.records.find((r) => r.knowledge_id.startsWith('kno_mrs_service_dandruff'));
+  assert.doesNotMatch(dandruff.text_ar, /إزالة القشرة|يقوي جذوره|تنظيف فروة/);
+  assert.match(dandruff.text_ar, /باي باي قشرة: 149 ريال شامل الضريبة، المدة 45 دقيقة/);
+  assert.doesNotMatch(byId.get('kno_mrs_product_batci_pro_vitamin_b5_shampoo_500_ml').text_ar, /يقوّيه من الجذور/);
+  for (const r of pack.records.filter((x) => x.kind === 'membership' && x.text_ar.includes('360 يوم') && !x.knowledge_id.includes('compare'))) {
+    assert.match(r.text_ar, /تنتهي مع نهاية فترة العضوية \(360 يوم\)/, r.knowledge_id);
+    assert.doesNotMatch(r.text_ar, /نهاية السنة/);
+  }
+  const monthly = byId.get('kno_mrs_membership_compare_monthly_basic');
+  assert.match(monthly.text_ar, /4 زيارات = 200 ريال، 5 زيارات = 250 ريال/);
+  assert.match(monthly.text_ar, /3 زيارات = 150 ريال/);
+  assert.equal(monthly.status, 'merchant_approved');
+  const annual = byId.get('kno_mrs_membership_compare_annual_basic');
+  assert.match(annual.text_ar, /40 زيارة/);
+  assert.match(annual.text_ar, /1995 ÷ 50/);
+  assert.doesNotMatch(annual.text_ar, /3000/);
+});
+
 test('nothing forbidden is in the pack: no ratings, review counts, stock, phone numbers, iCal', () => {
   const text = JSON.stringify(pack);
   assert.doesNotMatch(text, /تقييم|نجوم|مراجع(ة|ات)|reviews?|rating/i);
