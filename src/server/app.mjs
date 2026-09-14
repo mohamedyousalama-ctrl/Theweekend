@@ -36,6 +36,10 @@ const ACTION_LABELS = {
   continue_without_photo: { label_ar: 'نكمل بدون صورة', label_en: 'Continue without a photo' },
 };
 
+export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
+export const PHOTO_BYTES_MAX_ENTRIES = 32;
+export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
+
 export class AppError extends Error {
   constructor(shape, status = 400) {
     super(shape.message_key);
@@ -213,6 +217,45 @@ export function createApp(config, deps = {}) {
   const inflight = new Map();
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
+  const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
+    ? deps.photoBytesMax
+    : PHOTO_BYTES_MAX_ENTRIES;
+
+  function sweepPhotoRetention() {
+    const nowMs = Date.parse(iso(clock));
+    const byteCutoff = nowMs - PHOTO_BYTES_TTL_MS;
+    for (const [ref] of [...photoBytes]) {
+      const image = store.get('SELECT created_at FROM images WHERE image_ref = ?', [ref]);
+      if (!image || Date.parse(image.created_at) <= byteCutoff) photoBytes.delete(ref);
+    }
+    if (photoBytes.size > photoBytesMax) {
+      const listed = store.all(
+        `SELECT image_ref FROM images
+         WHERE image_ref IN (${[...photoBytes.keys()].map(() => '?').join(',')})
+         ORDER BY created_at ASC`,
+        [...photoBytes.keys()],
+      );
+      const extra = listed.length - photoBytesMax;
+      for (let i = 0; i < extra; i += 1) photoBytes.delete(listed[i].image_ref);
+    }
+    const obsCutoff = new Date(nowMs - PHOTO_OBSERVATIONS_TTL_MS).toISOString();
+    const expired = store.all(
+      'SELECT image_ref FROM photo_observations WHERE created_at < ?',
+      [obsCutoff],
+    );
+    for (const row of expired) {
+      photoBytes.delete(row.image_ref);
+      store.run('DELETE FROM photo_observations WHERE image_ref = ?', [row.image_ref]);
+      store.run('DELETE FROM images WHERE image_ref = ?', [row.image_ref]);
+    }
+  }
+
+  function purgeSubjectPhotoMaterial(subjectId) {
+    const rows = store.all('SELECT image_ref FROM images WHERE subject_id = ?', [subjectId]);
+    for (const row of rows) photoBytes.delete(row.image_ref);
+    store.run('DELETE FROM photo_observations WHERE subject_id = ?', [subjectId]);
+    store.run('DELETE FROM images WHERE subject_id = ?', [subjectId]);
+  }
 
   function activeReceipt(subjectId, kind) {
     return store.get(
@@ -516,6 +559,7 @@ export function createApp(config, deps = {}) {
     if (!row || row.subject_id !== session.subject_id) fail('NOT_FOUND', 'consent.not_found', false, {}, 404);
     const now = iso(clock);
     store.run('UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ?', [now, receiptId]);
+    if (row.kind === 'photo_analysis') purgeSubjectPhotoMaterial(session.subject_id);
     return rowReceipt({ ...row, revoked_at: now });
   }
 
@@ -673,6 +717,7 @@ export function createApp(config, deps = {}) {
 
   function registerUpload(token, { byteLength, contentType, bytes }) {
     const session = requireSession(token);
+    sweepPhotoRetention();
     if (!config.WEEKEND_PHOTO_ENABLED) {
       fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
     }
@@ -696,6 +741,7 @@ export function createApp(config, deps = {}) {
     if (bytes instanceof Uint8Array) {
       photoBytes.set(imageRef, Buffer.from(bytes));
     }
+    sweepPhotoRetention();
     return { image_ref: imageRef };
   }
 
@@ -926,6 +972,7 @@ export function createApp(config, deps = {}) {
       fail('UNAUTHORIZED', 'turn.session', false, {}, 401);
     }
     const context = contextOf(session);
+    sweepPhotoRetention();
     let imageBytes = null;
     if (input.image_ref) {
       if (context.capabilities.photo !== 'enabled') {
