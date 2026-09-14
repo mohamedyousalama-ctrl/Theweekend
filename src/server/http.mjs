@@ -30,12 +30,21 @@ function bearer(req) {
   return header.startsWith('Bearer ') ? header.slice(7) : '';
 }
 
-function clientKey(req) {
+/**
+ * Client address for the passcode limiter. Without a trusted proxy the socket address is the only
+ * value the client cannot choose. Behind Railway's proxy (WEEKEND_TRUST_PROXY=1) the platform appends
+ * the real client address as the LAST entry of X-Forwarded-For; earlier entries are client-supplied
+ * and are never used (rotating them would otherwise bypass the limiter or lock out a victim).
+ */
+export function clientKey(req, config = {}) {
+  const socketAddress = req.socket?.remoteAddress || 'unknown';
+  if (!config.WEEKEND_TRUST_PROXY) return socketAddress;
   const forwarded = req.headers['x-forwarded-for'];
   if (typeof forwarded === 'string' && forwarded.trim()) {
-    return forwarded.split(',')[0].trim();
+    const parts = forwarded.split(',').map((s) => s.trim()).filter(Boolean);
+    if (parts.length) return parts[parts.length - 1];
   }
-  return req.socket?.remoteAddress || 'unknown';
+  return socketAddress;
 }
 
 async function readLimitedBytes(req, maxBytes, onTooLarge) {
@@ -100,7 +109,7 @@ export function createHttpServer(app, config) {
       }
       if (method === 'POST' && path === '/session') {
         const body = await readJson(req, 4096);
-        const out = app.createSession(body.role, body.passcode, { clientKey: clientKey(req) });
+        const out = app.createSession(body.role, body.passcode, { clientKey: clientKey(req, config) });
         return send(res, 200, out);
       }
       if (method === 'GET' && path === '/context') return send(res, 200, app.context(bearer(req)));

@@ -90,8 +90,13 @@ export function loadConfig(env) {
     weekendEnv === 'local',
   );
 
+  // Optional: 1 only behind a platform proxy that appends the client address to X-Forwarded-For (Railway).
+  const trustProxyRaw = String(env.WEEKEND_TRUST_PROXY ?? '0').trim();
+  if (!['0', '1', 'true', 'false'].includes(trustProxyRaw)) throw new ConfigError('WEEKEND_TRUST_PROXY');
+
   return {
     WEEKEND_ENV: weekendEnv,
+    WEEKEND_TRUST_PROXY: trustProxyRaw === '1' || trustProxyRaw === 'true',
     WEEKEND_MODEL_MODE: modelMode,
     WEEKEND_MODEL_PROVIDER: env.WEEKEND_MODEL_PROVIDER.trim(),
     WEEKEND_MODEL_ID: env.WEEKEND_MODEL_ID.trim(),

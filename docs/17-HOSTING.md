@@ -29,7 +29,7 @@
 1. Sign up at railway.com with the GitHub account that owns this repository; choose the Hobby plan.
 2. New Project → Deploy from GitHub repo → `mohamedyousalama-ctrl/Theweekend`, branch `main`.
 3. Add a Volume to the service, mount path `/data`.
-4. Variables: copy the names from `.env.example` and enter the values (the Claude API key, passcodes, branch id, booking URL, caps). Never paste values anywhere else.
+4. Variables: copy the names from `.env.example` and enter the values (the Claude API key, passcodes, branch id, booking URL, caps), and set `WEEKEND_TRUST_PROXY=1` so the login limiter keys on the real client address behind Railway's proxy. Never paste values anywhere else.
 5. Settings → Networking → Generate Domain. Share that URL and the owner passcode with Khalid.
 
 Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied.
