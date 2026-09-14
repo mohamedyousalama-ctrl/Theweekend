@@ -4,8 +4,13 @@
  */
 import { assertContract, validateContract } from '../contracts/validate.mjs';
 import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
-import { hashPasscode, newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
+import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
+import { AttemptLimiter } from './limiter.mjs';
 import { openStore } from './store.mjs';
+import { withTimeout } from './timeout.mjs';
+
+const PREFERENCE_KINDS = new Set(['style', 'barber', 'branch', 'do_not', 'note']);
+const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 const NOTICE = {
   photo_analysis: 'notice_photo_v1',
@@ -143,10 +148,35 @@ function rowBrief(row) {
   };
 }
 
+function parsePayload(row) {
+  if (!row?.payload_json) return {};
+  try {
+    const value = JSON.parse(row.payload_json);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  } catch {
+    return {};
+  }
+}
+
+function bytesMatchType(bytes, contentType) {
+  if (!(bytes instanceof Uint8Array) || bytes.length < 12) return false;
+  if (contentType === 'image/jpeg') return bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
+  if (contentType === 'image/png') {
+    return bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+  }
+  if (contentType === 'image/webp') {
+    return bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50;
+  }
+  return false;
+}
+
 export function createApp(config, deps = {}) {
   const clock = deps.clock || (() => new Date().toISOString());
   const store = deps.store || openStore(config.WEEKEND_DB_PATH);
   const adapter = deps.adapter || runModelTurn;
+  const limiter = deps.limiter || new AttemptLimiter();
+  const photoBytes = new Map();
 
   function activeReceipt(subjectId, kind) {
     return store.get(
@@ -192,6 +222,7 @@ export function createApp(config, deps = {}) {
   function persistAction(session, kind, objectId, objectVersion, extra = {}) {
     const labels = ACTION_LABELS[kind];
     const url = kind === 'open_official_booking' ? config.WEEKEND_OFFICIAL_BOOKING_URL : null;
+    const payload = extra.payload && typeof extra.payload === 'object' ? extra.payload : {};
     const row = {
       action_id: newId('act_'),
       kind,
@@ -204,20 +235,134 @@ export function createApp(config, deps = {}) {
       requires_receipt_kind: extra.requires_receipt_kind ?? null,
       expires_at: extra.expires_at || new Date(Date.parse(iso(clock)) + 3600000).toISOString(),
       url,
+      payload_json: JSON.stringify(payload),
     };
     store.run(
       `INSERT INTO allowed_actions (
          action_id, kind, label_ar, label_en, session_id, subject_id, object_id,
-         object_version, requires_receipt_kind, expires_at, url, consumed_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         object_version, requires_receipt_kind, expires_at, url, consumed_at, payload_json
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, ?)`,
       [
         row.action_id, row.kind, row.label_ar, row.label_en, row.session_id, row.subject_id,
         row.object_id, row.object_version, row.requires_receipt_kind, row.expires_at, row.url,
+        row.payload_json,
       ],
     );
     const action = rowAction(row);
     assertContract('AllowedAction', action);
     return action;
+  }
+
+  function insertDraftPreference(session, kind, valueText) {
+    const pref = {
+      contract_version: '0.1.0',
+      preference_id: newId('prf_'),
+      subject_id: session.subject_id,
+      kind,
+      value_text: valueText,
+      source: 'customer_selected',
+      provenance: 'proposal',
+      version: 1,
+      created_at: iso(clock),
+      revoked_at: null,
+    };
+    assertContract('Preference', pref);
+    store.run(
+      `INSERT INTO preferences (
+         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+      [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
+        pref.provenance, pref.version, pref.created_at],
+    );
+    return pref;
+  }
+
+  function ownedPreference(session, preferenceId) {
+    if (typeof preferenceId !== 'string') return null;
+    const pref = store.get(
+      'SELECT * FROM preferences WHERE preference_id = ? AND revoked_at IS NULL',
+      [preferenceId],
+    );
+    if (!pref || pref.subject_id !== session.subject_id) return null;
+    return pref;
+  }
+
+  function persistSavePreferenceProposal(session, payload) {
+    if (typeof payload.preference_id === 'string') {
+      const pref = ownedPreference(session, payload.preference_id);
+      if (!pref) return null;
+      return persistAction(session, 'save_preference', pref.preference_id, pref.version, {
+        requires_receipt_kind: 'text_preferences',
+        payload,
+      });
+    }
+    const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
+    const value = typeof payload.value_text === 'string' ? payload.value_text.trim() : '';
+    if (!value) return null;
+    const draft = insertDraftPreference(session, kind, value);
+    return persistAction(session, 'save_preference', draft.preference_id, draft.version, {
+      requires_receipt_kind: 'text_preferences',
+      payload: { ...payload, preference_id: draft.preference_id, preference_kind: kind, value_text: value },
+    });
+  }
+
+  function persistDeletePreferenceProposal(session, payload) {
+    const pref = ownedPreference(session, payload.preference_id);
+    if (!pref) return null;
+    return persistAction(session, 'delete_preference', pref.preference_id, pref.version, { payload });
+  }
+
+  function persistProposedAction(session, proposed) {
+    const payload = proposed.payload && typeof proposed.payload === 'object' ? proposed.payload : {};
+    switch (proposed.kind) {
+      case 'save_preference':
+        return persistSavePreferenceProposal(session, payload);
+      case 'delete_preference':
+        return persistDeletePreferenceProposal(session, payload);
+      case 'share_brief_text': {
+        if (typeof payload.brief_id === 'string') {
+          const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
+          if (!brief || brief.subject_id !== session.subject_id) return null;
+          return persistAction(session, proposed.kind, brief.brief_id, brief.version, {
+            requires_receipt_kind: 'staff_sharing_text',
+            payload,
+          });
+        }
+        return persistAction(session, proposed.kind, 'share_brief_text', 1, {
+          requires_receipt_kind: 'staff_sharing_text',
+          payload,
+        });
+      }
+      case 'share_photo_ref': {
+        if (typeof payload.image_ref === 'string') {
+          const image = store.get('SELECT * FROM images WHERE image_ref = ?', [payload.image_ref]);
+          if (!image || image.subject_id !== session.subject_id) return null;
+          return persistAction(session, proposed.kind, image.image_ref, 1, {
+            requires_receipt_kind: 'staff_sharing_photo',
+            payload,
+          });
+        }
+        return persistAction(session, proposed.kind, 'share_photo_ref', 1, {
+          requires_receipt_kind: 'staff_sharing_photo',
+          payload,
+        });
+      }
+      case 'open_official_booking':
+        return persistAction(session, proposed.kind, 'handoff_official_booking', 1, { payload });
+      case 'request_pending_booking':
+        return persistAction(session, proposed.kind, 'handoff_pending_booking', 1, { payload });
+      case 'talk_to_staff':
+        return persistAction(session, proposed.kind, 'handoff_staff', 1, { payload });
+      case 'decline':
+        return persistAction(session, proposed.kind, 'decline', 1, { payload });
+      case 'continue_without_photo':
+        return persistAction(session, proposed.kind, 'continue_without_photo', 1, { payload });
+      default: {
+        const _never = proposed.kind;
+        void _never;
+        return null;
+      }
+    }
   }
 
   function persistUsage(record) {
@@ -244,34 +389,45 @@ export function createApp(config, deps = {}) {
       || { day, calls: 0, cost_minor: 0 };
   }
 
-  function addSpend(now) {
+  function addSpend(now, costMinor = 0) {
     const day = now.slice(0, 10);
-    const row = daySpend(day);
+    const add = Number.isInteger(costMinor) && costMinor > 0 ? costMinor : 0;
     store.run(
-      `INSERT INTO daily_spend (day, calls, cost_minor) VALUES (?, ?, ?)
-       ON CONFLICT(day) DO UPDATE SET calls = calls + 1`,
-      [day, row.calls + 1, row.cost_minor],
+      `INSERT INTO daily_spend (day, calls, cost_minor) VALUES (?, 1, ?)
+       ON CONFLICT(day) DO UPDATE SET
+         calls = calls + 1,
+         cost_minor = cost_minor + excluded.cost_minor`,
+      [day, add],
     );
   }
 
-  function createSession(role, passcode) {
+  function rejectPasscode(clientKey) {
+    limiter.recordFailure(clientKey);
+    fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+  }
+
+  function createSession(role, passcode, options = {}) {
     if (!['customer', 'staff', 'owner'].includes(role)) {
       fail('VALIDATION_ERROR', 'session.role', false, { field: 'role' });
     }
+    const clientKey = typeof options.clientKey === 'string' && options.clientKey
+      ? options.clientKey
+      : 'unknown';
+    if (limiter.isLimited(clientKey)) {
+      fail('UNAUTHORIZED', 'session.throttled', true, {}, 401);
+    }
     if (role === 'owner' && !passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode)) {
-      fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+      rejectPasscode(clientKey);
     }
     if (role === 'staff' && !passcodeMatches(config.WEEKEND_STAFF_PASSCODE_HASH, passcode)) {
-      fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+      rejectPasscode(clientKey);
     }
     if (role === 'customer') {
       const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
-      if (!ownerOk && config.WEEKEND_ENV !== 'local') {
-        fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
-      }
-      if (!ownerOk && hashPasscode(passcode) !== hashPasscode('local-customer')) {
-        fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
-      }
+      const localOk = config.WEEKEND_ENV === 'local'
+        && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
+        && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
+      if (!ownerOk && !localOk) rejectPasscode(clientKey);
     }
     const now = iso(clock);
     const subjectId = newId('sub_');
@@ -481,7 +637,7 @@ export function createApp(config, deps = {}) {
     return out;
   }
 
-  function registerUpload(token, { byteLength, contentType }) {
+  function registerUpload(token, { byteLength, contentType, bytes }) {
     const session = requireSession(token);
     if (!config.WEEKEND_PHOTO_ENABLED) {
       fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
@@ -489,9 +645,13 @@ export function createApp(config, deps = {}) {
     if (!activeReceipt(session.subject_id, 'photo_analysis')) {
       fail('CONSENT_REQUIRED', 'photo.consent_required', false, { capability: 'photo' }, 403);
     }
-    const allowed = new Set(['image/jpeg', 'image/png', 'image/webp']);
-    if (!allowed.has(contentType) || byteLength > config.WEEKEND_UPLOAD_MAX_BYTES || byteLength < 1) {
+    if (!IMAGE_TYPES.has(contentType) || byteLength > config.WEEKEND_UPLOAD_MAX_BYTES || byteLength < 1) {
       fail('UPLOAD_REJECTED', 'upload.rejected', false, { field: 'image_ref', limit: config.WEEKEND_UPLOAD_MAX_BYTES }, 400);
+    }
+    if (bytes instanceof Uint8Array) {
+      if (bytes.length !== byteLength || !bytesMatchType(bytes, contentType)) {
+        fail('UPLOAD_REJECTED', 'upload.rejected', false, { field: 'image_ref', limit: config.WEEKEND_UPLOAD_MAX_BYTES }, 400);
+      }
     }
     const imageRef = newId('img_');
     store.run(
@@ -499,7 +659,32 @@ export function createApp(config, deps = {}) {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [imageRef, session.subject_id, session.session_id, byteLength, contentType, iso(clock)],
     );
+    if (bytes instanceof Uint8Array) {
+      photoBytes.set(imageRef, Buffer.from(bytes));
+    }
     return { image_ref: imageRef };
+  }
+
+  function consumePhotoBytes(imageRef) {
+    const stored = photoBytes.get(imageRef) ?? null;
+    photoBytes.delete(imageRef);
+    return stored;
+  }
+
+  function actionResult(actionId, outcome, messageKey, receiptId = null) {
+    const result = {
+      contract_version: '0.1.0',
+      action_id: actionId,
+      outcome,
+      receipt_id: receiptId,
+      message_key: messageKey,
+    };
+    assertContract('ActionResult', result);
+    return result;
+  }
+
+  function staleAction(actionId) {
+    return actionResult(actionId, 'stale', 'action.stale');
   }
 
   function executeAction(token, actionId) {
@@ -512,26 +697,10 @@ export function createApp(config, deps = {}) {
       fail('STALE_ACTION', 'action.stale', false, { action_id: actionId }, 409);
     }
     if (row.consumed_at) {
-      const stale = {
-        contract_version: '0.1.0',
-        action_id: actionId,
-        outcome: 'stale',
-        receipt_id: null,
-        message_key: 'action.stale',
-      };
-      assertContract('ActionResult', stale);
-      return stale;
+      return staleAction(actionId);
     }
     if (Date.parse(row.expires_at) <= Date.parse(iso(clock))) {
-      const expired = {
-        contract_version: '0.1.0',
-        action_id: actionId,
-        outcome: 'expired',
-        receipt_id: null,
-        message_key: 'action.expired',
-      };
-      assertContract('ActionResult', expired);
-      return expired;
+      return actionResult(actionId, 'expired', 'action.expired');
     }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
       fail('CONSENT_REQUIRED', 'action.consent_required', false, { action_id: actionId }, 403);
@@ -540,6 +709,7 @@ export function createApp(config, deps = {}) {
     let outcome = 'done';
     let messageKey = 'action.done';
     let receiptId = null;
+    const payload = parsePayload(row);
     switch (row.kind) {
       case 'open_official_booking':
         outcome = 'external_handoff';
@@ -563,8 +733,44 @@ export function createApp(config, deps = {}) {
         outcome = 'pending';
         messageKey = 'handoff.queued';
         break;
-      case 'save_preference':
-      case 'delete_preference':
+      case 'save_preference': {
+        const pref = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
+        if (!pref || pref.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
+        }
+        if (pref.revoked_at || pref.version !== row.object_version) {
+          return staleAction(actionId);
+        }
+        const value = typeof payload.value_text === 'string' && payload.value_text.trim()
+          ? payload.value_text.trim()
+          : pref.value_text;
+        const nextVersion = pref.version + 1;
+        store.run(
+          `UPDATE preferences
+           SET value_text = ?, source = ?, provenance = ?, version = ?
+           WHERE preference_id = ?`,
+          [value, 'customer_selected', 'approved_preference', nextVersion, pref.preference_id],
+        );
+        outcome = 'done';
+        messageKey = 'action.save_preference';
+        break;
+      }
+      case 'delete_preference': {
+        const pref = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
+        if (!pref || pref.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
+        }
+        if (pref.revoked_at || pref.version !== row.object_version) {
+          return staleAction(actionId);
+        }
+        store.run(
+          'UPDATE preferences SET revoked_at = ? WHERE preference_id = ?',
+          [iso(clock), pref.preference_id],
+        );
+        outcome = 'done';
+        messageKey = 'action.delete_preference';
+        break;
+      }
       case 'decline':
       case 'continue_without_photo':
         outcome = 'done';
@@ -592,14 +798,7 @@ export function createApp(config, deps = {}) {
     }
 
     store.run('UPDATE allowed_actions SET consumed_at = ? WHERE action_id = ?', [iso(clock), actionId]);
-    const result = {
-      contract_version: '0.1.0',
-      action_id: actionId,
-      outcome,
-      receipt_id: receiptId,
-      message_key: messageKey,
-    };
-    assertContract('ActionResult', result);
+    const result = actionResult(actionId, outcome, messageKey, receiptId);
     store.run(
       `INSERT INTO action_results (action_id, outcome, receipt_id, message_key, created_at)
        VALUES (?, ?, ?, ?, ?)`,
@@ -619,7 +818,7 @@ export function createApp(config, deps = {}) {
     return actions;
   }
 
-  function submitTurn(token, input) {
+  async function submitTurn(token, input) {
     const session = requireSession(token);
     const checked = validateContract('ChatTurnInput', input);
     if (!checked.ok) fail('VALIDATION_ERROR', 'turn.invalid', false, { field: 'text' });
@@ -627,6 +826,7 @@ export function createApp(config, deps = {}) {
       fail('UNAUTHORIZED', 'turn.session', false, {}, 401);
     }
     const context = contextOf(session);
+    let imageBytes = null;
     if (input.image_ref) {
       if (context.capabilities.photo !== 'enabled') {
         fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
@@ -638,6 +838,7 @@ export function createApp(config, deps = {}) {
       if (!image || image.subject_id !== session.subject_id) {
         fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
       }
+      imageBytes = consumePhotoBytes(input.image_ref);
     }
 
     if (input.client_action_id) {
@@ -657,16 +858,69 @@ export function createApp(config, deps = {}) {
       }, 429);
     }
 
-    const { output, usage } = adapter({ context, input, now });
+    let output;
+    let usage;
+    try {
+      const result = await withTimeout(
+        () => adapter({ context, input, now, image_bytes: imageBytes }),
+        config.WEEKEND_REQUEST_TIMEOUT_MS,
+      );
+      output = result.output;
+      usage = result.usage;
+    } catch (err) {
+      if (err instanceof AppError) throw err;
+      if (err?.code !== 'TIMEOUT') throw err;
+      usage = {
+        contract_version: '0.1.0',
+        usage_id: newId('use_'),
+        session_id: session.session_id,
+        turn_id: input.turn_id,
+        provider: 'none',
+        model_id: 'unavailable',
+        prompt_version: 'none',
+        input_tokens: 0,
+        output_tokens: 0,
+        latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
+        cost_estimate_minor: null,
+        outcome: 'timeout',
+        created_at: now,
+      };
+      persistUsage(usage);
+      addSpend(now, 0);
+      fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+    }
     assertContract('ChatTurnOutput', output);
     persistUsage(usage);
-    addSpend(now);
+    addSpend(now, usage.cost_estimate_minor ?? 0);
+    if (input.image_ref && output.observations) {
+      store.run(
+        `INSERT OR REPLACE INTO photo_observations
+           (image_ref, session_id, subject_id, observations_json, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [input.image_ref, session.session_id, session.subject_id, JSON.stringify(output.observations), now],
+      );
+    }
     const allowed = [];
     for (const proposed of output.proposed_actions) {
-      allowed.push(persistAction(session, proposed.kind, proposed.kind, 1));
+      const saved = persistProposedAction(session, proposed);
+      if (saved) allowed.push(saved);
     }
     if (allowed.length === 0) allowed.push(...defaultActions(session));
     return { context, output, action_result: null, allowed_actions: allowed };
+  }
+
+  function issueSavePreferenceAction(token, payload = {}) {
+    const session = requireSession(token);
+    const action = persistSavePreferenceProposal(session, payload);
+    if (!action) fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
+    return action;
+  }
+
+  function issueDeletePreferenceAction(token, payload = {}) {
+    const session = requireSession(token);
+    const action = persistDeletePreferenceProposal(session, payload);
+    if (!action) fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
+    return action;
   }
 
   function issueBookingAction(token) {
@@ -684,9 +938,15 @@ export function createApp(config, deps = {}) {
   return {
     store,
     health() {
-      const state = healthOf(config, true);
-      assertContract('HealthState', { ...state, checked_at: iso(clock) });
-      return { ...state, checked_at: iso(clock) };
+      let storeUp = false;
+      try {
+        storeUp = store.probe();
+      } catch {
+        storeUp = false;
+      }
+      const state = { ...healthOf(config, storeUp), checked_at: iso(clock) };
+      assertContract('HealthState', state);
+      return state;
     },
     createSession,
     context(token) {
@@ -704,6 +964,11 @@ export function createApp(config, deps = {}) {
     executeAction,
     submitTurn,
     issueBookingAction,
+    issueSavePreferenceAction,
+    issueDeletePreferenceAction,
+    peekPhotoBytes(imageRef) {
+      return photoBytes.has(imageRef);
+    },
     close() {
       store.close();
     },

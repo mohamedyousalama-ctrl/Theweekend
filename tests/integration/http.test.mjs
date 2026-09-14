@@ -91,3 +91,52 @@ test('forged bearer token is rejected', async () => {
     assert.equal(json.code, 'UNAUTHORIZED');
   });
 });
+
+test('repeated failed sessions from one address are throttled', async () => {
+  await withServer({}, async ({ base }) => {
+    const headers = { 'x-forwarded-for': '198.51.100.20' };
+    for (let i = 0; i < 5; i += 1) {
+      const { status, json } = await req(base, '/session', {
+        method: 'POST',
+        headers,
+        body: { role: 'staff', passcode: 'nope' },
+      });
+      assert.equal(status, 401);
+      assert.equal(json.retryable, false);
+    }
+    const limited = await req(base, '/session', {
+      method: 'POST',
+      headers,
+      body: { role: 'staff', passcode: STAFF_PASS },
+    });
+    assert.equal(limited.status, 401);
+    assert.equal(limited.json.code, 'UNAUTHORIZED');
+    assert.equal(limited.json.retryable, true);
+  });
+});
+
+test('local mock turn over http is not a booking confirmation', async () => {
+  await withServer({}, async ({ base }) => {
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const sessionId = customer.json.context.session_id;
+    const turn = await req(base, '/turns', {
+      method: 'POST',
+      token: customer.json.token,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555571',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    assert.equal(turn.status, 200);
+    assert.equal(turn.json.output.state, 'ok');
+    assert.ok(!JSON.stringify(turn.json).toLowerCase().includes('confirm'));
+  });
+});

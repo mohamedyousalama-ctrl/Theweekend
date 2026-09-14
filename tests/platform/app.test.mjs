@@ -148,10 +148,10 @@ test('staff sees customer brief; other customer does not', () => {
   app.close();
 });
 
-test('local mock turn is labeled unavailable-or-ok but never a booking confirmation', () => {
+test('local mock turn is labeled unavailable-or-ok but never a booking confirmation', async () => {
   const { app } = testApp();
   const { token, context } = app.createSession('customer', OWNER_PASS);
-  const out = app.submitTurn(token, turn(context.session_id));
+  const out = await app.submitTurn(token, turn(context.session_id));
   assert.equal(out.output.state, 'ok');
   assert.match(out.output.messages[0].text, /للاختبار فقط/);
   assert.ok(out.allowed_actions.some(a => a.kind === 'open_official_booking'));

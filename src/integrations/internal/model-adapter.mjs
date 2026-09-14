@@ -26,7 +26,8 @@ function message(text, lang = 'ar') {
   return { text, lang };
 }
 
-export function runModelTurn({ context, input, now }) {
+export function runModelTurn({ context, input, now, image_bytes }) {
+  void image_bytes;
   const model = context.capabilities.model;
   if (model === 'unavailable' || model === 'real') {
     const record = usage(context.session_id, input.turn_id, model === 'real' ? 'error' : 'error', now);

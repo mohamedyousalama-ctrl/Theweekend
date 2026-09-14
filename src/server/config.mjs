@@ -1,6 +1,10 @@
 /**
  * Fail-explicit Weekend configuration. No secret defaults. No Kivo fallback.
+ * Owner/staff hashes may be supplied as scrypt/legacy SHA-256, or as plain
+ * WEEKEND_*_PASSCODE values that are hashed in memory at start.
  */
+import { hashPasscode, isPasscodeHash } from './ids.mjs';
+
 const NAMES = [
   'WEEKEND_ENV',
   'WEEKEND_MODEL_MODE',
@@ -17,8 +21,6 @@ const NAMES = [
   'WEEKEND_OFFICIAL_BOOKING_URL',
   'WEEKEND_DB_PATH',
   'WEEKEND_SESSION_SECRET',
-  'WEEKEND_OWNER_PASSCODE_HASH',
-  'WEEKEND_STAFF_PASSCODE_HASH',
   'WEEKEND_BRANCH_ID',
 ];
 
@@ -39,6 +41,19 @@ function intField(env, name, min) {
   const n = Number(env[name]);
   if (!Number.isSafeInteger(n) || n < min) throw new ConfigError(name);
   return n;
+}
+
+function resolvePasscodeHash(env, hashKey, plainKey, required) {
+  if (present(env[hashKey])) {
+    const hash = env[hashKey].trim();
+    if (!isPasscodeHash(hash)) throw new ConfigError(hashKey);
+    return hash;
+  }
+  if (present(env[plainKey])) {
+    return hashPasscode(env[plainKey]);
+  }
+  if (required) throw new ConfigError(hashKey);
+  return null;
 }
 
 export function loadConfig(env) {
@@ -65,12 +80,15 @@ export function loadConfig(env) {
   }
   if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
   if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
-  if (!/^[a-f0-9]{64}$/.test(env.WEEKEND_OWNER_PASSCODE_HASH.trim())) {
-    throw new ConfigError('WEEKEND_OWNER_PASSCODE_HASH');
-  }
-  if (!/^[a-f0-9]{64}$/.test(env.WEEKEND_STAFF_PASSCODE_HASH.trim())) {
-    throw new ConfigError('WEEKEND_STAFF_PASSCODE_HASH');
-  }
+
+  const ownerHash = resolvePasscodeHash(env, 'WEEKEND_OWNER_PASSCODE_HASH', 'WEEKEND_OWNER_PASSCODE', true);
+  const staffHash = resolvePasscodeHash(env, 'WEEKEND_STAFF_PASSCODE_HASH', 'WEEKEND_STAFF_PASSCODE', true);
+  const localCustomerHash = resolvePasscodeHash(
+    env,
+    'WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH',
+    'WEEKEND_LOCAL_CUSTOMER_PASSCODE',
+    weekendEnv === 'local',
+  );
 
   return {
     WEEKEND_ENV: weekendEnv,
@@ -88,8 +106,9 @@ export function loadConfig(env) {
     WEEKEND_OFFICIAL_BOOKING_URL: url,
     WEEKEND_DB_PATH: env.WEEKEND_DB_PATH.trim(),
     WEEKEND_SESSION_SECRET: env.WEEKEND_SESSION_SECRET.trim(),
-    WEEKEND_OWNER_PASSCODE_HASH: env.WEEKEND_OWNER_PASSCODE_HASH.trim(),
-    WEEKEND_STAFF_PASSCODE_HASH: env.WEEKEND_STAFF_PASSCODE_HASH.trim(),
+    WEEKEND_OWNER_PASSCODE_HASH: ownerHash,
+    WEEKEND_STAFF_PASSCODE_HASH: staffHash,
+    WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH: localCustomerHash,
     WEEKEND_BRANCH_ID: branchId,
   };
 }

@@ -6,5 +6,8 @@
   "scripts": {
     "test": "node --test tests/*.test.mjs tests/platform/*.test.mjs tests/integration/*.test.mjs",
     "start": "node src/server/index.mjs"
+  },
+  "engines": {
+    "node": ">=22"
   }
 }

@@ -7,6 +7,7 @@ import { createApp } from '../../src/server/app.mjs';
 
 export const OWNER_PASS = 'owner-test';
 export const STAFF_PASS = 'staff-test';
+export const LOCAL_CUSTOMER_PASS = 'local-customer-test';
 
 export function testEnv(overrides = {}) {
   return {
@@ -27,6 +28,7 @@ export function testEnv(overrides = {}) {
     WEEKEND_SESSION_SECRET: 'test-session-secret-16',
     WEEKEND_OWNER_PASSCODE_HASH: hashPasscode(OWNER_PASS),
     WEEKEND_STAFF_PASSCODE_HASH: hashPasscode(STAFF_PASS),
+    WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH: hashPasscode(LOCAL_CUSTOMER_PASS),
     WEEKEND_BRANCH_ID: 'br_syn_m1',
     ...overrides,
   };

@@ -1,13 +1,16 @@
 /**
- * Local/owner-review shell. Binds 127.0.0.1:8787 only.
+ * Local default: 127.0.0.1:8787. When PORT is set (Railway), bind 0.0.0.0.
  * Required env names are in .env.example; missing names fail at start.
  */
 import { loadConfig } from './config.mjs';
 import { createApp } from './app.mjs';
-import { listen } from './http.mjs';
+import { listen, listenTarget } from './http.mjs';
 
 const config = loadConfig(process.env);
 const app = createApp(config);
-const server = await listen(app, config, 8787);
+const target = listenTarget();
+const server = await listen(app, config);
 const address = server.address();
-process.stdout.write(`weekend listening on 127.0.0.1:${address.port} env=${config.WEEKEND_ENV}\n`);
+process.stdout.write(
+  `weekend listening on ${target.host}:${address.port} env=${config.WEEKEND_ENV}\n`,
+);

@@ -138,7 +138,12 @@
             "option_id": { "type": "string", "pattern": "^opt_[A-Za-z0-9_-]{1,80}$" },
             "preference_id": { "type": "string", "pattern": "^prf_[A-Za-z0-9_-]{1,80}$" },
             "brief_id": { "type": "string", "pattern": "^brf_[A-Za-z0-9_-]{1,80}$" },
-            "image_ref": { "type": "string", "pattern": "^img_[A-Za-z0-9_-]{1,80}$" }
+            "image_ref": { "type": "string", "pattern": "^img_[A-Za-z0-9_-]{1,80}$" },
+            "preference_kind": {
+              "type": "string",
+              "enum": ["style", "barber", "branch", "do_not", "note"]
+            },
+            "value_text": { "type": "string", "minLength": 1, "maxLength": 300 }
           }
         }
       }

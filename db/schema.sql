@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS allowed_actions (
   expires_at TEXT NOT NULL,
   url TEXT,
   consumed_at TEXT,
+  payload_json TEXT,
   FOREIGN KEY (session_id) REFERENCES sessions(session_id),
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
@@ -128,4 +129,15 @@ CREATE TABLE IF NOT EXISTS daily_spend (
   day TEXT PRIMARY KEY,
   calls INTEGER NOT NULL,
   cost_minor INTEGER NOT NULL
+);
+
+-- Text observations only. Image bytes never land here or on disk.
+CREATE TABLE IF NOT EXISTS photo_observations (
+  image_ref TEXT PRIMARY KEY,
+  session_id TEXT NOT NULL,
+  subject_id TEXT NOT NULL,
+  observations_json TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+  FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );

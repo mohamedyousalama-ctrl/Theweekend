@@ -28,4 +28,12 @@ test('valid local mock config loads', () => {
   assert.equal(cfg.WEEKEND_ENV, 'local');
   assert.equal(cfg.WEEKEND_MODEL_MODE, 'mock');
   assert.equal(cfg.WEEKEND_PHOTO_ENABLED, false);
+  assert.ok(cfg.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH);
+});
+
+test('owner-review does not require a local customer passcode', () => {
+  const env = testEnv({ WEEKEND_ENV: 'owner-review', WEEKEND_MODEL_MODE: 'real' });
+  delete env.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH;
+  const cfg = loadConfig(env);
+  assert.equal(cfg.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, null);
 });
