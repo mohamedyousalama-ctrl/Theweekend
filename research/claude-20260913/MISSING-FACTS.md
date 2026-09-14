@@ -49,3 +49,7 @@ The owner asked for only the important questions. Rows not listed below are **de
 | 15 | no real model calls until the owner creates a project-only key and a daily cap (proposal: Claude via a new Anthropic key, cap USD 5/day, 40 calls/session; model id verified by Cursor against provider docs in #3) | `model = unavailable` until then |
 | 16 | run locally for the first owner walkthrough; hosting decided when #7 is ready | none now |
 | 17 | first owner-review build **without** the photo feature unless the owner supplies 3–5 permitted adult test photos | `photo = disabled` |
+
+## Owner answers (2026-09-14)
+
+Recorded in `OWNER-ANSWERS-2026-09-14.md`: rows 1, 2, 4, 5, 10, 14, 15, 17 answered; rows 6 and 7 answered with a scope change (Rakan books and modifies bookings itself) that depends on Rekaz merchant-API credentials; row 11 unanswered.
