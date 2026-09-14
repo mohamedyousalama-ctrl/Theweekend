@@ -26,6 +26,7 @@ Book, confirm or change appointments; state availability, waiting time or stock;
 ```
 npm test                                  # deterministic, fake client
 npm run build:knowledge                   # regenerate knowledge/marsiya.v1.json (must equal the committed file)
+WEEKEND_MODEL_API_KEY=… npm run chat:agent            # terminal chat with the real model (first try before the web UI)
 WEEKEND_MODEL_API_KEY=… npm run eval:agent            # real model, costs money, prints a report
 WEEKEND_MODEL_API_KEY=… npm run eval:agent -- --images ./permitted-faces   # optional cosmetic-vision set
 ```
