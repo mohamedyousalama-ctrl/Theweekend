@@ -113,11 +113,11 @@ test('staff accept claims received, assigns, and still pauses the model', async 
   assert.equal(row.status, 'received');
   assert.equal(row.accepted_at, null);
 
-  await assert.rejects(
+  assert.throws(
     () => app.staffHandoffs(customer.token),
     (err) => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
   );
-  await assert.rejects(
+  assert.throws(
     () => app.acceptStaffHandoff(customer.token, row.handoff_id),
     (err) => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
   );
@@ -156,7 +156,7 @@ test('another staff session cannot steal an accepted handoff', async () => {
     '11111111-2222-4333-8444-555555555813',
   );
   app.acceptStaffHandoff(staff.token, row.handoff_id);
-  await assert.rejects(
+  assert.throws(
     () => app.acceptStaffHandoff(other.token, row.handoff_id),
     (err) => err instanceof AppError
       && err.shape.code === 'CONFLICT'
@@ -218,7 +218,7 @@ test('staff release unpauses the model; timeout cannot be accepted', async () =>
     'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
     [new Date(now + 8 * 3600000).toISOString(), customer.context.session_id],
   );
-  await assert.rejects(
+  assert.throws(
     () => app.acceptStaffHandoff(staff.token, late.handoff_id),
     (err) => err instanceof AppError
       && err.shape.code === 'NOT_FOUND'
@@ -227,7 +227,7 @@ test('staff release unpauses the model; timeout cannot be accepted', async () =>
   const timed = app.store.get('SELECT status, accepted_at FROM staff_handoffs WHERE handoff_id = ?', [late.handoff_id]);
   assert.equal(timed.status, 'timeout');
   assert.equal(timed.accepted_at, null);
-  await assert.rejects(
+  assert.throws(
     () => app.releaseStaffHandoff(staff.token, late.handoff_id),
     (err) => err instanceof AppError && err.shape.message_key === 'handoff.not_found',
   );
