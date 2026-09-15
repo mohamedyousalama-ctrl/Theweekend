@@ -43,7 +43,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 
 ## 5. Preference (text only, C persisted)
 
-`preference_id`, `subject_id`, `kind: style\|barber\|branch\|do_not\|note`, `value_text` (≤ 300), `source: customer_typed\|customer_selected\|staff_recorded`, `provenance: proposal\|approved_preference\|executed_result` (M1 never writes `executed_result`), `version`, `created_at`, `revoked_at` \| null.
+`preference_id`, `subject_id`, `kind: style\|barber\|branch\|do_not\|note`, `value_text` (≤ 300), `source: customer_typed\|customer_selected\|staff_recorded`, `provenance: proposal\|approved_preference\|executed_result` (M1 never writes `executed_result`), `version`, `created_at`, `revoked_at` \| null. Retention key `ret_text_prefs_v1`: C revokes rows 90 days after last activity. Listing never returns expired rows.
 
 ## 6. KnowledgeRecord (A authors, C enables)
 

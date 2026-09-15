@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError, createApp } from '../../src/server/app.mjs';
+import { AppError, PREFERENCE_TTL_MS, createApp } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp, testEnv } from './helpers.mjs';
 
@@ -90,6 +90,54 @@ test('preferences persist across store reopen and stay isolated', () => {
   const other = second.createSession('customer', OWNER_PASS);
   assert.equal(second.listPreferences(other.token).length, 0);
   second.close();
+});
+
+test('text preferences expire 90 days after last activity', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  const { app } = testApp({}, { clock: () => new Date(now).toISOString() });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const saved = app.savePreference(token, { kind: 'note', value_text: 'بدون عطر', source: 'customer_typed' });
+  now += PREFERENCE_TTL_MS - 1000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  assert.equal(app.listPreferences(token).length, 1);
+  now += 2000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  assert.equal(app.listPreferences(token).length, 0);
+  const row = app.store.get('SELECT * FROM preferences WHERE preference_id = ?', [saved.preference_id]);
+  assert.ok(row.revoked_at);
+  app.close();
+});
+
+test('saving a preference refreshes the 90-day activity window', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  const { app } = testApp({}, { clock: () => new Date(now).toISOString() });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const saved = app.savePreference(token, { kind: 'note', value_text: 'قديم', source: 'customer_typed' });
+  now += PREFERENCE_TTL_MS - 1000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  app.savePreference(token, {
+    kind: 'note', value_text: 'محدث', source: 'customer_typed', version: saved.version,
+  });
+  now += 2000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  const listed = app.listPreferences(token);
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].value_text, 'محدث');
+  app.close();
 });
 
 test('preference version conflict is CONFLICT', () => {

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS preferences (
   provenance TEXT NOT NULL,
   version INTEGER NOT NULL,
   created_at TEXT NOT NULL,
+  last_activity_at TEXT,
   revoked_at TEXT,
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
