@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readJson } from './helpers.mjs';
+import { failure, readJson } from './helpers.mjs';
 import { createRoot } from './dom-shim.mjs';
 
 // The real app, driven through the DOM shim: one click or submit must post exactly one action, and a link must not
@@ -380,4 +380,50 @@ test('upload CONSENT_REQUIRED grants photo_analysis then retries POST /uploads',
   for (let i = 0; i < 30; i += 1) await Promise.resolve();
   assert.equal(calls.filter((c) => c.path === '/uploads').length, 2);
   assert.equal(app.state.imageRef, 'img_syn_retry');
+});
+
+test('retryable MODEL_UNAVAILABLE keeps the draft and retry posts /turns again', async () => {
+  const calls = [];
+  const down = failure('unavailable-model').instance;
+  const ok = {
+    output,
+    allowed_actions: [],
+    action_result: null,
+    context,
+  };
+  let turns = 0;
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    calls.push({ path, method: opts.method || 'GET', json });
+    if (path === '/turns') {
+      turns += 1;
+      const body = turns === 1
+        ? { output: down, allowed_actions: [], action_result: null, context }
+        : ok;
+      return { ok: true, status: 200, json: async () => body };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'سلام';
+  composer.fire('submit');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(turns, 1);
+  assert.equal(app.state.draft, 'سلام');
+  assert.equal(app.state.output?.state, 'unavailable');
+  const retry = root.querySelector('[data-retry="true"]');
+  assert.ok(retry, 'retry control shown for retryable model failure');
+  retry.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(turns, 2);
+  assert.equal(app.state.output?.state, 'ok');
+  assert.equal(app.state.draft, '');
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 2);
 });
