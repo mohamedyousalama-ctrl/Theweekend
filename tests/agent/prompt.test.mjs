@@ -39,6 +39,7 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'Never repeat a wrong price or figure the customer wrote',
     'whose own name names a condition',
     'availability at the branch is unconfirmed',
+    'every `reply[].lang` must match the customer\'s last message',
   ]) assert.ok(body.includes(needle), `missing rule: ${needle}`);
 });
 
