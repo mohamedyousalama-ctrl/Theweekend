@@ -24,7 +24,9 @@
 6. Serve the static UI from `src/ui/` on the same service (no second service).
 7. Log only ids and counts; Railway keeps stdout logs.
 
-## Owner steps (only when the app is ready — the integrator will say when)
+## Owner steps (unblocked 2026-09-15)
+
+C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). The owner-review application is ready for these Railway steps. This is not a customer-facing release.
 
 1. Sign up at railway.com with the GitHub account that owns this repository; choose the Hobby plan.
 2. New Project → Deploy from GitHub repo → `mohamedyousalama-ctrl/Theweekend`, branch `main`.
