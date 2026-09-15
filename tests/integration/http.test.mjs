@@ -158,6 +158,105 @@ test('http session, brief sync, and booking handoff', async () => {
   });
 });
 
+test('http staff accept and release of a talk_to_staff handoff', async () => {
+  await withServer({}, async ({ base }) => {
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const staff = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: STAFF_PASS },
+    });
+    const customerToken = customer.json.token;
+    const staffToken = staff.json.token;
+    const sessionId = customer.json.context.session_id;
+
+    const first = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555821',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    const talk = first.json.allowed_actions.find((a) => a.kind === 'talk_to_staff');
+    assert.ok(talk);
+    const queued = await req(base, `/actions/${talk.action_id}`, {
+      method: 'POST',
+      token: customerToken,
+      body: {},
+    });
+    assert.equal(queued.json.outcome, 'pending');
+
+    const asCustomer = await req(base, '/staff/handoffs', { token: customerToken });
+    assert.equal(asCustomer.status, 401);
+
+    const listed = await req(base, '/staff/handoffs', { token: staffToken });
+    assert.equal(listed.status, 200);
+    assert.equal(listed.json.handoffs.length, 1);
+    const handoffId = listed.json.handoffs[0].handoff_id;
+    assert.match(handoffId, /^hnd_/);
+    assert.equal(listed.json.handoffs[0].status, 'received');
+    assert.equal(listed.json.handoffs[0].accepted_at, null);
+
+    const accepted = await req(base, `/staff/handoffs/${handoffId}/accept`, {
+      method: 'POST',
+      token: staffToken,
+      body: {},
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.json.status, 'accepted');
+    assert.ok(accepted.json.assigned_at);
+    assert.ok(accepted.json.accepted_at);
+
+    const paused = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555822',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    assert.equal(paused.status, 403);
+    assert.equal(paused.json.message_key, 'handoff.queued');
+
+    const released = await req(base, `/staff/handoffs/${handoffId}/release`, {
+      method: 'POST',
+      token: staffToken,
+      body: {},
+    });
+    assert.equal(released.status, 200);
+    assert.equal(released.json.status, 'released');
+
+    const resumed = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555823',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    assert.equal(resumed.status, 200);
+    assert.equal(resumed.json.output.state, 'ok');
+  });
+});
+
 test('forged bearer token is rejected', async () => {
   await withServer({}, async ({ base }) => {
     const { status, json } = await req(base, '/context', { token: 'ses_nope.abcd' });

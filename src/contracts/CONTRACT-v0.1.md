@@ -84,4 +84,10 @@ Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, 
 
 `POST /staff/briefs/:brief_id/ack` — staff or owner session. Acknowledges a brief that is already `delivered` or `acknowledged` for this branch. `approved`, `draft`, or `withdrawn` briefs (and unknown ids) are `404 NOT_FOUND` (`brief.not_found`); acknowledgement cannot place a brief in the inbox or restore a withdrawn one. Acknowledgement is not a booking.
 
-`talk_to_staff` records a staff handoff in status `received` (never `accepted` until a later staff accept). Autonomous model turns for that session then fail `403 CAPABILITY_UNAVAILABLE` (`handoff.queued`) until the row times out after 30 minutes or is released. Timeout is not acceptance. Booking clicks and other `client_action_id` executions still run.
+`talk_to_staff` records a staff handoff in status `received` (never `accepted` until a later staff accept). Autonomous model turns for that session then fail `403 CAPABILITY_UNAVAILABLE` (`handoff.queued`) while the row is `received` or `accepted`. Timeout after 30 minutes applies only to unclaimed `received` rows and is not acceptance. Staff release or that timeout lets model turns resume. Booking clicks and other `client_action_id` executions still run.
+
+`GET /staff/handoffs` — staff or owner session. Lists `received` and `accepted` handoffs (ids and timestamps only; no customer text). Timed-out and released rows are omitted. Customers receive `401 UNAUTHORIZED` (`staff.required`).
+
+`POST /staff/handoffs/:handoff_id/accept` — staff or owner session. Claims a `received` row: sets `assigned_at`, `accepted_at`, and `accepted_by`. Timeout and unknown ids are `404 NOT_FOUND` (`handoff.not_found`); a timeout cannot be accepted afterwards. Repeating accept as the same staff is idempotent. Another staff session receives `409 CONFLICT` (`handoff.accepted`) and does not steal the assignment.
+
+`POST /staff/handoffs/:handoff_id/release` — staff or owner session. Claims a `received` or `accepted` row to `released`. Timeout, unknown, or already-timed-out ids are `404 NOT_FOUND` (`handoff.not_found`); a second release of the same released row is idempotent.

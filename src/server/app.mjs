@@ -113,6 +113,28 @@ function sweepStaffHandoffsAt(store, clock) {
   );
 }
 
+function rowHandoff(row) {
+  return {
+    contract_version: '0.1.0',
+    handoff_id: row.handoff_id,
+    subject_id: row.subject_id,
+    session_id: row.session_id,
+    status: row.status,
+    received_at: row.received_at,
+    assigned_at: row.assigned_at,
+    accepted_at: row.accepted_at,
+    accepted_by: row.accepted_by,
+    timed_out_at: row.timed_out_at,
+    released_at: row.released_at,
+  };
+}
+
+function requireStaffSession(session) {
+  if (session.role !== 'staff' && session.role !== 'owner') {
+    fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
+  }
+}
+
 function modelCapability(config, realAdapter = false) {
   if (config.WEEKEND_MODEL_MODE === 'mock' && config.WEEKEND_ENV === 'local') return 'mock';
   // Real inference exists only when stream A's adapter is injected (src/server/index.mjs); never assumed.
@@ -830,6 +852,60 @@ export function createApp(config, deps = {}) {
     });
   }
 
+  function staffHandoffs(token) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    return store.all(
+      `SELECT * FROM staff_handoffs
+       WHERE status IN ('received', 'accepted')
+       ORDER BY received_at ASC`,
+    ).map(rowHandoff);
+  }
+
+  function acceptStaffHandoff(token, handoffId) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE staff_handoffs
+       SET status = 'accepted', assigned_at = COALESCE(assigned_at, ?), accepted_at = ?, accepted_by = ?
+       WHERE handoff_id = ? AND status = 'received'`,
+      [now, now, session.subject_id, handoffId],
+    );
+    if (claimed.changes === 1) {
+      return rowHandoff(store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]));
+    }
+    const existing = store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]);
+    if (existing?.status === 'accepted' && existing.accepted_by === session.subject_id) {
+      return rowHandoff(existing);
+    }
+    if (existing?.status === 'accepted') {
+      fail('CONFLICT', 'handoff.accepted', false, {}, 409);
+    }
+    fail('NOT_FOUND', 'handoff.not_found', false, {}, 404);
+  }
+
+  function releaseStaffHandoff(token, handoffId) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE staff_handoffs
+       SET status = 'released', released_at = ?
+       WHERE handoff_id = ? AND status IN ('received', 'accepted')`,
+      [now, handoffId],
+    );
+    if (claimed.changes === 1) {
+      return rowHandoff(store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]));
+    }
+    const existing = store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]);
+    if (existing?.status === 'released') return rowHandoff(existing);
+    fail('NOT_FOUND', 'handoff.not_found', false, {}, 404);
+  }
+
   function acknowledgeBrief(token, briefId) {
     const session = requireSession(token);
     if (session.role !== 'staff' && session.role !== 'owner') {
@@ -1254,7 +1330,8 @@ export function createApp(config, deps = {}) {
       return { context, output: null, action_result: result, allowed_actions: [] };
     }
 
-    if (activeStaffHandoff(session.session_id)) {
+    const queuedHandoff = activeStaffHandoff(session.session_id);
+    if (queuedHandoff) {
       fail('CAPABILITY_UNAVAILABLE', 'handoff.queued', true, { capability: 'staff_inbox' }, 403);
     }
 
@@ -1469,6 +1546,9 @@ export function createApp(config, deps = {}) {
     deletePreference,
     createBrief,
     staffBriefs,
+    staffHandoffs,
+    acceptStaffHandoff,
+    releaseStaffHandoff,
     acknowledgeBrief,
     registerUpload,
     executeAction,

@@ -123,7 +123,9 @@ function normalizeRoute(pathname) {
     .replace(/\/briefs\/[^/]+\/share-actions/g, '/briefs/:brief_id/share-actions')
     .replace(/\/consents\/[^/]+\/revoke/g, '/consents/:receipt_id/revoke')
     .replace(/\/preferences\/[^/]+\/revoke/g, '/preferences/:preference_id/revoke')
-    .replace(/\/staff\/briefs\/[^/]+\/ack/g, '/staff/briefs/:brief_id/ack');
+    .replace(/\/staff\/briefs\/[^/]+\/ack/g, '/staff/briefs/:brief_id/ack')
+    .replace(/\/staff\/handoffs\/[^/]+\/accept/g, '/staff/handoffs/:handoff_id/accept')
+    .replace(/\/staff\/handoffs\/[^/]+\/release/g, '/staff/handoffs/:handoff_id/release');
 }
 
 export function createHttpServer(app, config) {
@@ -190,6 +192,22 @@ export function createHttpServer(app, config) {
         const id = path.split('/')[3];
         await readJson(req, 1024);
         return send(res, 200, app.acknowledgeBrief(bearer(req), id));
+      }
+      if (method === 'GET' && path === '/staff/handoffs') {
+        return send(res, 200, {
+          contract_version: '0.1.0',
+          handoffs: app.staffHandoffs(bearer(req)),
+        });
+      }
+      if (method === 'POST' && /^\/staff\/handoffs\/[^/]+\/accept$/.test(path)) {
+        const id = path.split('/')[3];
+        await readJson(req, 1024);
+        return send(res, 200, app.acceptStaffHandoff(bearer(req), id));
+      }
+      if (method === 'POST' && /^\/staff\/handoffs\/[^/]+\/release$/.test(path)) {
+        const id = path.split('/')[3];
+        await readJson(req, 1024);
+        return send(res, 200, app.releaseStaffHandoff(bearer(req), id));
       }
       if (method === 'GET' && path === '/booking/handoff') {
         return send(res, 200, app.issueBookingAction(bearer(req)));
