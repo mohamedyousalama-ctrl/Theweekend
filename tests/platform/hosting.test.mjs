@@ -25,6 +25,8 @@ test('health is 503 when the store is closed', async () => {
   try {
     const res = await fetch(`http://127.0.0.1:${port}/health`);
     assert.equal(res.status, 503);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-frame-options'), 'DENY');
     const json = await res.json();
     assert.equal(json.store, 'unavailable');
   } finally {
@@ -61,6 +63,23 @@ test('railway and nixpacks pin npm start, /health, and Node 22', () => {
   assert.match(envExample, /WEEKEND_TRUST_PROXY=/);
   assert.match(envExample, /WEEKEND_OWNER_PASSCODE=/);
   assert.match(envExample, /WEEKEND_DB_PATH=/);
+});
+
+test('static UI is served with clickjacking and sniffing protections', async () => {
+  const { app, config } = testApp();
+  const server = createHttpServer(app, config);
+  const port = await listen(server);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-frame-options'), 'DENY');
+    assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    app.close();
+  }
 });
 
 test('test env still loads after parent-dir config', () => {

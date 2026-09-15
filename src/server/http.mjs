@@ -16,13 +16,22 @@ const STATIC_TYPES = {
   '.json': 'application/json',
 };
 
+function securityHeaders(extra = {}) {
+  return {
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'no-referrer',
+    'cache-control': 'no-store',
+    ...extra,
+  };
+}
+
 function send(res, status, body) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
+  res.writeHead(status, securityHeaders({
     'content-type': JSON_TYPE,
     'content-length': Buffer.byteLength(payload),
-    'cache-control': 'no-store',
-  });
+  }));
   res.end(payload);
 }
 
@@ -101,10 +110,9 @@ function tryServeUi(req, res, pathname) {
   const target = resolve(join(UI_ROOT, rel));
   if (target !== UI_ROOT && !target.startsWith(`${UI_ROOT}/`)) return false;
   if (!existsSync(target) || !statSync(target).isFile()) return false;
-  res.writeHead(200, {
+  res.writeHead(200, securityHeaders({
     'content-type': STATIC_TYPES[extname(target)] || 'application/octet-stream',
-    'cache-control': 'no-store',
-  });
+  }));
   createReadStream(target).pipe(res);
   return true;
 }

@@ -38,8 +38,13 @@ async function req(base, path, { method = 'GET', token, body, headers } = {}) {
 
 test('health is honest about the model', async () => {
   await withServer({}, async ({ base }) => {
-    const { status, json } = await req(base, '/health');
-    assert.equal(status, 200);
+    const res = await fetch(`${base}/health`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-frame-options'), 'DENY');
+    assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    const json = await res.json();
     assert.equal(json.model, 'unavailable');
     assert.equal(json.store, 'ok');
     assert.equal(json.contract_version, '0.1.0');
