@@ -57,6 +57,8 @@ test('hosting doc unblocks Railway after C2 and the UI handback', () => {
   const hosting = readFileSync(join(ROOT, 'docs/17-HOSTING.md'), 'utf8');
   assert.match(hosting, /unblocked 2026-09-15/);
   assert.match(hosting, /4bfe6b5/);
+  assert.match(hosting, /rakan-production-7ae6\.up\.railway\.app/);
+  assert.match(hosting, /WEEKEND_MODEL_API_KEY/);
   const baseline = readFileSync(join(ROOT, 'docs/16-C-BASELINE.md'), 'utf8');
   assert.match(baseline, /4bfe6b526daa5bc5ebe448e2c90abc3f8415e673/);
 });

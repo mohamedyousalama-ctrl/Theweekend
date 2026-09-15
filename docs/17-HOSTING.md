@@ -1,6 +1,6 @@
 # 17 — Hosting decision for the owner-review build (stream C)
 
-**Decision (integrator, 2026-09-14, owner asked for the easiest correct option):** host the owner-review application on **Railway** (railway.com) as one small always-on Node service with a persistent volume, under the owner's own Railway account. Label: `decision` — not yet `implemented`, not `released`.
+**Decision (integrator, 2026-09-14, owner asked for the easiest correct option):** host the owner-review application on **Railway** (railway.com) as one small always-on Node service with a persistent volume, under the owner's own Railway account. Label: `implemented` (project + GitHub deploy from `main`) — **not** `released`. `GET /health` is not green until `WEEKEND_MODEL_API_KEY` is set on the service.
 
 ## Why Railway
 
@@ -24,16 +24,30 @@
 6. Serve the static UI from `src/ui/` on the same service (no second service).
 7. Log only ids and counts; Railway keeps stdout logs.
 
-## Owner steps (unblocked 2026-09-15)
+## Owner steps (unblocked 2026-09-15; project created the same day)
 
-C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). The owner-review application is ready for these Railway steps. This is not a customer-facing release.
+C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). This is not a customer-facing release.
 
-1. Sign up at railway.com with the GitHub account that owns this repository; choose the Hobby plan.
-2. New Project → Deploy from GitHub repo → `mohamedyousalama-ctrl/Theweekend`, branch `main`.
-3. Add a Volume to the service, mount path `/data`.
-4. Variables: paste the names below into the Railway service (values stay in the Railway UI; never in Git, issues or PR text). Set `WEEKEND_TRUST_PROXY=1` so the login limiter keys on the real client address behind Railway's proxy.
+**Created (2026-09-15, owner Railway account `mohamed.you.salama@gmail.com`, CLI):**
 
-Names the owner pastes (values are private):
+| Item | Value |
+|---|---|
+| Project | `Theweekend` (`cca3895c-f31a-4ce8-afe6-820c76dd0fd8`) — separate from other workspace apps |
+| Service | `rakan`, GitHub repo `mohamedyousalama-ctrl/Theweekend` branch `main` |
+| Volume | `rakan-volume` mounted at `/data`; `WEEKEND_DB_PATH=/data/weekend.sqlite` |
+| Domain | `https://rakan-production-7ae6.up.railway.app` |
+| Deployed commit | `4bfe6b526daa5bc5ebe448e2c90abc3f8415e673` |
+| Health | **crashed** — start fails `ConfigError: WEEKEND_MODEL_API_KEY` (fail-explicit; not mocked) |
+
+All names from the table below except `WEEKEND_MODEL_API_KEY` are already set on the `rakan` service. Owner and staff passcodes are the Railway variables `WEEKEND_OWNER_PASSCODE` and `WEEKEND_STAFF_PASSCODE` (read them in the Railway Variables tab; they are not in Git or this file).
+
+**Owner still does:**
+
+1. In Railway → project `Theweekend` → service `rakan` → Variables: paste the dedicated Anthropic key as `WEEKEND_MODEL_API_KEY` (never a Kivo key, never Git, never chat). Railway will redeploy.
+2. Confirm `GET https://rakan-production-7ae6.up.railway.app/health` returns 200.
+3. Share that URL and the owner passcode (from the Variables tab) with Khalid for the #8 walkthrough.
+
+The original numbered signup steps (1–5) are done except the model key. Names remaining for reference:
 
 | Name | Owner-review value (description only) |
 |---|---|
@@ -58,8 +72,7 @@ Names the owner pastes (values are private):
 | `WEEKEND_TRUST_PROXY` | `1` |
 | `PORT` | set by Railway; do not invent a value |
 
-`WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). Deploy under the owner's Railway account is **not released** by this document.
-5. Settings → Networking → Generate Domain. Share that URL and the owner passcode with Khalid.
+`WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). The generated domain exists; the process is **not released** until `/health` is 200 with the real key.
 
 Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied.
 
