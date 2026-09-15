@@ -45,11 +45,20 @@ function migrate(db) {
     PRIMARY KEY (session_id, turn_id),
     FOREIGN KEY (session_id) REFERENCES sessions(session_id)
   )`);
-  const prefCols = db.prepare('PRAGMA table_info(preferences)').all();
-  if (!prefCols.some((c) => c.name === 'last_activity_at')) {
-    db.exec('ALTER TABLE preferences ADD COLUMN last_activity_at TEXT');
-    db.exec('UPDATE preferences SET last_activity_at = created_at WHERE last_activity_at IS NULL');
-  }
+  db.exec(`CREATE TABLE IF NOT EXISTS staff_handoffs (
+    handoff_id TEXT PRIMARY KEY,
+    subject_id TEXT NOT NULL,
+    session_id TEXT NOT NULL,
+    status TEXT NOT NULL,
+    received_at TEXT NOT NULL,
+    assigned_at TEXT,
+    accepted_at TEXT,
+    accepted_by TEXT,
+    timed_out_at TEXT,
+    released_at TEXT,
+    FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+    FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
+  )`);
 }
 
 export function openStore(dbPath) {

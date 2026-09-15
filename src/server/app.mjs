@@ -40,6 +40,7 @@ export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
 export const PHOTO_BYTES_MAX_ENTRIES = 32;
 export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
 export const PREFERENCE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -98,6 +99,17 @@ function sweepPreferenceRetentionAt(store, clock) {
      WHERE revoked_at IS NULL
        AND COALESCE(last_activity_at, created_at) < ?`,
     [now, preferenceActivityCutoff(clock)],
+  );
+}
+
+function sweepStaffHandoffsAt(store, clock) {
+  const now = iso(clock);
+  const cutoff = new Date(Date.parse(now) - STAFF_HANDOFF_RECEIVED_TTL_MS).toISOString();
+  store.run(
+    `UPDATE staff_handoffs
+     SET status = 'timeout', timed_out_at = ?
+     WHERE status = 'received' AND received_at < ?`,
+    [now, cutoff],
   );
 }
 
@@ -259,6 +271,7 @@ export function createApp(config, deps = {}) {
   const inflightTurns = new Map();
   store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
   sweepPreferenceRetentionAt(store, clock);
+  sweepStaffHandoffsAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -337,6 +350,20 @@ export function createApp(config, deps = {}) {
 
   function sweepPreferenceRetention() {
     sweepPreferenceRetentionAt(store, clock);
+  }
+
+  function sweepStaffHandoffs() {
+    sweepStaffHandoffsAt(store, clock);
+  }
+
+  function activeStaffHandoff(sessionId) {
+    sweepStaffHandoffs();
+    return store.get(
+      `SELECT * FROM staff_handoffs
+       WHERE session_id = ? AND status IN ('received', 'accepted')
+       ORDER BY received_at DESC LIMIT 1`,
+      [sessionId],
+    );
   }
 
   function activeReceipt(subjectId, kind) {
@@ -958,10 +985,27 @@ export function createApp(config, deps = {}) {
         outcome = 'pending';
         messageKey = 'booking.pending_unconfirmed';
         break;
-      case 'talk_to_staff':
+      case 'talk_to_staff': {
+        sweepStaffHandoffs();
+        const existing = store.get(
+          `SELECT * FROM staff_handoffs
+           WHERE session_id = ? AND status IN ('received', 'accepted')
+           ORDER BY received_at DESC LIMIT 1`,
+          [session.session_id],
+        );
+        if (!existing) {
+          store.run(
+            `INSERT INTO staff_handoffs (
+               handoff_id, subject_id, session_id, status, received_at,
+               assigned_at, accepted_at, accepted_by, timed_out_at, released_at
+             ) VALUES (?, ?, ?, 'received', ?, NULL, NULL, NULL, NULL, NULL)`,
+            [newId('hnd_'), session.subject_id, session.session_id, iso(clock)],
+          );
+        }
         outcome = 'pending';
         messageKey = 'handoff.queued';
         break;
+      }
       case 'save_preference': {
         sweepPreferenceRetention();
         const existing = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
@@ -1208,6 +1252,10 @@ export function createApp(config, deps = {}) {
     if (input.client_action_id) {
       const result = executeAction(token, input.client_action_id);
       return { context, output: null, action_result: result, allowed_actions: [] };
+    }
+
+    if (activeStaffHandoff(session.session_id)) {
+      fail('CAPABILITY_UNAVAILABLE', 'handoff.queued', true, { capability: 'staff_inbox' }, 403);
     }
 
     const now = iso(clock);

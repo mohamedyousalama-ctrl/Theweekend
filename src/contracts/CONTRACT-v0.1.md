@@ -83,3 +83,5 @@ Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, 
 `GET /staff/briefs` — staff or owner session. Each item is a delivered or acknowledged `BarberBrief` for the configured branch plus `observations`: the stored `CosmeticObservations` for that brief's photo reference, or `null`. Never image bytes or URLs. `withdrawn` briefs are omitted. Observations older than the 24 h `ret_photo_v1` window are omitted.
 
 `POST /staff/briefs/:brief_id/ack` — staff or owner session. Acknowledges a brief that is already `delivered` or `acknowledged` for this branch. `approved`, `draft`, or `withdrawn` briefs (and unknown ids) are `404 NOT_FOUND` (`brief.not_found`); acknowledgement cannot place a brief in the inbox or restore a withdrawn one. Acknowledgement is not a booking.
+
+`talk_to_staff` records a staff handoff in status `received` (never `accepted` until a later staff accept). Autonomous model turns for that session then fail `403 CAPABILITY_UNAVAILABLE` (`handoff.queued`) until the row times out after 30 minutes or is released. Timeout is not acceptance. Booking clicks and other `client_action_id` executions still run.
