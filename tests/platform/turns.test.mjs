@@ -84,3 +84,27 @@ test('a pending turn abandoned across restart is reclaimed; complete still repla
   assert.equal(replay.output.usage_ref, out.output.usage_ref);
   second.close();
 });
+
+test('a consent-blocked turn can retry the same turn_id after the receipt exists', async () => {
+  const { app } = testApp();
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const brief = app.createBrief(token, { text_ar: 'موجز للمشاركة', do_not: [] });
+  const share = app.issueShareActionsForBrief(token, brief.brief_id)
+    .allowed_actions.find((a) => a.kind === 'share_brief_text');
+  const input = turn(context.session_id, '11111111-2222-4333-8444-555555555704');
+  input.text = '';
+  input.client_action_id = share.action_id;
+  await assert.rejects(
+    () => app.submitTurn(token, input),
+    (err) => err.shape?.code === 'CONSENT_REQUIRED',
+  );
+  const row = app.store.get(
+    'SELECT status FROM turns WHERE session_id = ? AND turn_id = ?',
+    [context.session_id, input.turn_id],
+  );
+  assert.equal(row.status, 'failed');
+  app.grantConsent(token, 'staff_sharing_text', 'customer_ui');
+  const out = await app.submitTurn(token, input);
+  assert.equal(out.action_result.outcome, 'done');
+  app.close();
+});

@@ -39,6 +39,7 @@ const ACTION_LABELS = {
 export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
 export const PHOTO_BYTES_MAX_ENTRIES = 32;
 export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
+export const PREFERENCE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -56,8 +57,48 @@ function fail(code, messageKey, retryable, details, status) {
   throw new AppError(errorShape(code, messageKey, retryable, details), status);
 }
 
+/** Timeout and unknown failures stay complete (do not retry a charged or unknown write). Pre-adapter errors stay failed so the same turn_id can run after consent or a cap reset. */
+function isTerminalTurnFailure(err) {
+  if (!(err instanceof AppError)) return true;
+  switch (err.shape.code) {
+    case 'TIMEOUT':
+      return true;
+    case 'VALIDATION_ERROR':
+    case 'UNAUTHORIZED':
+    case 'NOT_FOUND':
+    case 'CONSENT_REQUIRED':
+    case 'CAPABILITY_UNAVAILABLE':
+    case 'MODEL_UNAVAILABLE':
+    case 'BUDGET_EXCEEDED':
+    case 'STALE_ACTION':
+    case 'CONFLICT':
+    case 'UPLOAD_REJECTED':
+      return false;
+    default: {
+      const _never = err.shape.code;
+      void _never;
+      return true;
+    }
+  }
+}
+
 function iso(clock) {
   return clock();
+}
+
+function preferenceActivityCutoff(clock) {
+  return new Date(Date.parse(iso(clock)) - PREFERENCE_TTL_MS).toISOString();
+}
+
+function sweepPreferenceRetentionAt(store, clock) {
+  const now = iso(clock);
+  store.run(
+    `UPDATE preferences
+     SET revoked_at = ?
+     WHERE revoked_at IS NULL
+       AND COALESCE(last_activity_at, created_at) < ?`,
+    [now, preferenceActivityCutoff(clock)],
+  );
 }
 
 function modelCapability(config, realAdapter = false) {
@@ -217,6 +258,7 @@ export function createApp(config, deps = {}) {
   const inflight = new Map();
   const inflightTurns = new Map();
   store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
+  sweepPreferenceRetentionAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -291,6 +333,10 @@ export function createApp(config, deps = {}) {
     store.run('DELETE FROM photo_observations WHERE subject_id = ?', [subjectId]);
     store.run('DELETE FROM images WHERE subject_id = ?', [subjectId]);
     redactTurnObservations({ subjectId });
+  }
+
+  function sweepPreferenceRetention() {
+    sweepPreferenceRetentionAt(store, clock);
   }
 
   function activeReceipt(subjectId, kind) {
@@ -633,6 +679,7 @@ export function createApp(config, deps = {}) {
 
   function listPreferences(token) {
     const session = requireSession(token);
+    sweepPreferenceRetention();
     return store.all(
       `SELECT * FROM preferences WHERE subject_id = ? AND revoked_at IS NULL`,
       [session.subject_id],
@@ -641,6 +688,7 @@ export function createApp(config, deps = {}) {
 
   function savePreference(token, { kind, value_text, source, version }) {
     const session = requireSession(token);
+    sweepPreferenceRetention();
     if (!activeReceipt(session.subject_id, 'text_preferences')) {
       fail('CONSENT_REQUIRED', 'preference.consent_required', false, { capability: 'preferences' }, 403);
     }
@@ -656,8 +704,8 @@ export function createApp(config, deps = {}) {
       const next = { ...rowPreference(existing), value_text, version: existing.version + 1, source };
       assertContract('Preference', next);
       store.run(
-        `UPDATE preferences SET value_text = ?, source = ?, version = ? WHERE preference_id = ?`,
-        [value_text, source, next.version, existing.preference_id],
+        `UPDATE preferences SET value_text = ?, source = ?, version = ?, last_activity_at = ? WHERE preference_id = ?`,
+        [value_text, source, next.version, iso(clock), existing.preference_id],
       );
       return next;
     }
@@ -676,10 +724,10 @@ export function createApp(config, deps = {}) {
     assertContract('Preference', pref);
     store.run(
       `INSERT INTO preferences (
-         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, last_activity_at, revoked_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
-        pref.provenance, pref.version, pref.created_at],
+        pref.provenance, pref.version, pref.created_at, pref.created_at],
     );
     return pref;
   }
@@ -915,6 +963,7 @@ export function createApp(config, deps = {}) {
         messageKey = 'handoff.queued';
         break;
       case 'save_preference': {
+        sweepPreferenceRetention();
         const existing = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
         if (existing && existing.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
@@ -929,9 +978,9 @@ export function createApp(config, deps = {}) {
         if (existing) {
           store.run(
             `UPDATE preferences
-             SET value_text = ?, source = ?, provenance = ?, version = ?
+             SET value_text = ?, source = ?, provenance = ?, version = ?, last_activity_at = ?
              WHERE preference_id = ?`,
-            [value, 'customer_selected', 'approved_preference', existing.version + 1, existing.preference_id],
+            [value, 'customer_selected', 'approved_preference', existing.version + 1, iso(clock), existing.preference_id],
           );
         } else {
           const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
@@ -950,10 +999,10 @@ export function createApp(config, deps = {}) {
           assertContract('Preference', pref);
           store.run(
             `INSERT INTO preferences (
-               preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
-             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+               preference_id, subject_id, kind, value_text, source, provenance, version, created_at, last_activity_at, revoked_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
             [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
-              pref.provenance, pref.version, pref.created_at],
+              pref.provenance, pref.version, pref.created_at, pref.created_at],
           );
         }
         outcome = 'done';
@@ -1112,9 +1161,10 @@ export function createApp(config, deps = {}) {
         const payload = err instanceof AppError
           ? { ok: false, shape: err.shape, status: err.status }
           : { ok: false, internal: true };
+        const terminal = isTerminalTurnFailure(err);
         store.run(
-          `UPDATE turns SET status = 'complete', response_json = ? WHERE session_id = ? AND turn_id = ?`,
-          [JSON.stringify(payload), session.session_id, input.turn_id],
+          `UPDATE turns SET status = ?, response_json = ? WHERE session_id = ? AND turn_id = ?`,
+          [terminal ? 'complete' : 'failed', JSON.stringify(payload), session.session_id, input.turn_id],
         );
         throw err;
       } finally {
