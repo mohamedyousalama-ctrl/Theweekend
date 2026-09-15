@@ -388,6 +388,26 @@ test('revoking staff_sharing_text withdraws delivered briefs from the inbox', ()
   const row = app.store.get('SELECT * FROM briefs WHERE brief_id = ?', [brief.brief_id]);
   assert.equal(row.status, 'withdrawn');
   assert.ok(app.store.get('SELECT * FROM delivery_receipts WHERE brief_id = ?', [brief.brief_id]));
+  assert.throws(
+    () => app.acknowledgeBrief(staff.token, brief.brief_id),
+    err => err instanceof AppError && err.shape.code === 'NOT_FOUND',
+  );
+  assert.equal(app.store.get('SELECT status FROM briefs WHERE brief_id = ?', [brief.brief_id]).status, 'withdrawn');
+  assert.equal(app.staffBriefs(staff.token).length, 0);
+  app.close();
+});
+
+test('staff cannot acknowledge an unshared brief into the inbox', () => {
+  const { app } = testApp();
+  const customer = app.createSession('customer', OWNER_PASS);
+  const staff = app.createSession('staff', STAFF_PASS);
+  const brief = app.createBrief(customer.token, { text_ar: 'لم يُشارك', do_not: [] });
+  assert.throws(
+    () => app.acknowledgeBrief(staff.token, brief.brief_id),
+    err => err instanceof AppError && err.shape.code === 'NOT_FOUND',
+  );
+  assert.equal(app.store.get('SELECT status FROM briefs WHERE brief_id = ?', [brief.brief_id]).status, 'approved');
+  assert.equal(app.staffBriefs(staff.token).length, 0);
   app.close();
 });
 

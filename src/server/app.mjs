@@ -760,12 +760,15 @@ export function createApp(config, deps = {}) {
     if (session.role !== 'staff' && session.role !== 'owner') {
       fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
     }
-    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefId]);
-    if (!brief || brief.branch_id !== config.WEEKEND_BRANCH_ID) {
-      fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
-    }
     const now = iso(clock);
-    store.run('UPDATE briefs SET status = ? WHERE brief_id = ?', ['acknowledged', briefId]);
+    // Only delivered/acknowledged briefs can be acked. An unshared (approved) or withdrawn
+    // row must stay out of the inbox; matching on status also loses the race with revoke.
+    const claimed = store.run(
+      `UPDATE briefs SET status = 'acknowledged'
+       WHERE brief_id = ? AND branch_id = ? AND status IN ('delivered', 'acknowledged')`,
+      [briefId, config.WEEKEND_BRANCH_ID],
+    );
+    if (claimed.changes !== 1) fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
     const existing = store.get('SELECT * FROM delivery_receipts WHERE brief_id = ?', [briefId]);
     if (!existing) {
       store.run(
