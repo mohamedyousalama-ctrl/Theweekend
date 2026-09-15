@@ -17,6 +17,9 @@ test('health banner waits for checked_at', () => {
   const ready = renderHealthBanner({ health });
   assert.equal(ready.meta.checking, false);
   assert.match(ready.html, /data-cap="model"/);
+  assert.match(ready.html, /الحجز:/);
+  assert.equal(ready.html.includes('booking_handoff:'), false);
+  assert.equal(ready.html.includes('photo_analysis'), false);
 });
 
 test('capability copy labels independently and never confirms official booking', () => {
@@ -27,15 +30,19 @@ test('capability copy labels independently and never confirms official booking',
   assert.match(view.html, /تسليم خارجي/);
   assert.match(view.html, /data-booking="unconfirmed"/);
   assert.match(view.html, /مساعد رقمي/);
+  assert.equal(view.html.includes('booking_handoff:'), false);
+  assert.equal(view.html.includes('value_text'), false);
   assertNoForbiddenCopy(view.html, assert);
 });
 
-test('unavailable capabilities are omitted or disabled; M2 listed unavailable', () => {
+test('unavailable capabilities are omitted or disabled; M2 listed unavailable only in gallery', () => {
   const view = renderCapabilityCopy({ context, health: storeDown });
   assert.match(view.html, /data-m2-mounted="false"/);
+  assert.equal(view.html.includes('reception_kiosk'), false);
+  const gallery = renderCapabilityCopy({ context, health: storeDown, gallery: true });
   for (const id of M2_SURFACES) {
-    assert.match(view.html, new RegExp(`data-m2="${id}"`));
-    assert.match(view.html, /data-available="false"/);
+    assert.match(gallery.html, new RegExp(`data-m2="${id}"`));
+    assert.match(gallery.html, /data-available="false"/);
   }
   const header = renderAppHeader({ context, health: storeDown });
   assert.equal(header.meta.m2Mounted, false);

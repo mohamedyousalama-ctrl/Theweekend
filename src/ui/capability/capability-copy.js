@@ -1,4 +1,4 @@
-import { el } from '../html.js';
+import { el, escapeHtml } from '../html.js';
 import { capabilityLabel, t } from '../copy.js';
 import { renderHealthBanner } from './health-banner.js';
 import { M2_SURFACES } from '../policy.js';
@@ -7,6 +7,7 @@ export function renderCapabilityCopy({
   context = null,
   health = null,
   locale = 'ar',
+  gallery = false,
 } = {}) {
   const caps = context?.capabilities || null;
   const banner = renderHealthBanner({ health, locale });
@@ -43,7 +44,12 @@ export function renderCapabilityCopy({
     'data-m2-mounted': 'false',
   }, [
     el('p', {}, t(locale, 'm2_unavailable')),
-    el('ul', {}, M2_SURFACES.map((id) => el('li', { 'data-m2': id, 'data-available': 'false' }, id))),
+    gallery
+      ? el('ul', { 'data-gallery': '1' }, M2_SURFACES.map((id) => el('li', {
+        'data-m2': id,
+        'data-available': 'false',
+      }, escapeHtml(id))))
+      : '',
   ]);
 
   const html = el('section', { 'data-surface': 'capability' }, [

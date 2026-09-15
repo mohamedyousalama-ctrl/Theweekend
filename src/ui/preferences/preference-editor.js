@@ -1,5 +1,5 @@
 import { el, escapeHtml } from '../html.js';
-import { t } from '../copy.js';
+import { preferenceKindLabel, t } from '../copy.js';
 import { filterAllowedActions } from '../policy.js';
 import { renderError } from '../states/error.js';
 import { renderActionResult } from '../states/action-result.js';
@@ -34,8 +34,8 @@ export function renderPreferenceEditor({
       KINDS.map((k) => el('option', {
         value: k,
         selected: selected?.kind === k,
-      }, k))),
-    el('label', { for: 'pref-text' }, 'value_text'),
+      }, preferenceKindLabel(k, locale)))),
+    el('label', { for: 'pref-text' }, t(locale, 'value_text')),
     el('textarea', {
       id: 'pref-text',
       name: 'value_text',
@@ -44,12 +44,12 @@ export function renderPreferenceEditor({
     }, escapeHtml(selected?.value_text || '')),
     selected ? el('input', { type: 'hidden', name: 'version', value: String(selected.version) }, '') : '',
     conflict,
-    save && !unavailable
+    !unavailable
       ? el('button', {
         type: 'submit',
         class: 'wk-pill',
         'data-action-kind': 'save_preference',
-        'data-action-id': save.action_id,
+        ...(save ? { 'data-action-id': save.action_id } : { 'data-direct-save': 'true' }),
       }, t(locale, 'save_pref'))
       : '',
     del && !unavailable
@@ -68,7 +68,7 @@ export function renderPreferenceEditor({
   return {
     html,
     meta: {
-      canSave: Boolean(save) && !unavailable,
+      canSave: !unavailable,
       canDelete: Boolean(del) && !unavailable,
       success: result.meta.showSuccess === true,
       conflict: error?.code === 'CONFLICT',

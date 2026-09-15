@@ -69,6 +69,63 @@ export const ACTION_OUTCOMES = Object.freeze([
   'stale',
 ]);
 
+export const RECEIPT_KINDS = Object.freeze([
+  'photo_analysis',
+  'text_preferences',
+  'staff_sharing_text',
+  'staff_sharing_photo',
+]);
+
+const RECEIPT_KIND_SET = new Set(RECEIPT_KINDS);
+
+export function isReceiptKind(kind) {
+  return RECEIPT_KIND_SET.has(kind);
+}
+
+export function isConsentRequired(error) {
+  return Boolean(error && error.code === 'CONSENT_REQUIRED');
+}
+
+export function receiptKindFromConsentError(error, fallbackKind = null) {
+  if (isReceiptKind(error?.requires_receipt_kind)) return error.requires_receipt_kind;
+  if (isReceiptKind(error?.details?.requires_receipt_kind)) return error.details.requires_receipt_kind;
+  if (isReceiptKind(fallbackKind)) return fallbackKind;
+  const key = error?.message_key;
+  switch (key) {
+    case 'photo.consent_required':
+      return 'photo_analysis';
+    case 'preference.consent_required':
+      return 'text_preferences';
+    case 'brief.share_consent':
+      return 'staff_sharing_text';
+    case 'brief.photo_consent':
+      return 'staff_sharing_photo';
+    case 'action.consent_required':
+      return isReceiptKind(fallbackKind) ? fallbackKind : null;
+    default: {
+      const cap = error?.details?.capability;
+      switch (cap) {
+        case 'photo':
+          return 'photo_analysis';
+        case 'preferences':
+          return 'text_preferences';
+        case 'staff_inbox':
+          return 'staff_sharing_text';
+        default:
+          return isReceiptKind(fallbackKind) ? fallbackKind : null;
+      }
+    }
+  }
+}
+
+export function lookupReceiptKindForAction(actionId, actionLists = []) {
+  for (const list of actionLists) {
+    const hit = (Array.isArray(list) ? list : []).find((a) => a && a.action_id === actionId);
+    if (hit && isReceiptKind(hit.requires_receipt_kind)) return hit.requires_receipt_kind;
+  }
+  return null;
+}
+
 const ACTION_KIND_SET = new Set(ALLOWED_ACTION_KINDS);
 
 export function isAllowedActionKind(kind) {

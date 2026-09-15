@@ -15,6 +15,8 @@ class FakeElement {
     this.parent = null;
     this.listeners = new Map();
     this._text = '';
+    this._value = undefined;
+    this.files = null;
   }
   getAttribute(name) {
     return this.attrs.has(name) ? this.attrs.get(name) : null;
@@ -25,6 +27,27 @@ class FakeElement {
   addEventListener(type, fn) {
     if (!this.listeners.has(type)) this.listeners.set(type, []);
     this.listeners.get(type).push(fn);
+  }
+  focus() {
+    let node = this;
+    while (node.parent) node = node.parent;
+    node._activeElement = this;
+  }
+  get value() {
+    if (this._value !== undefined) return this._value;
+    if (this.tagName === 'select') {
+      const opts = this.children.filter((c) => c instanceof FakeElement && c.tagName === 'option');
+      const selected = opts.find((o) => o.hasAttribute('selected')) || opts[0];
+      return selected ? (selected.getAttribute('value') || '') : '';
+    }
+    if (this.tagName === 'textarea') {
+      return this.children.map((c) => (c instanceof FakeElement ? '' : (c.text || ''))).join('');
+    }
+    if (this.tagName === 'input') return this.getAttribute('value') || '';
+    return this.getAttribute('value') || '';
+  }
+  set value(next) {
+    this._value = String(next ?? '');
   }
   // Simulate ONE physical user click: a real browser fires every registered
   // 'click' listener, in registration order, synchronously, for a single click.
@@ -50,8 +73,11 @@ class FakeElement {
     return this.querySelectorAll(selector)[0] || null;
   }
   set innerHTML(html) {
-    this.children = parseFragment(html, this);
-    this.attrs.clear(); // root itself keeps no attrs; not used as selector target here
+    const nodes = parseFragment(html, this);
+    for (const child of nodes) {
+      if (child instanceof FakeElement) child.parent = this;
+    }
+    this.children = nodes;
   }
   get innerHTML() {
     return this.children.map(serialize).join('');
@@ -133,6 +159,7 @@ function parseFragment(html, ownerRootForOrphan) {
     while (tagEnd < n && !/[\s>]/.test(html[tagEnd])) tagEnd++;
     const tag = html.slice(j, tagEnd);
     const el = new FakeElement(tag);
+    el.parent = stack[stack.length - 1];
     j = tagEnd;
     attrRe.lastIndex = 0;
     // parse attributes until we hit '>'

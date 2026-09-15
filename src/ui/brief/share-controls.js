@@ -27,7 +27,7 @@ export function renderShareControls({
       'data-action-id': photo.action_id,
       'data-executable': disabled ? 'false' : 'true',
       disabled,
-    }, escapeHtml(photo.label_ar || t(locale, 'share_photo'))));
+        }, escapeHtml(t(locale, 'share_photo'))));
   }
   const html = el('div', {
     class: 'wk-share',

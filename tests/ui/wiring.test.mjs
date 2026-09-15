@@ -53,7 +53,9 @@ test('every message key the server or the adapter can emit has copy in both lang
     'action.continue_without_photo', 'brief.shared_text', 'brief.shared_photo', 'preference.version_conflict',
     'model.unavailable', 'model.timeout', 'model.budget_exceeded', 'model.session_cap', 'model.temporarily_unavailable', 'model.misconfigured',
     'agent.ungrounded_price', 'agent.ungrounded_fact', 'agent.ungrounded_link', 'agent.invalid_output', 'agent.contract_invalid', 'agent.refused',
-    'photo.consent_required', 'store.unavailable', 'upload.rejected', 'input.invalid', 'session.invalid',
+    'photo.consent_required', 'preference.consent_required', 'action.consent_required',
+    'brief.share_consent', 'brief.photo_consent',
+    'store.unavailable', 'upload.rejected', 'input.invalid', 'session.invalid',
   ]) {
     assert.notEqual(messageFromKey(key, 'ar'), key, `${key} has Arabic copy`);
     assert.notEqual(messageFromKey(key, 'en'), key, `${key} has English copy`);
