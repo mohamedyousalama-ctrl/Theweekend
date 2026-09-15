@@ -60,6 +60,8 @@ test('hosting doc unblocks Railway after C2 and the UI handback', () => {
   const baseline = readFileSync(join(ROOT, 'docs/16-C-BASELINE.md'), 'utf8');
   assert.match(baseline, /4bfe6b526daa5bc5ebe448e2c90abc3f8415e673/);
 });
+
+test('railway and nixpacks pin npm start, /health, and Node 22', () => {
   const railway = JSON.parse(readFileSync(join(ROOT, 'railway.json'), 'utf8'));
   assert.equal(railway.deploy.startCommand, 'npm start');
   assert.equal(railway.deploy.healthcheckPath, '/health');
