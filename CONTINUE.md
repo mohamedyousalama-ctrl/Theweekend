@@ -49,3 +49,4 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 - Contract definitions: `src/contracts/CONTRACT-v0.1.md` (implemented as schemas + fixtures + tests under #3).
 - Sandbox tools from the earlier pack: `sandbox/` (regression fixtures, not live capabilities).
 - Configuration names: `.env.example`; rules in `docs/16-C-BASELINE.md` §5.
+- Current `main` pin (2026-09-15): `4bfe6b526daa5bc5ebe448e2c90abc3f8415e673` after PR #24 (C2) and PR #25 (UI third handback). Issue comments remain newer than this line.
