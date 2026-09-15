@@ -1,11 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHttpServer, listenTarget } from '../../src/server/http.mjs';
 import { openStore } from '../../src/server/store.mjs';
 import { testApp, testEnv } from './helpers.mjs';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -46,6 +49,18 @@ test('PORT selects 0.0.0.0; unset keeps the local loopback default', () => {
   assert.deepEqual(listenTarget(), { host: '0.0.0.0', port: 3456 });
   if (previous === undefined) delete process.env.PORT;
   else process.env.PORT = previous;
+});
+
+test('railway and nixpacks pin npm start, /health, and Node 22', () => {
+  const railway = JSON.parse(readFileSync(join(ROOT, 'railway.json'), 'utf8'));
+  assert.equal(railway.deploy.startCommand, 'npm start');
+  assert.equal(railway.deploy.healthcheckPath, '/health');
+  const nixpacks = readFileSync(join(ROOT, 'nixpacks.toml'), 'utf8');
+  assert.match(nixpacks, /NIXPACKS_NODE_VERSION\s*=\s*"22"/);
+  const envExample = readFileSync(join(ROOT, '.env.example'), 'utf8');
+  assert.match(envExample, /WEEKEND_TRUST_PROXY=/);
+  assert.match(envExample, /WEEKEND_OWNER_PASSCODE=/);
+  assert.match(envExample, /WEEKEND_DB_PATH=/);
 });
 
 test('test env still loads after parent-dir config', () => {
