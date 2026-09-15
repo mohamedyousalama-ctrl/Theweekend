@@ -13,6 +13,7 @@ test('save preference action writes and then lists', () => {
   });
   assert.match(action.bound.object_id, /^prf_/);
   assert.equal(action.bound.object_version, 1);
+  assert.equal(app.listPreferences(token).length, 0, 'a proposal is not a saved preference');
   const result = app.executeAction(token, action.action_id);
   assert.equal(result.outcome, 'done');
   const listed = app.listPreferences(token);
@@ -65,5 +66,57 @@ test('action payload for another subject is NOT_FOUND', () => {
     err => err instanceof AppError && err.shape.code === 'NOT_FOUND',
   );
   assert.equal(app.listPreferences(a.token).length, 1);
+  app.close();
+});
+
+test('preference proposals are not listed until the customer executes the action', () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const action = app.issueSavePreferenceAction(token, {
+    preference_kind: 'note',
+    value_text: 'لا تُحفظ قبل الموافقة',
+  });
+  assert.equal(app.listPreferences(token).length, 0);
+  assert.throws(
+    () => app.executeAction(token, action.action_id),
+    err => err instanceof AppError && err.shape.code === 'CONSENT_REQUIRED',
+  );
+  assert.equal(app.listPreferences(token).length, 0);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const retry = app.issueSavePreferenceAction(token, {
+    preference_kind: 'note',
+    value_text: 'لا تُحفظ قبل الموافقة',
+  });
+  assert.equal(app.executeAction(token, retry.action_id).outcome, 'done');
+  assert.equal(app.listPreferences(token).length, 1);
+  assert.equal(app.listPreferences(token)[0].provenance, 'approved_preference');
+  app.close();
+});
+
+test('a second click on a claimed action is stale', () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const action = app.issueBookingAction(token);
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'external_handoff');
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'stale');
+  const consumed = app.store.get('SELECT consumed_at FROM allowed_actions WHERE action_id = ?', [action.action_id]);
+  assert.ok(consumed.consumed_at);
+  assert.equal(app.store.get('SELECT COUNT(*) AS n FROM action_results WHERE action_id = ?', [action.action_id]).n, 1);
+  app.close();
+});
+
+test('CONSENT_REQUIRED inside the claim leaves the action retriable', () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const brief = app.createBrief(token, { text_ar: 'موجز للموافقة', do_not: [] });
+  const action = app.issueShareBriefAction(token, { brief_id: brief.brief_id });
+  assert.throws(
+    () => app.executeAction(token, action.action_id),
+    err => err instanceof AppError && err.shape.code === 'CONSENT_REQUIRED',
+  );
+  const row = app.store.get('SELECT consumed_at FROM allowed_actions WHERE action_id = ?', [action.action_id]);
+  assert.equal(row.consumed_at, null);
+  app.grantConsent(token, 'staff_sharing_text', 'customer_ui');
+  assert.equal(app.executeAction(token, action.action_id).outcome, 'done');
   app.close();
 });

@@ -38,11 +38,67 @@ async function req(base, path, { method = 'GET', token, body, headers } = {}) {
 
 test('health is honest about the model', async () => {
   await withServer({}, async ({ base }) => {
-    const { status, json } = await req(base, '/health');
-    assert.equal(status, 200);
+    const res = await fetch(`${base}/health`);
+    assert.equal(res.status, 200);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-frame-options'), 'DENY');
+    assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+    assert.equal(res.headers.get('cache-control'), 'no-store');
+    const json = await res.json();
     assert.equal(json.model, 'unavailable');
     assert.equal(json.store, 'ok');
     assert.equal(json.contract_version, '0.1.0');
+  });
+});
+
+test('POST /briefs/:id/share-actions issues bound actions and conceals other subjects', async () => {
+  await withServer({ WEEKEND_PHOTO_ENABLED: 'true' }, async ({ base }) => {
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const other = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const staff = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: STAFF_PASS },
+    });
+    const brief = await req(base, '/briefs', {
+      method: 'POST',
+      token: customer.json.token,
+      body: { text_ar: 'موجز للمشاركة', do_not: [] },
+    });
+    assert.equal(brief.status, 200);
+    const own = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: customer.json.token,
+      body: {},
+    });
+    assert.equal(own.status, 200);
+    assert.equal(own.json.contract_version, '0.1.0');
+    assert.equal(own.json.allowed_actions[0].kind, 'share_brief_text');
+    assert.equal(own.json.allowed_actions[0].bound.object_id, brief.json.brief_id);
+    assert.equal(own.json.allowed_actions.some(a => a.kind === 'share_photo_ref'), false);
+
+    const hidden = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: other.json.token,
+      body: {},
+    });
+    assert.equal(hidden.status, 404);
+    assert.equal(hidden.json.code, 'NOT_FOUND');
+    assert.equal(hidden.json.message_key, 'brief.not_found');
+
+    const staffDenied = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token: staff.json.token,
+      body: {},
+    });
+    assert.equal(staffDenied.status, 401);
+    assert.equal(staffDenied.json.code, 'UNAUTHORIZED');
+    assert.equal(staffDenied.json.message_key, 'brief.role');
   });
 });
 
@@ -73,6 +129,24 @@ test('http session, brief sync, and booking handoff', async () => {
     const blocked = await req(base, '/staff/briefs', { token: other.json.token });
     assert.equal(blocked.status, 401);
 
+    const beforeShare = await req(base, '/staff/briefs', { token: staff.json.token });
+    assert.equal(beforeShare.status, 200);
+    assert.equal(beforeShare.json.briefs.some(b => b.brief_id === brief.json.brief_id), false);
+
+    await req(base, '/consents', {
+      method: 'POST',
+      token,
+      body: { kind: 'staff_sharing_text', granted_via: 'customer_ui' },
+    });
+    const shareActions = await req(base, `/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      token,
+      body: {},
+    });
+    const textShare = shareActions.json.allowed_actions.find(a => a.kind === 'share_brief_text');
+    const shared = await req(base, `/actions/${textShare.action_id}`, { method: 'POST', token, body: {} });
+    assert.equal(shared.json.outcome, 'done');
+
     const inbox = await req(base, '/staff/briefs', { token: staff.json.token });
     assert.equal(inbox.status, 200);
     assert.equal(inbox.json.briefs.some(b => b.brief_id === brief.json.brief_id), true);
@@ -81,6 +155,105 @@ test('http session, brief sync, and booking handoff', async () => {
     assert.equal(handoff.json.url, config.WEEKEND_OFFICIAL_BOOKING_URL);
     const clicked = await req(base, `/actions/${handoff.json.action_id}`, { method: 'POST', token, body: {} });
     assert.equal(clicked.json.outcome, 'external_handoff');
+  });
+});
+
+test('http staff accept and release of a talk_to_staff handoff', async () => {
+  await withServer({}, async ({ base }) => {
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const staff = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: STAFF_PASS },
+    });
+    const customerToken = customer.json.token;
+    const staffToken = staff.json.token;
+    const sessionId = customer.json.context.session_id;
+
+    const first = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555821',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    const talk = first.json.allowed_actions.find((a) => a.kind === 'talk_to_staff');
+    assert.ok(talk);
+    const queued = await req(base, `/actions/${talk.action_id}`, {
+      method: 'POST',
+      token: customerToken,
+      body: {},
+    });
+    assert.equal(queued.json.outcome, 'pending');
+
+    const asCustomer = await req(base, '/staff/handoffs', { token: customerToken });
+    assert.equal(asCustomer.status, 401);
+
+    const listed = await req(base, '/staff/handoffs', { token: staffToken });
+    assert.equal(listed.status, 200);
+    assert.equal(listed.json.handoffs.length, 1);
+    const handoffId = listed.json.handoffs[0].handoff_id;
+    assert.match(handoffId, /^hnd_/);
+    assert.equal(listed.json.handoffs[0].status, 'received');
+    assert.equal(listed.json.handoffs[0].accepted_at, null);
+
+    const accepted = await req(base, `/staff/handoffs/${handoffId}/accept`, {
+      method: 'POST',
+      token: staffToken,
+      body: {},
+    });
+    assert.equal(accepted.status, 200);
+    assert.equal(accepted.json.status, 'accepted');
+    assert.ok(accepted.json.assigned_at);
+    assert.ok(accepted.json.accepted_at);
+
+    const paused = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555822',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    assert.equal(paused.status, 403);
+    assert.equal(paused.json.message_key, 'handoff.queued');
+
+    const released = await req(base, `/staff/handoffs/${handoffId}/release`, {
+      method: 'POST',
+      token: staffToken,
+      body: {},
+    });
+    assert.equal(released.status, 200);
+    assert.equal(released.json.status, 'released');
+
+    const resumed = await req(base, '/turns', {
+      method: 'POST',
+      token: customerToken,
+      body: {
+        contract_version: '0.1.0',
+        session_id: sessionId,
+        turn_id: '11111111-2222-4333-8444-555555555823',
+        text: 'أبغى قصة',
+        image_ref: null,
+        client_action_id: null,
+        locale_hint: 'ar',
+      },
+    });
+    assert.equal(resumed.status, 200);
+    assert.equal(resumed.json.output.state, 'ok');
   });
 });
 
@@ -164,4 +337,79 @@ test('behind a trusted proxy only the rightmost X-Forwarded-For entry is the cli
     const other = await req(base, '/session', { method: 'POST', body: { role: 'staff', passcode: STAFF_PASS }, headers: { 'x-forwarded-for': '10.0.0.1, 198.51.100.8' } });
     assert.equal(other.status, 200, 'a different real client address is not locked out');
   });
+});
+
+test('non-object JSON bodies are VALIDATION_ERROR 400', async () => {
+  await withServer({}, async ({ base }) => {
+    for (const raw of ['null', '[]', '"x"']) {
+      const res = await fetch(`${base}/session`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: raw,
+      });
+      assert.equal(res.status, 400, raw);
+      const json = await res.json();
+      assert.equal(json.code, 'VALIDATION_ERROR');
+      assert.equal(json.message_key, 'http.invalid_json');
+    }
+    const customer = await req(base, '/session', {
+      method: 'POST',
+      body: { role: 'customer', passcode: OWNER_PASS },
+    });
+    const brief = await req(base, '/briefs', {
+      method: 'POST',
+      token: customer.json.token,
+      body: { text_ar: 'جسم غير كائن', do_not: [] },
+    });
+    const share = await fetch(`${base}/briefs/${brief.json.brief_id}/share-actions`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${customer.json.token}`,
+      },
+      body: '[]',
+    });
+    assert.equal(share.status, 400);
+    const shareJson = await share.json();
+    assert.equal(shareJson.code, 'VALIDATION_ERROR');
+    assert.equal(shareJson.message_key, 'http.invalid_json');
+  });
+});
+
+test('unexpected errors log method, normalized route, request id and stack', async () => {
+  const { app, config } = testApp();
+  app.executeAction = () => {
+    throw new Error('boom-internal');
+  };
+  const lines = [];
+  const orig = console.error;
+  console.error = (msg) => { lines.push(String(msg)); };
+  const server = createHttpServer(app, config);
+  const port = await listen(server);
+  try {
+    const res = await fetch(`http://127.0.0.1:${port}/actions/act_syn_x`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: 'Bearer secret-token',
+      },
+      body: JSON.stringify({ passcode: 'should-not-be-logged' }),
+    });
+    assert.equal(res.status, 500);
+    const json = await res.json();
+    assert.equal(json.message_key, 'http.internal');
+    assert.equal(lines.length, 1);
+    const payload = JSON.parse(lines[0]);
+    assert.equal(payload.method, 'POST');
+    assert.equal(payload.route, '/actions/:action_id');
+    assert.match(payload.request_id, /^rid_/);
+    assert.match(payload.stack, /boom-internal/);
+    assert.equal(JSON.stringify(payload).includes('secret-token'), false);
+    assert.equal(JSON.stringify(payload).includes('should-not-be-logged'), false);
+    assert.equal(JSON.stringify(payload).includes('authorization'), false);
+  } finally {
+    console.error = orig;
+    await new Promise(resolve => server.close(resolve));
+    app.close();
+  }
 });

@@ -23,7 +23,7 @@ export function testEnv(overrides = {}) {
     WEEKEND_PHOTO_ENABLED: 'false',
     WEEKEND_UPLOAD_MAX_BYTES: '65536',
     WEEKEND_BOOKING_HANDOFF_MODE: 'official_link',
-    WEEKEND_OFFICIAL_BOOKING_URL: 'https://example.invalid/book',
+    WEEKEND_OFFICIAL_BOOKING_URL: 'https://theweekendhairstyling.com/book',
     WEEKEND_DB_PATH: join(mkdtempSync(join(tmpdir(), 'weekend-')), 'app.sqlite'),
     WEEKEND_SESSION_SECRET: 'test-session-secret-16',
     WEEKEND_OWNER_PASSCODE_HASH: hashPasscode(OWNER_PASS),

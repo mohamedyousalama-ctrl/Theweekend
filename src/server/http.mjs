@@ -3,6 +3,7 @@ import { createServer } from 'node:http';
 import { extname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { AppError } from './app.mjs';
+import { newId } from './ids.mjs';
 
 const JSON_TYPE = 'application/json; charset=utf-8';
 const UI_ROOT = resolve(join(fileURLToPath(new URL('../ui', import.meta.url))));
@@ -15,13 +16,22 @@ const STATIC_TYPES = {
   '.json': 'application/json',
 };
 
+function securityHeaders(extra = {}) {
+  return {
+    'x-content-type-options': 'nosniff',
+    'x-frame-options': 'DENY',
+    'referrer-policy': 'no-referrer',
+    'cache-control': 'no-store',
+    ...extra,
+  };
+}
+
 function send(res, status, body) {
   const payload = JSON.stringify(body);
-  res.writeHead(status, {
+  res.writeHead(status, securityHeaders({
     'content-type': JSON_TYPE,
     'content-length': Buffer.byteLength(payload),
-    'cache-control': 'no-store',
-  });
+  }));
   res.end(payload);
 }
 
@@ -69,8 +79,9 @@ async function readJson(req, maxBytes) {
     details: { limit },
   }, 413));
   if (buf.length === 0) return {};
+  let value;
   try {
-    return JSON.parse(buf.toString('utf8'));
+    value = JSON.parse(buf.toString('utf8'));
   } catch {
     throw new AppError({
       contract_version: '0.1.0',
@@ -80,6 +91,16 @@ async function readJson(req, maxBytes) {
       details: { field: 'body' },
     }, 400);
   }
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    throw new AppError({
+      contract_version: '0.1.0',
+      code: 'VALIDATION_ERROR',
+      message_key: 'http.invalid_json',
+      retryable: false,
+      details: { field: 'body' },
+    }, 400);
+  }
+  return value;
 }
 
 function tryServeUi(req, res, pathname) {
@@ -89,20 +110,33 @@ function tryServeUi(req, res, pathname) {
   const target = resolve(join(UI_ROOT, rel));
   if (target !== UI_ROOT && !target.startsWith(`${UI_ROOT}/`)) return false;
   if (!existsSync(target) || !statSync(target).isFile()) return false;
-  res.writeHead(200, {
+  res.writeHead(200, securityHeaders({
     'content-type': STATIC_TYPES[extname(target)] || 'application/octet-stream',
-    'cache-control': 'no-store',
-  });
+  }));
   createReadStream(target).pipe(res);
   return true;
 }
 
+function normalizeRoute(pathname) {
+  return String(pathname || '/')
+    .replace(/\/actions\/[^/]+/g, '/actions/:action_id')
+    .replace(/\/briefs\/[^/]+\/share-actions/g, '/briefs/:brief_id/share-actions')
+    .replace(/\/consents\/[^/]+\/revoke/g, '/consents/:receipt_id/revoke')
+    .replace(/\/preferences\/[^/]+\/revoke/g, '/preferences/:preference_id/revoke')
+    .replace(/\/staff\/briefs\/[^/]+\/ack/g, '/staff/briefs/:brief_id/ack')
+    .replace(/\/staff\/handoffs\/[^/]+\/accept/g, '/staff/handoffs/:handoff_id/accept')
+    .replace(/\/staff\/handoffs\/[^/]+\/release/g, '/staff/handoffs/:handoff_id/release');
+}
+
 export function createHttpServer(app, config) {
   return createServer(async (req, res) => {
+    const requestId = newId('rid_');
+    const method = req.method || 'GET';
+    let route = '/';
     try {
       const url = new URL(req.url || '/', 'http://127.0.0.1');
       const path = url.pathname;
-      const method = req.method || 'GET';
+      route = normalizeRoute(path);
       if (method === 'GET' && path === '/health') {
         const state = app.health();
         return send(res, state.store === 'ok' ? 200 : 503, state);
@@ -146,6 +180,11 @@ export function createHttpServer(app, config) {
         const body = await readJson(req, 4096);
         return send(res, 200, app.createBrief(bearer(req), body));
       }
+      if (method === 'POST' && /^\/briefs\/[^/]+\/share-actions$/.test(path)) {
+        await readJson(req, 1024);
+        const briefId = path.split('/')[2];
+        return send(res, 200, app.issueShareActionsForBrief(bearer(req), briefId));
+      }
       if (method === 'GET' && path === '/staff/briefs') {
         return send(res, 200, { briefs: app.staffBriefs(bearer(req)) });
       }
@@ -153,6 +192,22 @@ export function createHttpServer(app, config) {
         const id = path.split('/')[3];
         await readJson(req, 1024);
         return send(res, 200, app.acknowledgeBrief(bearer(req), id));
+      }
+      if (method === 'GET' && path === '/staff/handoffs') {
+        return send(res, 200, {
+          contract_version: '0.1.0',
+          handoffs: app.staffHandoffs(bearer(req)),
+        });
+      }
+      if (method === 'POST' && /^\/staff\/handoffs\/[^/]+\/accept$/.test(path)) {
+        const id = path.split('/')[3];
+        await readJson(req, 1024);
+        return send(res, 200, app.acceptStaffHandoff(bearer(req), id));
+      }
+      if (method === 'POST' && /^\/staff\/handoffs\/[^/]+\/release$/.test(path)) {
+        const id = path.split('/')[3];
+        await readJson(req, 1024);
+        return send(res, 200, app.releaseStaffHandoff(bearer(req), id));
       }
       if (method === 'GET' && path === '/booking/handoff') {
         return send(res, 200, app.issueBookingAction(bearer(req)));
@@ -182,6 +237,12 @@ export function createHttpServer(app, config) {
       });
     } catch (err) {
       if (err instanceof AppError) return send(res, err.status, err.shape);
+      console.error(JSON.stringify({
+        request_id: requestId,
+        method,
+        route,
+        stack: err?.stack || String(err),
+      }));
       send(res, 500, {
         contract_version: '0.1.0',
         code: 'CAPABILITY_UNAVAILABLE',

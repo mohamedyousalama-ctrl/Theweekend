@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError, createApp } from '../../src/server/app.mjs';
+import { AppError, PREFERENCE_TTL_MS, createApp } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp, testEnv } from './helpers.mjs';
 
@@ -92,6 +92,54 @@ test('preferences persist across store reopen and stay isolated', () => {
   second.close();
 });
 
+test('text preferences expire 90 days after last activity', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  const { app } = testApp({}, { clock: () => new Date(now).toISOString() });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const saved = app.savePreference(token, { kind: 'note', value_text: 'بدون عطر', source: 'customer_typed' });
+  now += PREFERENCE_TTL_MS - 1000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  assert.equal(app.listPreferences(token).length, 1);
+  now += 2000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  assert.equal(app.listPreferences(token).length, 0);
+  const row = app.store.get('SELECT * FROM preferences WHERE preference_id = ?', [saved.preference_id]);
+  assert.ok(row.revoked_at);
+  app.close();
+});
+
+test('saving a preference refreshes the 90-day activity window', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  const { app } = testApp({}, { clock: () => new Date(now).toISOString() });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const saved = app.savePreference(token, { kind: 'note', value_text: 'قديم', source: 'customer_typed' });
+  now += PREFERENCE_TTL_MS - 1000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  app.savePreference(token, {
+    kind: 'note', value_text: 'محدث', source: 'customer_typed', version: saved.version,
+  });
+  now += 2000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  const listed = app.listPreferences(token);
+  assert.equal(listed.length, 1);
+  assert.equal(listed[0].value_text, 'محدث');
+  app.close();
+});
+
 test('preference version conflict is CONFLICT', () => {
   const { app } = testApp();
   const { token } = app.createSession('customer', OWNER_PASS);
@@ -140,6 +188,11 @@ test('staff sees customer brief; other customer does not', () => {
   const staff = app.createSession('staff', STAFF_PASS);
   const brief = app.createBrief(customer.token, { text_ar: 'قصة قصيرة من الجوانب', do_not: [] });
   assert.throws(() => app.staffBriefs(other.token), err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED');
+  assert.equal(app.staffBriefs(staff.token).some(b => b.brief_id === brief.brief_id), false);
+  app.grantConsent(customer.token, 'staff_sharing_text', 'customer_ui');
+  const share = app.issueShareActionsForBrief(customer.token, brief.brief_id).allowed_actions
+    .find(a => a.kind === 'share_brief_text');
+  assert.equal(app.executeAction(customer.token, share.action_id).outcome, 'done');
   const inbox = app.staffBriefs(staff.token);
   assert.equal(inbox.some(b => b.brief_id === brief.brief_id), true);
   const ack = app.acknowledgeBrief(staff.token, brief.brief_id);
@@ -164,5 +217,47 @@ test('wrong staff passcode fails', () => {
     () => app.createSession('staff', 'nope'),
     err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
   );
+  app.close();
+});
+
+test('granting the same consent twice returns the active receipt; one revoke clears it', () => {
+  const { app } = testApp();
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const first = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const second = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  assert.equal(second.receipt_id, first.receipt_id);
+  const rows = app.store.all(
+    'SELECT * FROM permission_receipts WHERE subject_id = ? AND kind = ? AND revoked_at IS NULL',
+    [context.subject_id, 'text_preferences'],
+  );
+  assert.equal(rows.length, 1);
+  app.revokeConsent(token, first.receipt_id);
+  assert.equal(app.context(token).consents.length, 0);
+  const third = app.grantConsent(token, 'text_preferences', 'customer_ui');
+  assert.notEqual(third.receipt_id, first.receipt_id);
+  app.close();
+});
+
+test('revoking an already-revoked receipt does not purge a newer grant', () => {
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  const first = app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const revoked = app.revokeConsent(token, first.receipt_id);
+  assert.ok(revoked.revoked_at);
+  const second = app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, context.session_id, context.subject_id, '{"contract_version":"0.1.0"}', new Date().toISOString()],
+  );
+  const retry = app.revokeConsent(token, first.receipt_id);
+  assert.equal(retry.receipt_id, first.receipt_id);
+  assert.equal(retry.revoked_at, revoked.revoked_at);
+  assert.ok(app.store.get('SELECT * FROM images WHERE image_ref = ?', [up.image_ref]));
+  assert.ok(app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', [up.image_ref]));
+  const active = app.context(token).consents.find((c) => c.kind === 'photo_analysis');
+  assert.equal(active.receipt_id, second.receipt_id);
+  assert.equal(active.revoked_at, null);
   app.close();
 });

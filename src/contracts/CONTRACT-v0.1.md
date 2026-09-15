@@ -43,7 +43,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 
 ## 5. Preference (text only, C persisted)
 
-`preference_id`, `subject_id`, `kind: style\|barber\|branch\|do_not\|note`, `value_text` (≤ 300), `source: customer_typed\|customer_selected\|staff_recorded`, `provenance: proposal\|approved_preference\|executed_result` (M1 never writes `executed_result`), `version`, `created_at`, `revoked_at` \| null.
+`preference_id`, `subject_id`, `kind: style\|barber\|branch\|do_not\|note`, `value_text` (≤ 300), `source: customer_typed\|customer_selected\|staff_recorded`, `provenance: proposal\|approved_preference\|executed_result` (M1 never writes `executed_result`), `version`, `created_at`, `revoked_at` \| null. Retention key `ret_text_prefs_v1`: C revokes rows 90 days after last activity. Listing never returns expired rows.
 
 ## 6. KnowledgeRecord (A authors, C enables)
 
@@ -60,7 +60,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 
 ## 9. BarberBrief and DeliveryReceipt
 
-`BarberBrief`: `brief_id`, `subject_id`, `branch_id`, `barber_preference` (string \| null — a preference, not an allocation), `requested_look: { option_id \| null, text_ar }`, `do_not` (string[] ≤ 5), `reference: { kind: none\|photo_ref, image_ref \| null, receipt_id \| null }`, `provenance: { approved_by_subject_at \| null, version }`, `status: draft\|approved\|delivered\|acknowledged`.
+`BarberBrief`: `brief_id`, `subject_id`, `branch_id`, `barber_preference` (string \| null — a preference, not an allocation), `requested_look: { option_id \| null, text_ar }`, `do_not` (string[] ≤ 5), `reference: { kind: none\|photo_ref, image_ref \| null, receipt_id \| null }`, `provenance: { approved_by_subject_at \| null, version }`, `status: draft\|approved\|delivered\|acknowledged\|withdrawn`. `withdrawn` is set when the subject revokes `staff_sharing_text`; the delivery receipt stays as audit and staff listings omit it.
 `DeliveryReceipt`: `brief_id`, `delivered_at`, `staff_view_id`, `acknowledged_at` \| null, `acknowledged_by` \| null. **Acknowledgement is not a booking.**
 
 ## 10. ErrorShape and HealthState
@@ -75,3 +75,19 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 ## 12. Failure shapes every consumer must handle
 
 Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, timeout, consent missing for photo, stale action, upload rejected, conflict on preference version, store unavailable. Fixtures for each are part of the #3 implementation.
+
+## 13. HTTP surfaces (C)
+
+`POST /briefs/:brief_id/share-actions` — customer or owner session only. Issues bound share controls for that owned brief. The body must be a JSON object (`{}` is allowed). A non-object body (`null`, array, scalar) is `400 VALIDATION_ERROR` (`http.invalid_json`). Staff receive `401 UNAUTHORIZED` (`brief.role`) without learning whether the brief exists. Another subject's brief is `404 NOT_FOUND` (`brief.not_found`). Success `200` envelope: `{ contract_version: "0.1.0", allowed_actions: AllowedAction[] }`. The list always includes `share_brief_text` bound to that `brief_id` and version; `share_photo_ref` is included only when the photo capability is enabled and this session already has an image. Displayed action IDs do not authorize execution.
+
+`GET /staff/briefs` — staff or owner session. Each item is a delivered or acknowledged `BarberBrief` for the configured branch plus `observations`: the stored `CosmeticObservations` for that brief's photo reference, or `null`. Never image bytes or URLs. `withdrawn` briefs are omitted. Observations older than the 24 h `ret_photo_v1` window are omitted.
+
+`POST /staff/briefs/:brief_id/ack` — staff or owner session. Acknowledges a brief that is already `delivered` or `acknowledged` for this branch. `approved`, `draft`, or `withdrawn` briefs (and unknown ids) are `404 NOT_FOUND` (`brief.not_found`); acknowledgement cannot place a brief in the inbox or restore a withdrawn one. Acknowledgement is not a booking.
+
+`talk_to_staff` records a staff handoff in status `received` (never `accepted` until a later staff accept). Autonomous model turns for that session then fail `403 CAPABILITY_UNAVAILABLE` (`handoff.queued`) while the row is `received` or `accepted`. Timeout after 30 minutes applies only to unclaimed `received` rows and is not acceptance. Staff release or that timeout lets model turns resume. Booking clicks and other `client_action_id` executions still run.
+
+`GET /staff/handoffs` — staff or owner session. Lists `received` and `accepted` handoffs (ids and timestamps only; no customer text). Timed-out and released rows are omitted. Customers receive `401 UNAUTHORIZED` (`staff.required`).
+
+`POST /staff/handoffs/:handoff_id/accept` — staff or owner session. Claims a `received` row: sets `assigned_at`, `accepted_at`, and `accepted_by`. Timeout and unknown ids are `404 NOT_FOUND` (`handoff.not_found`); a timeout cannot be accepted afterwards. Repeating accept as the same staff is idempotent. Another staff session receives `409 CONFLICT` (`handoff.accepted`) and does not steal the assignment.
+
+`POST /staff/handoffs/:handoff_id/release` — staff or owner session. Claims a `received` or `accepted` row to `released`. Timeout, unknown, or already-timed-out ids are `404 NOT_FOUND` (`handoff.not_found`); a second release of the same released row is idempotent.

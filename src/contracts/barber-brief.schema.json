@@ -75,6 +75,6 @@
         "version": { "type": "integer", "minimum": 1 }
       }
     },
-    "status": { "type": "string", "enum": ["draft", "approved", "delivered", "acknowledged"] }
+    "status": { "type": "string", "enum": ["draft", "approved", "delivered", "acknowledged", "withdrawn"] }
   }
 }

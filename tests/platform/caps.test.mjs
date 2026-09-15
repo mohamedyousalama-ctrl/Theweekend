@@ -15,6 +15,45 @@ const turn = (sessionId, turnId = '11111111-2222-4333-8444-555555555555') => ({
   locale_hint: 'ar',
 });
 
+test('turn abort passes a signal and persists adapter timeout usage when it settles', async () => {
+  const { app } = testApp({ WEEKEND_REQUEST_TIMEOUT_MS: '40' }, {
+    adapter: ({ context, input, now, signal }) => new Promise((resolve) => {
+      if (!signal) throw new Error('missing abort signal');
+      signal.addEventListener('abort', () => {
+        resolve({
+          usage: {
+            contract_version: '0.1.0',
+            usage_id: 'use_adapter_timeout01',
+            session_id: context.session_id,
+            turn_id: input.turn_id,
+            provider: 'anthropic',
+            model_id: 'claude-opus-5',
+            prompt_version: 'rakan.system.v0.4',
+            input_tokens: 12,
+            output_tokens: 0,
+            latency_ms: 40,
+            cost_estimate_minor: 1,
+            outcome: 'timeout',
+            created_at: now,
+          },
+          output: null,
+        });
+      });
+    }),
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(
+    () => app.submitTurn(token, turn(context.session_id)),
+    err => err instanceof AppError && err.shape.code === 'TIMEOUT',
+  );
+  const row = app.store.get('SELECT * FROM usage_records WHERE session_id = ?', [context.session_id]);
+  assert.equal(row.outcome, 'timeout');
+  assert.equal(row.provider, 'anthropic');
+  assert.equal(row.usage_id, 'use_adapter_timeout01');
+  assert.equal(row.input_tokens, 12);
+  app.close();
+});
+
 test('adapter timeout is TIMEOUT and records usage outcome timeout', async () => {
   const { app } = testApp({ WEEKEND_REQUEST_TIMEOUT_MS: '40' }, {
     adapter: () => new Promise(() => {}),
@@ -165,6 +204,81 @@ test('costCeilingFor: explicit dep, the adapter declaration, the tenth-of-cap fa
   declared.costCeilingMinor = 5000;
   assert.equal(costCeilingFor(tiny, { adapter: declared }), 100, 'a ceiling above the cap is clamped so the day is not refused outright');
   for (const bad of [0, -5, 1.5, '10', null, NaN]) assert.equal(costCeilingFor(real, { adapter: plain, costCeilingMinor: bad }), 50, `invalid explicit value ${bad} falls back`);
+});
+
+test('timeout adapter cost reaches the daily ledger', async () => {
+  const { app } = testApp({ WEEKEND_REQUEST_TIMEOUT_MS: '40', WEEKEND_SPEND_CAP_USD_PER_DAY: '5' }, {
+    adapter: ({ context, input, now, signal }) => new Promise((resolve) => {
+      if (!signal) throw new Error('missing abort signal');
+      signal.addEventListener('abort', () => {
+        resolve({
+          usage: {
+            contract_version: '0.1.0',
+            usage_id: 'use_timeout_cost150',
+            session_id: context.session_id,
+            turn_id: input.turn_id,
+            provider: 'anthropic',
+            model_id: 'claude-opus-5',
+            prompt_version: 'rakan.system.v0.4',
+            input_tokens: 12,
+            output_tokens: 0,
+            latency_ms: 40,
+            cost_estimate_minor: 150,
+            outcome: 'timeout',
+            created_at: now,
+          },
+          output: null,
+        });
+      });
+    }),
+    costCeilingMinor: 90,
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(
+    () => app.submitTurn(token, turn(context.session_id)),
+    err => err instanceof AppError && err.shape.code === 'TIMEOUT',
+  );
+  const spend = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spend.cost_minor, 150);
+  const row = app.store.get('SELECT * FROM usage_records WHERE session_id = ?', [context.session_id]);
+  assert.equal(row.cost_estimate_minor, 150);
+  assert.equal(row.usage_id, 'use_timeout_cost150');
+  app.close();
+});
+
+test('malformed ChatTurnOutput still settles the adapter usage cost', async () => {
+  const { app } = testApp({ WEEKEND_SPEND_CAP_USD_PER_DAY: '5' }, {
+    adapter: ({ context, input, now }) => ({
+      usage: {
+        contract_version: '0.1.0',
+        usage_id: 'use_malformed_cost150',
+        session_id: context.session_id,
+        turn_id: input.turn_id,
+        provider: 'anthropic',
+        model_id: 'claude-opus-5',
+        prompt_version: 'rakan.system.v0.4',
+        input_tokens: 20,
+        output_tokens: 8,
+        latency_ms: 12,
+        cost_estimate_minor: 150,
+        outcome: 'ok',
+        created_at: now,
+      },
+      output: { contract_version: '0.1.0', turn_id: 'not-a-uuid' },
+    }),
+    costCeilingMinor: 90,
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  await assert.rejects(
+    () => app.submitTurn(token, turn(context.session_id, '11111111-2222-4333-8444-555555555593')),
+    err => !(err instanceof AppError),
+  );
+  const spend = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spend.cost_minor, 150);
+  const row = app.store.get('SELECT * FROM usage_records WHERE session_id = ?', [context.session_id]);
+  assert.equal(row.cost_estimate_minor, 150);
+  assert.equal(row.usage_id, 'use_malformed_cost150');
+  app.close();
 });
 
 test('a malformed adapter output releases the reservation and frees the session slot', async () => {

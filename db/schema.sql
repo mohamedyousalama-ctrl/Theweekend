@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS preferences (
   provenance TEXT NOT NULL,
   version INTEGER NOT NULL,
   created_at TEXT NOT NULL,
+  last_activity_at TEXT,
   revoked_at TEXT,
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
@@ -138,6 +139,31 @@ CREATE TABLE IF NOT EXISTS photo_observations (
   subject_id TEXT NOT NULL,
   observations_json TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  FOREIGN KEY (session_id) REFERENCES sessions(session_id),
+  FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
+);
+
+CREATE TABLE IF NOT EXISTS turns (
+  session_id TEXT NOT NULL,
+  turn_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  response_json TEXT,
+  created_at TEXT NOT NULL,
+  PRIMARY KEY (session_id, turn_id),
+  FOREIGN KEY (session_id) REFERENCES sessions(session_id)
+);
+
+CREATE TABLE IF NOT EXISTS staff_handoffs (
+  handoff_id TEXT PRIMARY KEY,
+  subject_id TEXT NOT NULL,
+  session_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  received_at TEXT NOT NULL,
+  assigned_at TEXT,
+  accepted_at TEXT,
+  accepted_by TEXT,
+  timed_out_at TEXT,
+  released_at TEXT,
   FOREIGN KEY (session_id) REFERENCES sessions(session_id),
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );

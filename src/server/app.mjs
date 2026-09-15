@@ -7,7 +7,7 @@ import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
 import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
 import { AttemptLimiter } from './limiter.mjs';
 import { openStore } from './store.mjs';
-import { withTimeout } from './timeout.mjs';
+import { settledOrSoon, withTimeout } from './timeout.mjs';
 
 const PREFERENCE_KINDS = new Set(['style', 'barber', 'branch', 'do_not', 'note']);
 const IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -28,13 +28,19 @@ const ACTION_LABELS = {
   open_official_booking: { label_ar: 'صفحة الحجز الرسمية', label_en: 'Official booking page' },
   request_pending_booking: { label_ar: 'طلب موعد غير مؤكد', label_en: 'Pending booking request' },
   share_brief_text: { label_ar: 'مشاركة الموجز', label_en: 'Share the brief' },
-  share_photo_ref: { label_ar: 'مشاركة مرجع الصورة', label_en: 'Share photo reference' },
+  share_photo_ref: { label_ar: 'مشاركة ملاحظات الصورة', label_en: 'Share photo notes' },
   save_preference: { label_ar: 'حفظ التفضيل', label_en: 'Save preference' },
   delete_preference: { label_ar: 'حذف التفضيل', label_en: 'Delete preference' },
   talk_to_staff: { label_ar: 'تحدث مع الفريق', label_en: 'Talk to staff' },
   decline: { label_ar: 'لا شكراً', label_en: 'No thanks' },
   continue_without_photo: { label_ar: 'نكمل بدون صورة', label_en: 'Continue without a photo' },
 };
+
+export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
+export const PHOTO_BYTES_MAX_ENTRIES = 32;
+export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
+export const PREFERENCE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -52,8 +58,81 @@ function fail(code, messageKey, retryable, details, status) {
   throw new AppError(errorShape(code, messageKey, retryable, details), status);
 }
 
+/** Timeout and unknown failures stay complete (do not retry a charged or unknown write). Pre-adapter errors stay failed so the same turn_id can run after consent or a cap reset. */
+function isTerminalTurnFailure(err) {
+  if (!(err instanceof AppError)) return true;
+  switch (err.shape.code) {
+    case 'TIMEOUT':
+      return true;
+    case 'VALIDATION_ERROR':
+    case 'UNAUTHORIZED':
+    case 'NOT_FOUND':
+    case 'CONSENT_REQUIRED':
+    case 'CAPABILITY_UNAVAILABLE':
+    case 'MODEL_UNAVAILABLE':
+    case 'BUDGET_EXCEEDED':
+    case 'STALE_ACTION':
+    case 'CONFLICT':
+    case 'UPLOAD_REJECTED':
+      return false;
+    default: {
+      const _never = err.shape.code;
+      void _never;
+      return true;
+    }
+  }
+}
+
 function iso(clock) {
   return clock();
+}
+
+function preferenceActivityCutoff(clock) {
+  return new Date(Date.parse(iso(clock)) - PREFERENCE_TTL_MS).toISOString();
+}
+
+function sweepPreferenceRetentionAt(store, clock) {
+  const now = iso(clock);
+  store.run(
+    `UPDATE preferences
+     SET revoked_at = ?
+     WHERE revoked_at IS NULL
+       AND COALESCE(last_activity_at, created_at) < ?`,
+    [now, preferenceActivityCutoff(clock)],
+  );
+}
+
+function sweepStaffHandoffsAt(store, clock) {
+  const now = iso(clock);
+  const cutoff = new Date(Date.parse(now) - STAFF_HANDOFF_RECEIVED_TTL_MS).toISOString();
+  store.run(
+    `UPDATE staff_handoffs
+     SET status = 'timeout', timed_out_at = ?
+     WHERE status = 'received' AND received_at < ?`,
+    [now, cutoff],
+  );
+}
+
+function rowHandoff(row) {
+  return {
+    contract_version: '0.1.0',
+    handoff_id: row.handoff_id,
+    subject_id: row.subject_id,
+    session_id: row.session_id,
+    status: row.status,
+    received_at: row.received_at,
+    assigned_at: row.assigned_at,
+    accepted_at: row.accepted_at,
+    accepted_by: row.accepted_by,
+    timed_out_at: row.timed_out_at,
+    released_at: row.released_at,
+  };
+}
+
+function requireStaffSession(session) {
+  if (session.role !== 'staff' && session.role !== 'owner') {
+    fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
+  }
 }
 
 function modelCapability(config, realAdapter = false) {
@@ -151,6 +230,16 @@ function rowBrief(row) {
   };
 }
 
+function parseObservations(raw) {
+  if (!raw) return null;
+  try {
+    const value = JSON.parse(raw);
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 function parsePayload(row) {
   if (!row?.payload_json) return {};
   try {
@@ -201,8 +290,103 @@ export function createApp(config, deps = {}) {
   // instance (docs/16 §6), so the synchronous check-and-increment is atomic for concurrent turns.
   const costCeilingMinor = costCeilingFor(config, deps);
   const inflight = new Map();
+  const inflightTurns = new Map();
+  store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
+  sweepPreferenceRetentionAt(store, clock);
+  sweepStaffHandoffsAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
   const photoBytes = new Map();
+  const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
+    ? deps.photoBytesMax
+    : PHOTO_BYTES_MAX_ENTRIES;
+
+  function redactTurnObservations({ subjectId = null, olderThan = null } = {}) {
+    let sql = 'SELECT t.session_id, t.turn_id, t.response_json FROM turns t';
+    const params = [];
+    const where = [];
+    if (subjectId) {
+      sql += ' INNER JOIN sessions s ON s.session_id = t.session_id';
+      where.push('s.subject_id = ?');
+      params.push(subjectId);
+    }
+    if (olderThan) {
+      where.push('t.created_at < ?');
+      params.push(olderThan);
+    }
+    if (where.length) sql += ` WHERE ${where.join(' AND ')}`;
+    for (const row of store.all(sql, params)) {
+      if (!row.response_json) continue;
+      let stored;
+      try {
+        stored = JSON.parse(row.response_json);
+      } catch {
+        continue;
+      }
+      if (!stored?.ok || stored.body?.output == null) continue;
+      if (stored.body.output.observations == null) continue;
+      stored.body.output.observations = null;
+      store.run(
+        'UPDATE turns SET response_json = ? WHERE session_id = ? AND turn_id = ?',
+        [JSON.stringify(stored), row.session_id, row.turn_id],
+      );
+    }
+  }
+
+  function sweepPhotoRetention() {
+    const nowMs = Date.parse(iso(clock));
+    const byteCutoff = nowMs - PHOTO_BYTES_TTL_MS;
+    for (const [ref] of [...photoBytes]) {
+      const image = store.get('SELECT created_at FROM images WHERE image_ref = ?', [ref]);
+      if (!image || Date.parse(image.created_at) <= byteCutoff) photoBytes.delete(ref);
+    }
+    if (photoBytes.size > photoBytesMax) {
+      const listed = store.all(
+        `SELECT image_ref FROM images
+         WHERE image_ref IN (${[...photoBytes.keys()].map(() => '?').join(',')})
+         ORDER BY created_at ASC, rowid ASC`,
+        [...photoBytes.keys()],
+      );
+      const extra = listed.length - photoBytesMax;
+      for (let i = 0; i < extra; i += 1) photoBytes.delete(listed[i].image_ref);
+    }
+    const obsCutoff = new Date(nowMs - PHOTO_OBSERVATIONS_TTL_MS).toISOString();
+    const expired = store.all(
+      'SELECT image_ref FROM photo_observations WHERE created_at < ?',
+      [obsCutoff],
+    );
+    for (const row of expired) {
+      photoBytes.delete(row.image_ref);
+      store.run('DELETE FROM photo_observations WHERE image_ref = ?', [row.image_ref]);
+      store.run('DELETE FROM images WHERE image_ref = ?', [row.image_ref]);
+    }
+    redactTurnObservations({ olderThan: obsCutoff });
+  }
+
+  function purgeSubjectPhotoMaterial(subjectId) {
+    const rows = store.all('SELECT image_ref FROM images WHERE subject_id = ?', [subjectId]);
+    for (const row of rows) photoBytes.delete(row.image_ref);
+    store.run('DELETE FROM photo_observations WHERE subject_id = ?', [subjectId]);
+    store.run('DELETE FROM images WHERE subject_id = ?', [subjectId]);
+    redactTurnObservations({ subjectId });
+  }
+
+  function sweepPreferenceRetention() {
+    sweepPreferenceRetentionAt(store, clock);
+  }
+
+  function sweepStaffHandoffs() {
+    sweepStaffHandoffsAt(store, clock);
+  }
+
+  function activeStaffHandoff(sessionId) {
+    sweepStaffHandoffs();
+    return store.get(
+      `SELECT * FROM staff_handoffs
+       WHERE session_id = ? AND status IN ('received', 'accepted')
+       ORDER BY received_at DESC LIMIT 1`,
+      [sessionId],
+    );
+  }
 
   function activeReceipt(subjectId, kind) {
     return store.get(
@@ -279,30 +463,6 @@ export function createApp(config, deps = {}) {
     return action;
   }
 
-  function insertDraftPreference(session, kind, valueText) {
-    const pref = {
-      contract_version: '0.1.0',
-      preference_id: newId('prf_'),
-      subject_id: session.subject_id,
-      kind,
-      value_text: valueText,
-      source: 'customer_selected',
-      provenance: 'proposal',
-      version: 1,
-      created_at: iso(clock),
-      revoked_at: null,
-    };
-    assertContract('Preference', pref);
-    store.run(
-      `INSERT INTO preferences (
-         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
-      [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
-        pref.provenance, pref.version, pref.created_at],
-    );
-    return pref;
-  }
-
   function ownedPreference(session, preferenceId) {
     if (typeof preferenceId !== 'string') return null;
     const pref = store.get(
@@ -319,16 +479,16 @@ export function createApp(config, deps = {}) {
       if (!pref) return null;
       return persistAction(session, 'save_preference', pref.preference_id, pref.version, {
         requires_receipt_kind: 'text_preferences',
-        payload,
+        payload: { ...payload, preference_id: pref.preference_id, value_text: payload.value_text ?? pref.value_text },
       });
     }
     const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
     const value = typeof payload.value_text === 'string' ? payload.value_text.trim() : '';
     if (!value) return null;
-    const draft = insertDraftPreference(session, kind, value);
-    return persistAction(session, 'save_preference', draft.preference_id, draft.version, {
+    const preferenceId = newId('prf_');
+    return persistAction(session, 'save_preference', preferenceId, 1, {
       requires_receipt_kind: 'text_preferences',
-      payload: { ...payload, preference_id: draft.preference_id, preference_kind: kind, value_text: value },
+      payload: { ...payload, preference_id: preferenceId, preference_kind: kind, value_text: value },
     });
   }
 
@@ -338,13 +498,26 @@ export function createApp(config, deps = {}) {
     return persistAction(session, 'delete_preference', pref.preference_id, pref.version, { payload });
   }
 
+  function resolveShareBrief(session, payload) {
+    if (typeof payload.brief_id === 'string') {
+      const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
+      if (!brief || brief.subject_id !== session.subject_id) return null;
+      return brief;
+    }
+    return store.get(
+      `SELECT * FROM briefs
+       WHERE subject_id = ? AND status IN ('approved', 'delivered', 'acknowledged', 'withdrawn')
+       ORDER BY created_at DESC LIMIT 1`,
+      [session.subject_id],
+    );
+  }
+
   function persistShareBriefProposal(session, payload) {
-    if (typeof payload.brief_id !== 'string') return null;
-    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [payload.brief_id]);
-    if (!brief || brief.subject_id !== session.subject_id) return null;
+    const brief = resolveShareBrief(session, payload);
+    if (!brief) return null;
     return persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
       requires_receipt_kind: 'staff_sharing_text',
-      payload,
+      payload: { ...payload, brief_id: brief.brief_id },
     });
   }
 
@@ -352,9 +525,11 @@ export function createApp(config, deps = {}) {
     if (typeof payload.image_ref !== 'string') return null;
     const image = store.get('SELECT * FROM images WHERE image_ref = ?', [payload.image_ref]);
     if (!image || image.subject_id !== session.subject_id) return null;
-    return persistAction(session, 'share_photo_ref', image.image_ref, 1, {
+    const brief = resolveShareBrief(session, payload);
+    if (!brief) return null;
+    return persistAction(session, 'share_photo_ref', brief.brief_id, brief.version, {
       requires_receipt_kind: 'staff_sharing_photo',
-      payload,
+      payload: { ...payload, image_ref: image.image_ref, brief_id: brief.brief_id },
     });
   }
 
@@ -490,6 +665,8 @@ export function createApp(config, deps = {}) {
     if (via === 'staff_ui' && session.role === 'customer') {
       fail('UNAUTHORIZED', 'consent.via', false, {}, 401);
     }
+    const existing = activeReceipt(session.subject_id, kind);
+    if (existing) return rowReceipt(existing);
     const now = iso(clock);
     const receipt = {
       contract_version: '0.1.0',
@@ -503,15 +680,21 @@ export function createApp(config, deps = {}) {
       granted_via: via === 'staff_ui' ? 'staff_ui' : 'customer_ui',
     };
     assertContract('PermissionReceipt', receipt);
-    store.run(
-      `INSERT INTO permission_receipts (
-         receipt_id, subject_id, kind, notice_version, granted_at, revoked_at,
-         retention_policy_key, granted_via
-       ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
-      [receipt.receipt_id, receipt.subject_id, receipt.kind, receipt.notice_version,
-        receipt.granted_at, receipt.retention_policy_key, receipt.granted_via],
-    );
-    return receipt;
+    try {
+      store.run(
+        `INSERT INTO permission_receipts (
+           receipt_id, subject_id, kind, notice_version, granted_at, revoked_at,
+           retention_policy_key, granted_via
+         ) VALUES (?, ?, ?, ?, ?, NULL, ?, ?)`,
+        [receipt.receipt_id, receipt.subject_id, receipt.kind, receipt.notice_version,
+          receipt.granted_at, receipt.retention_policy_key, receipt.granted_via],
+      );
+      return receipt;
+    } catch (err) {
+      const raced = activeReceipt(session.subject_id, kind);
+      if (raced) return rowReceipt(raced);
+      throw err;
+    }
   }
 
   function revokeConsent(token, receiptId) {
@@ -519,12 +702,33 @@ export function createApp(config, deps = {}) {
     const row = store.get('SELECT * FROM permission_receipts WHERE receipt_id = ?', [receiptId]);
     if (!row || row.subject_id !== session.subject_id) fail('NOT_FOUND', 'consent.not_found', false, {}, 404);
     const now = iso(clock);
-    store.run('UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ?', [now, receiptId]);
+    const claimed = store.run(
+      'UPDATE permission_receipts SET revoked_at = ? WHERE receipt_id = ? AND revoked_at IS NULL',
+      [now, receiptId],
+    );
+    if (claimed.changes !== 1) return rowReceipt(row);
+    if (row.kind === 'photo_analysis') purgeSubjectPhotoMaterial(session.subject_id);
+    if (row.kind === 'staff_sharing_text') {
+      store.run(
+        `UPDATE briefs SET status = 'withdrawn'
+         WHERE subject_id = ? AND status IN ('delivered', 'acknowledged')`,
+        [session.subject_id],
+      );
+    }
+    if (row.kind === 'staff_sharing_photo') {
+      store.run(
+        `UPDATE briefs
+         SET ref_kind = 'none', image_ref = NULL, receipt_id = NULL
+         WHERE subject_id = ?`,
+        [session.subject_id],
+      );
+    }
     return rowReceipt({ ...row, revoked_at: now });
   }
 
   function listPreferences(token) {
     const session = requireSession(token);
+    sweepPreferenceRetention();
     return store.all(
       `SELECT * FROM preferences WHERE subject_id = ? AND revoked_at IS NULL`,
       [session.subject_id],
@@ -533,6 +737,7 @@ export function createApp(config, deps = {}) {
 
   function savePreference(token, { kind, value_text, source, version }) {
     const session = requireSession(token);
+    sweepPreferenceRetention();
     if (!activeReceipt(session.subject_id, 'text_preferences')) {
       fail('CONSENT_REQUIRED', 'preference.consent_required', false, { capability: 'preferences' }, 403);
     }
@@ -548,8 +753,8 @@ export function createApp(config, deps = {}) {
       const next = { ...rowPreference(existing), value_text, version: existing.version + 1, source };
       assertContract('Preference', next);
       store.run(
-        `UPDATE preferences SET value_text = ?, source = ?, version = ? WHERE preference_id = ?`,
-        [value_text, source, next.version, existing.preference_id],
+        `UPDATE preferences SET value_text = ?, source = ?, version = ?, last_activity_at = ? WHERE preference_id = ?`,
+        [value_text, source, next.version, iso(clock), existing.preference_id],
       );
       return next;
     }
@@ -568,10 +773,10 @@ export function createApp(config, deps = {}) {
     assertContract('Preference', pref);
     store.run(
       `INSERT INTO preferences (
-         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, revoked_at
-       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+         preference_id, subject_id, kind, value_text, source, provenance, version, created_at, last_activity_at, revoked_at
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
       [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
-        pref.provenance, pref.version, pref.created_at],
+        pref.provenance, pref.version, pref.created_at, pref.created_at],
     );
     return pref;
   }
@@ -619,25 +824,86 @@ export function createApp(config, deps = {}) {
     if (session.role !== 'staff' && session.role !== 'owner') {
       fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
     }
+    sweepPhotoRetention();
     const rows = store.all(
-      `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('approved', 'delivered', 'acknowledged')`,
+      `SELECT * FROM briefs WHERE branch_id = ? AND status IN ('delivered', 'acknowledged')`,
       [config.WEEKEND_BRANCH_ID],
     );
-    const now = iso(clock);
-    return rows.map(row => {
-      if (row.status === 'approved') {
-        const viewId = newId('svw_');
-        store.run('UPDATE briefs SET status = ? WHERE brief_id = ?', ['delivered', row.brief_id]);
-        store.run(
-          `INSERT OR IGNORE INTO delivery_receipts
-             (brief_id, delivered_at, staff_view_id, acknowledged_at, acknowledged_by)
-           VALUES (?, ?, ?, NULL, NULL)`,
-          [row.brief_id, now, viewId],
-        );
-        row.status = 'delivered';
+    const refs = [...new Set(rows.map((row) => row.image_ref).filter(Boolean))];
+    const observationsByRef = new Map();
+    if (refs.length > 0) {
+      const cutoff = new Date(Date.parse(iso(clock)) - PHOTO_OBSERVATIONS_TTL_MS).toISOString();
+      const stored = store.all(
+        `SELECT image_ref, observations_json FROM photo_observations
+         WHERE image_ref IN (${refs.map(() => '?').join(',')}) AND created_at > ?`,
+        [...refs, cutoff],
+      );
+      for (const row of stored) {
+        observationsByRef.set(row.image_ref, parseObservations(row.observations_json));
       }
-      return rowBrief(row);
+    }
+    return rows.map((row) => {
+      const brief = rowBrief(row);
+      let observations = null;
+      if (brief.reference.kind === 'photo_ref' && brief.reference.image_ref) {
+        observations = observationsByRef.get(brief.reference.image_ref) ?? null;
+      }
+      return { ...brief, observations };
     });
+  }
+
+  function staffHandoffs(token) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    return store.all(
+      `SELECT * FROM staff_handoffs
+       WHERE status IN ('received', 'accepted')
+       ORDER BY received_at ASC`,
+    ).map(rowHandoff);
+  }
+
+  function acceptStaffHandoff(token, handoffId) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE staff_handoffs
+       SET status = 'accepted', assigned_at = COALESCE(assigned_at, ?), accepted_at = ?, accepted_by = ?
+       WHERE handoff_id = ? AND status = 'received'`,
+      [now, now, session.subject_id, handoffId],
+    );
+    if (claimed.changes === 1) {
+      return rowHandoff(store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]));
+    }
+    const existing = store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]);
+    if (existing?.status === 'accepted' && existing.accepted_by === session.subject_id) {
+      return rowHandoff(existing);
+    }
+    if (existing?.status === 'accepted') {
+      fail('CONFLICT', 'handoff.accepted', false, {}, 409);
+    }
+    fail('NOT_FOUND', 'handoff.not_found', false, {}, 404);
+  }
+
+  function releaseStaffHandoff(token, handoffId) {
+    const session = requireSession(token);
+    requireStaffSession(session);
+    sweepStaffHandoffs();
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE staff_handoffs
+       SET status = 'released', released_at = ?
+       WHERE handoff_id = ? AND status IN ('received', 'accepted')`,
+      [now, handoffId],
+    );
+    if (claimed.changes === 1) {
+      return rowHandoff(store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]));
+    }
+    const existing = store.get('SELECT * FROM staff_handoffs WHERE handoff_id = ?', [handoffId]);
+    if (existing?.status === 'released') return rowHandoff(existing);
+    fail('NOT_FOUND', 'handoff.not_found', false, {}, 404);
   }
 
   function acknowledgeBrief(token, briefId) {
@@ -645,12 +911,15 @@ export function createApp(config, deps = {}) {
     if (session.role !== 'staff' && session.role !== 'owner') {
       fail('UNAUTHORIZED', 'staff.required', false, {}, 401);
     }
-    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefId]);
-    if (!brief || brief.branch_id !== config.WEEKEND_BRANCH_ID) {
-      fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
-    }
     const now = iso(clock);
-    store.run('UPDATE briefs SET status = ? WHERE brief_id = ?', ['acknowledged', briefId]);
+    // Only delivered/acknowledged briefs can be acked. An unshared (approved) or withdrawn
+    // row must stay out of the inbox; matching on status also loses the race with revoke.
+    const claimed = store.run(
+      `UPDATE briefs SET status = 'acknowledged'
+       WHERE brief_id = ? AND branch_id = ? AND status IN ('delivered', 'acknowledged')`,
+      [briefId, config.WEEKEND_BRANCH_ID],
+    );
+    if (claimed.changes !== 1) fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
     const existing = store.get('SELECT * FROM delivery_receipts WHERE brief_id = ?', [briefId]);
     if (!existing) {
       store.run(
@@ -680,6 +949,7 @@ export function createApp(config, deps = {}) {
 
   function registerUpload(token, { byteLength, contentType, bytes }) {
     const session = requireSession(token);
+    sweepPhotoRetention();
     if (!config.WEEKEND_PHOTO_ENABLED) {
       fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
     }
@@ -703,6 +973,7 @@ export function createApp(config, deps = {}) {
     if (bytes instanceof Uint8Array) {
       photoBytes.set(imageRef, Buffer.from(bytes));
     }
+    sweepPhotoRetention();
     return { image_ref: imageRef };
   }
 
@@ -730,21 +1001,41 @@ export function createApp(config, deps = {}) {
 
   function executeAction(token, actionId) {
     const session = requireSession(token);
-    const row = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
-    if (!row || row.subject_id !== session.subject_id) {
+    const found = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
+    if (!found || found.subject_id !== session.subject_id) {
       fail('NOT_FOUND', 'action.not_found', false, {}, 404);
     }
-    if (row.session_id !== session.session_id) {
+    if (found.session_id !== session.session_id) {
       fail('STALE_ACTION', 'action.stale', false, { action_id: actionId }, 409);
     }
-    if (row.consumed_at) {
-      return staleAction(actionId);
-    }
-    if (Date.parse(row.expires_at) <= Date.parse(iso(clock))) {
-      return actionResult(actionId, 'expired', 'action.expired');
+
+    return store.transaction(() => {
+    const now = iso(clock);
+    const claimed = store.run(
+      `UPDATE allowed_actions SET consumed_at = ? WHERE action_id = ? AND consumed_at IS NULL`,
+      [now, actionId],
+    );
+    if (claimed.changes !== 1) return staleAction(actionId);
+    const row = store.get('SELECT * FROM allowed_actions WHERE action_id = ?', [actionId]);
+    if (Date.parse(row.expires_at) <= Date.parse(now)) {
+      const expired = actionResult(actionId, 'expired', 'action.expired');
+      store.run(
+        `INSERT INTO action_results (action_id, outcome, receipt_id, message_key, created_at)
+         VALUES (?, ?, ?, ?, ?)`,
+        [expired.action_id, expired.outcome, expired.receipt_id, expired.message_key, now],
+      );
+      return expired;
     }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
-      fail('CONSENT_REQUIRED', 'action.consent_required', false, { action_id: actionId }, 403);
+      const messageKey = row.kind === 'share_brief_text'
+        ? 'brief.share_consent'
+        : row.kind === 'share_photo_ref'
+          ? 'brief.photo_consent'
+          : 'action.consent_required';
+      const details = { action_id: actionId };
+      if (row.kind === 'share_brief_text') details.capability = 'staff_inbox';
+      else if (row.kind === 'share_photo_ref') details.capability = 'photo';
+      fail('CONSENT_REQUIRED', messageKey, false, details, 403);
     }
 
     let outcome = 'done';
@@ -770,28 +1061,70 @@ export function createApp(config, deps = {}) {
         outcome = 'pending';
         messageKey = 'booking.pending_unconfirmed';
         break;
-      case 'talk_to_staff':
+      case 'talk_to_staff': {
+        sweepStaffHandoffs();
+        const existing = store.get(
+          `SELECT * FROM staff_handoffs
+           WHERE session_id = ? AND status IN ('received', 'accepted')
+           ORDER BY received_at DESC LIMIT 1`,
+          [session.session_id],
+        );
+        if (!existing) {
+          store.run(
+            `INSERT INTO staff_handoffs (
+               handoff_id, subject_id, session_id, status, received_at,
+               assigned_at, accepted_at, accepted_by, timed_out_at, released_at
+             ) VALUES (?, ?, ?, 'received', ?, NULL, NULL, NULL, NULL, NULL)`,
+            [newId('hnd_'), session.subject_id, session.session_id, iso(clock)],
+          );
+        }
         outcome = 'pending';
         messageKey = 'handoff.queued';
         break;
+      }
       case 'save_preference': {
-        const pref = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
-        if (!pref || pref.subject_id !== session.subject_id) {
+        sweepPreferenceRetention();
+        const existing = store.get('SELECT * FROM preferences WHERE preference_id = ?', [row.object_id]);
+        if (existing && existing.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'preference.not_found', false, {}, 404);
         }
-        if (pref.revoked_at || pref.version !== row.object_version) {
+        if (existing && (existing.revoked_at || existing.version !== row.object_version)) {
           return staleAction(actionId);
         }
         const value = typeof payload.value_text === 'string' && payload.value_text.trim()
           ? payload.value_text.trim()
-          : pref.value_text;
-        const nextVersion = pref.version + 1;
-        store.run(
-          `UPDATE preferences
-           SET value_text = ?, source = ?, provenance = ?, version = ?
-           WHERE preference_id = ?`,
-          [value, 'customer_selected', 'approved_preference', nextVersion, pref.preference_id],
-        );
+          : existing?.value_text;
+        if (!value) return staleAction(actionId);
+        if (existing) {
+          store.run(
+            `UPDATE preferences
+             SET value_text = ?, source = ?, provenance = ?, version = ?, last_activity_at = ?
+             WHERE preference_id = ?`,
+            [value, 'customer_selected', 'approved_preference', existing.version + 1, iso(clock), existing.preference_id],
+          );
+        } else {
+          const kind = PREFERENCE_KINDS.has(payload.preference_kind) ? payload.preference_kind : 'note';
+          const pref = {
+            contract_version: '0.1.0',
+            preference_id: row.object_id,
+            subject_id: session.subject_id,
+            kind,
+            value_text: value,
+            source: 'customer_selected',
+            provenance: 'approved_preference',
+            version: 1,
+            created_at: iso(clock),
+            revoked_at: null,
+          };
+          assertContract('Preference', pref);
+          store.run(
+            `INSERT INTO preferences (
+               preference_id, subject_id, kind, value_text, source, provenance, version, created_at, last_activity_at, revoked_at
+             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL)`,
+            [pref.preference_id, pref.subject_id, pref.kind, pref.value_text, pref.source,
+              pref.provenance, pref.version, pref.created_at, pref.created_at],
+          );
+        }
         outcome = 'done';
         messageKey = 'action.save_preference';
         break;
@@ -826,18 +1159,42 @@ export function createApp(config, deps = {}) {
           fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
         }
         if (brief.version !== row.object_version) return staleAction(actionId);
+        const deliveredAt = iso(clock);
+        store.run(
+          `UPDATE briefs SET status = 'delivered' WHERE brief_id = ? AND status IN ('approved', 'delivered', 'withdrawn')`,
+          [brief.brief_id],
+        );
+        store.run(
+          `INSERT OR IGNORE INTO delivery_receipts
+             (brief_id, delivered_at, staff_view_id, acknowledged_at, acknowledged_by)
+           VALUES (?, ?, ?, NULL, NULL)`,
+          [brief.brief_id, deliveredAt, newId('svw_')],
+        );
         outcome = 'done';
         messageKey = 'brief.shared_text';
         break;
       }
       case 'share_photo_ref': {
-        if (!activeReceipt(session.subject_id, 'staff_sharing_photo')) {
+        const photoReceipt = activeReceipt(session.subject_id, 'staff_sharing_photo');
+        if (!photoReceipt) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
         }
-        const image = store.get('SELECT * FROM images WHERE image_ref = ?', [row.object_id]);
+        const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [row.object_id]);
+        if (!brief || brief.subject_id !== session.subject_id) {
+          fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+        }
+        if (brief.version !== row.object_version) return staleAction(actionId);
+        const imageRef = typeof payload.image_ref === 'string' ? payload.image_ref : null;
+        const image = imageRef
+          ? store.get('SELECT * FROM images WHERE image_ref = ?', [imageRef])
+          : null;
         if (!image || image.subject_id !== session.subject_id) {
           fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
         }
+        store.run(
+          `UPDATE briefs SET ref_kind = 'photo_ref', image_ref = ?, receipt_id = ? WHERE brief_id = ?`,
+          [image.image_ref, photoReceipt.receipt_id, brief.brief_id],
+        );
         outcome = 'done';
         messageKey = 'brief.shared_photo';
         break;
@@ -849,7 +1206,6 @@ export function createApp(config, deps = {}) {
       }
     }
 
-    store.run('UPDATE allowed_actions SET consumed_at = ? WHERE action_id = ?', [iso(clock), actionId]);
     const result = actionResult(actionId, outcome, messageKey, receiptId);
     store.run(
       `INSERT INTO action_results (action_id, outcome, receipt_id, message_key, created_at)
@@ -857,6 +1213,7 @@ export function createApp(config, deps = {}) {
       [result.action_id, result.outcome, result.receipt_id, result.message_key, iso(clock)],
     );
     return result;
+    });
   }
 
   function defaultActions(session) {
@@ -877,8 +1234,83 @@ export function createApp(config, deps = {}) {
     if (input.session_id !== session.session_id) {
       fail('UNAUTHORIZED', 'turn.session', false, {}, 401);
     }
+    sweepPhotoRetention();
+    const key = `${session.session_id}:${input.turn_id}`;
+    const existing = store.get(
+      'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
+      [session.session_id, input.turn_id],
+    );
+    if (existing?.status === 'complete' && existing.response_json) {
+      return replayStoredTurn(existing);
+    }
+    if (inflightTurns.has(key)) return inflightTurns.get(key);
+    let claimed;
+    if (existing?.status === 'failed') {
+      claimed = store.run(
+        `UPDATE turns SET status = 'pending', response_json = NULL, created_at = ?
+         WHERE session_id = ? AND turn_id = ? AND status = 'failed'`,
+        [iso(clock), session.session_id, input.turn_id],
+      );
+    } else if (!existing) {
+      claimed = store.run(
+        `INSERT OR IGNORE INTO turns (session_id, turn_id, status, response_json, created_at)
+         VALUES (?, ?, 'pending', NULL, ?)`,
+        [session.session_id, input.turn_id, iso(clock)],
+      );
+    } else {
+      fail('CONFLICT', 'turn.in_progress', true, {}, 409);
+    }
+    if (claimed.changes !== 1) {
+      const row = store.get(
+        'SELECT * FROM turns WHERE session_id = ? AND turn_id = ?',
+        [session.session_id, input.turn_id],
+      );
+      if (row?.status === 'complete' && row.response_json) return replayStoredTurn(row);
+      if (inflightTurns.has(key)) return inflightTurns.get(key);
+      fail('CONFLICT', 'turn.in_progress', true, {}, 409);
+    }
+    const work = (async () => {
+      try {
+        const result = await runTurn(token, session, input);
+        store.run(
+          `UPDATE turns SET status = 'complete', response_json = ? WHERE session_id = ? AND turn_id = ?`,
+          [JSON.stringify({ ok: true, body: result }), session.session_id, input.turn_id],
+        );
+        return result;
+      } catch (err) {
+        const payload = err instanceof AppError
+          ? { ok: false, shape: err.shape, status: err.status }
+          : { ok: false, internal: true };
+        const terminal = isTerminalTurnFailure(err);
+        store.run(
+          `UPDATE turns SET status = ?, response_json = ? WHERE session_id = ? AND turn_id = ?`,
+          [terminal ? 'complete' : 'failed', JSON.stringify(payload), session.session_id, input.turn_id],
+        );
+        throw err;
+      } finally {
+        inflightTurns.delete(key);
+      }
+    })();
+    inflightTurns.set(key, work);
+    return work;
+  }
+
+  function replayStoredTurn(row) {
+    let stored;
+    try {
+      stored = JSON.parse(row.response_json);
+    } catch {
+      stored = null;
+    }
+    if (stored?.ok) return stored.body;
+    if (stored?.shape) throw new AppError(stored.shape, stored.status || 400);
+    fail('CAPABILITY_UNAVAILABLE', 'http.internal', true, {}, 500);
+  }
+
+  async function runTurn(token, session, input) {
     const context = contextOf(session);
-    let imageBytes = null;
+    sweepPhotoRetention();
+    let pendingImageRef = null;
     if (input.image_ref) {
       if (context.capabilities.photo !== 'enabled') {
         fail('CAPABILITY_UNAVAILABLE', 'photo.disabled', false, { capability: 'photo' }, 403);
@@ -890,12 +1322,17 @@ export function createApp(config, deps = {}) {
       if (!image || image.subject_id !== session.subject_id) {
         fail('NOT_FOUND', 'upload.not_found', false, {}, 404);
       }
-      imageBytes = consumePhotoBytes(input.image_ref);
+      pendingImageRef = input.image_ref;
     }
 
     if (input.client_action_id) {
       const result = executeAction(token, input.client_action_id);
       return { context, output: null, action_result: result, allowed_actions: [] };
+    }
+
+    const queuedHandoff = activeStaffHandoff(session.session_id);
+    if (queuedHandoff) {
+      fail('CAPABILITY_UNAVAILABLE', 'handoff.queued', true, { capability: 'staff_inbox' }, 403);
     }
 
     const now = iso(clock);
@@ -913,6 +1350,7 @@ export function createApp(config, deps = {}) {
       }, 429);
     }
     inflight.set(session.session_id, inFlight + 1);
+    const imageBytes = pendingImageRef ? consumePhotoBytes(pendingImageRef) : null;
 
     let output;
     let usage;
@@ -922,35 +1360,60 @@ export function createApp(config, deps = {}) {
       settled = true;
       settleSpend(now, costCeilingMinor, actualMinor);
     };
+    let adapterSettled = null;
+    let adapterPromise = null;
     try {
-      const result = await withTimeout(
-        () => adapter({ context, input, now, image_bytes: imageBytes }),
-        config.WEEKEND_REQUEST_TIMEOUT_MS,
-      );
+      const controller = new AbortController();
+      adapterPromise = Promise.resolve(adapter({
+        context,
+        input,
+        now,
+        image_bytes: imageBytes,
+        signal: controller.signal,
+      })).then((result) => {
+        adapterSettled = result;
+        return result;
+      });
+      const result = await withTimeout(() => adapterPromise, config.WEEKEND_REQUEST_TIMEOUT_MS, { controller });
       output = result.output;
       usage = result.usage;
       assertContract('ChatTurnOutput', output); // inside the guard: a malformed output must release the reservation too
     } catch (err) {
-      settle(0); // nothing billable is known; the reservation is released, the claimed call stays counted
-      if (err instanceof AppError) throw err;
-      if (err?.code !== 'TIMEOUT') throw err;
-      usage = {
-        contract_version: '0.1.0',
-        usage_id: newId('use_'),
-        session_id: session.session_id,
-        turn_id: input.turn_id,
-        provider: 'none',
-        model_id: 'unavailable',
-        prompt_version: 'none',
-        input_tokens: 0,
-        output_tokens: 0,
-        latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
-        cost_estimate_minor: null,
-        outcome: 'timeout',
-        created_at: now,
-      };
-      persistUsage(usage);
-      fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+      if (err instanceof AppError) {
+        settle(0);
+        throw err;
+      }
+      if (err?.code === 'TIMEOUT') {
+        const late = await settledOrSoon(adapterSettled, adapterPromise);
+        const adapterUsage = late?.usage?.outcome === 'timeout' ? late.usage : null;
+        usage = adapterUsage && validateContract('ModelUsageRecord', adapterUsage).ok
+          ? adapterUsage
+          : {
+            contract_version: '0.1.0',
+            usage_id: newId('use_'),
+            session_id: session.session_id,
+            turn_id: input.turn_id,
+            provider: 'none',
+            model_id: 'unavailable',
+            prompt_version: 'none',
+            input_tokens: 0,
+            output_tokens: 0,
+            latency_ms: config.WEEKEND_REQUEST_TIMEOUT_MS,
+            cost_estimate_minor: null,
+            outcome: 'timeout',
+            created_at: now,
+          };
+        persistUsage(usage);
+        settle(usage.cost_estimate_minor ?? 0);
+        fail('TIMEOUT', 'model.timeout', true, { capability: 'model' }, 504);
+      }
+      if (usage && validateContract('ModelUsageRecord', usage).ok) {
+        persistUsage(usage);
+        settle(usage.cost_estimate_minor ?? 0);
+      } else {
+        settle(0);
+      }
+      throw err;
     } finally {
       const left = (inflight.get(session.session_id) || 1) - 1;
       if (left > 0) inflight.set(session.session_id, left);
@@ -1004,6 +1467,49 @@ export function createApp(config, deps = {}) {
     return action;
   }
 
+  function latestSessionImage(session) {
+    return store.get(
+      `SELECT * FROM images
+       WHERE subject_id = ? AND session_id = ?
+       ORDER BY created_at DESC LIMIT 1`,
+      [session.subject_id, session.session_id],
+    );
+  }
+
+  /**
+   * POST /briefs/:brief_id/share-actions — server-issued share controls for one owned brief.
+   * Staff never learn whether the brief exists. Photo share is omitted unless the capability is
+   * enabled and this session already has an image.
+   */
+  function issueShareActionsForBrief(token, briefId) {
+    const session = requireSession(token);
+    if (session.role !== 'customer' && session.role !== 'owner') {
+      fail('UNAUTHORIZED', 'brief.role', false, {}, 401);
+    }
+    const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefId]);
+    if (!brief || brief.subject_id !== session.subject_id) {
+      fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+    }
+    const allowed = [
+      persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
+        requires_receipt_kind: 'staff_sharing_text',
+        payload: { brief_id: brief.brief_id },
+      }),
+    ];
+    const caps = capabilitiesFor(config, session.role, realAdapter);
+    if (caps.photo === 'enabled') {
+      const image = latestSessionImage(session);
+      if (image) {
+        const photo = persistSharePhotoProposal(session, {
+          image_ref: image.image_ref,
+          brief_id: brief.brief_id,
+        });
+        if (photo) allowed.push(photo);
+      }
+    }
+    return { contract_version: '0.1.0', allowed_actions: allowed };
+  }
+
   function issueBookingAction(token) {
     const session = requireSession(token);
     return persistAction(
@@ -1040,6 +1546,9 @@ export function createApp(config, deps = {}) {
     deletePreference,
     createBrief,
     staffBriefs,
+    staffHandoffs,
+    acceptStaffHandoff,
+    releaseStaffHandoff,
     acknowledgeBrief,
     registerUpload,
     executeAction,
@@ -1049,6 +1558,7 @@ export function createApp(config, deps = {}) {
     issueDeletePreferenceAction,
     issueShareBriefAction,
     issueSharePhotoAction,
+    issueShareActionsForBrief,
     peekPhotoBytes(imageRef) {
       return photoBytes.has(imageRef);
     },

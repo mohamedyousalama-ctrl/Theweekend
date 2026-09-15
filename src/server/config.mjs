@@ -32,6 +32,24 @@ export class ConfigError extends Error {
   }
 }
 
+const BOOKING_HOSTS = new Set(['theweekendhairstyling.com', 'www.theweekendhairstyling.com']);
+
+function officialBookingUrl(raw) {
+  let parsed;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  }
+  if (parsed.protocol !== 'https:') throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  if (parsed.username || parsed.password) throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  if (parsed.port !== '') throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  if (!BOOKING_HOSTS.has(parsed.hostname.toLowerCase())) {
+    throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
+  }
+  return parsed.href;
+}
+
 function present(value) {
   return typeof value === 'string' && value.trim().length > 0;
 }
@@ -65,7 +83,7 @@ export function loadConfig(env) {
   const modelMode = env.WEEKEND_MODEL_MODE.trim();
   const photoEnabled = env.WEEKEND_PHOTO_ENABLED.trim();
   const handoff = env.WEEKEND_BOOKING_HANDOFF_MODE.trim();
-  const url = env.WEEKEND_OFFICIAL_BOOKING_URL.trim();
+  const url = officialBookingUrl(env.WEEKEND_OFFICIAL_BOOKING_URL.trim());
   const branchId = env.WEEKEND_BRANCH_ID.trim();
 
   if (!['local', 'owner-review'].includes(weekendEnv)) throw new ConfigError('WEEKEND_ENV');
@@ -74,9 +92,6 @@ export function loadConfig(env) {
   if (!['true', 'false'].includes(photoEnabled)) throw new ConfigError('WEEKEND_PHOTO_ENABLED');
   if (!['official_link', 'pending_request'].includes(handoff)) {
     throw new ConfigError('WEEKEND_BOOKING_HANDOFF_MODE');
-  }
-  if (!/^https:\/\/[A-Za-z0-9][A-Za-z0-9.-]+(?:\/\S*)?$/.test(url)) {
-    throw new ConfigError('WEEKEND_OFFICIAL_BOOKING_URL');
   }
   if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
   if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
