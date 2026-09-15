@@ -23,9 +23,9 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 | `main` = `4bfe6b5` | **PR #24** (C2 platform) merged `de6da6b`, then **PR #25** (UI third handback) merged `4bfe6b5`. Combined `npm test` on that tree: 357 pass / 0 fail (Node v22.14.0). Owner instructed Cursor to merge #24 and continue; Cursor also merged #25 after a fidelity pass and a clean merge onto C2 `main`. This is not a two-agent D17 review of #25 by Claude Code + Codex on the final UI head. |
 | Package C2 (Cursor, issue #7) | **merged** (PR #24). Share-actions, inbox gating, photo observations, retention, idempotency, staff accept/release of `talk_to_staff`. |
 | UI third handback (issue #6, PR #25) | **merged**. Consent step, brief approve/share, preference save, polish, optional upload. Follow-ups: dedicated `handoff.queued` copy; staff inbox `observations`; staff accept/release UI. |
-| #8 owner walkthrough | product code on `main`; Railway project `Theweekend` / service `rakan` exists (`https://rakan-production-7ae6.up.railway.app`) but `/health` is down until `WEEKEND_MODEL_API_KEY` is set; then `npm run eval:agent` and #8 |
+| #8 owner walkthrough | product code on `main`; Railway `Theweekend` / `rakan` at `https://rakan-production-7ae6.up.railway.app`; `GET /health` HTTP 200 (2026-09-15 17:08 UTC). Next: `npm run eval:agent` then #8 |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
-| Hosting | Railway **project created** (`docs/17-HOSTING.md`): `Theweekend` / `rakan`, volume `/data`, GitHub auto-deploy from `main`. **Not released.** Missing only `WEEKEND_MODEL_API_KEY` on the service. Passcodes live in Railway Variables. |
+| Hosting | Railway **project live for owner-review** (`docs/17-HOSTING.md`): `Theweekend` / `rakan`, volume `/data`, GitHub auto-deploy from `main`, `/health` 200. **Not released.** Passcodes live in Railway Variables. |
 | Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
 | Bot reviews | current roster and state in §8 (Qodo paused since 2026-09-14); a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
 | Idle agents | if Cursor or Grok stay idle, the integrator may do small, in-scope required fixes on their branches after an adversarial audit (done on #20 and #21 on 2026-09-14); larger packages stay theirs |
@@ -80,7 +80,7 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 ## 5. Stream C next steps (Cursor)
 
 1. **Package C2 — done** (PR #24 on `main`).
-2. **Railway**: project `Theweekend` / service `rakan` created; GitHub auto-deploys `main`; volume `/data`; domain `https://rakan-production-7ae6.up.railway.app`. Start currently crashes without `WEEKEND_MODEL_API_KEY`. After the owner pastes that key in Railway Variables, confirm `/health` 200. Then `npm run eval:agent` on the host.
+2. **Railway**: project `Theweekend` / service `rakan` created; GitHub auto-deploys `main`; volume `/data`; domain `https://rakan-production-7ae6.up.railway.app`. `GET /health` HTTP 200 (2026-09-15). Next: `npm run eval:agent` on a host that has the owner's key (results to #5), then the #8 walkthrough.
 3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10): quote → approve → create, cancel of test reservations, hosted payment link.
 
 ## 6. Stream B next steps (Grok)
@@ -89,8 +89,8 @@ Third handback **merged** (PR #25). Remaining UI follow-ups, not a new package u
 
 ## 7. Owner pending tasks (as of this file)
 
-1. **Model key** — Railway → `Theweekend` → `rakan` → Variables → `WEEKEND_MODEL_API_KEY` = dedicated Anthropic key (never Kivo, never Git, never chat). Redeploy, then `GET https://rakan-production-7ae6.up.railway.app/health` must be 200.
-2. After `/health` is 200: one `npm run eval:agent` with that key (results to #5), then the #8 owner walkthrough. Owner/staff passcodes are already in Railway Variables (`WEEKEND_OWNER_PASSCODE`, `WEEKEND_STAFF_PASSCODE`).
+1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
+2. One `npm run eval:agent` with that key (results to #5), then the #8 owner walkthrough. Owner/staff passcodes are already in Railway Variables (`WEEKEND_OWNER_PASSCODE`, `WEEKEND_STAFF_PASSCODE`). URL: `https://rakan-production-7ae6.up.railway.app`.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 
