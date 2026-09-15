@@ -59,6 +59,11 @@ function migrate(db) {
     FOREIGN KEY (session_id) REFERENCES sessions(session_id),
     FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
   )`);
+  const prefCols = db.prepare('PRAGMA table_info(preferences)').all();
+  if (!prefCols.some((c) => c.name === 'last_activity_at')) {
+    db.exec('ALTER TABLE preferences ADD COLUMN last_activity_at TEXT');
+    db.exec('UPDATE preferences SET last_activity_at = created_at WHERE last_activity_at IS NULL');
+  }
 }
 
 export function openStore(dbPath) {
