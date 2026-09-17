@@ -14,6 +14,7 @@ import { composeTurn } from './conversation/composer.js';
 import { renderApprovedBrief } from './brief/approved-brief.js';
 import { renderInboxList } from './staff/inbox-list.js';
 import { renderBriefPanel } from './staff/brief-panel.js';
+import { renderHandoffList } from './staff/handoff-list.js';
 import { renderPreferenceList } from './preferences/preference-list.js';
 import { renderPreferenceEditor } from './preferences/preference-editor.js';
 import { renderCapabilityCopy } from './capability/capability-copy.js';
@@ -81,6 +82,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     prefError: null,
     inboxLoading: false,
     inboxError: null,
+    handoffs: [],
     gallery: false,
     consent: null,
     pendingRetry: null,
@@ -170,6 +172,11 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         }).html;
       case 'staff_inbox':
         return [
+          renderHandoffList({
+            handoffs: state.handoffs,
+            locale: loc,
+            selfSubjectId: state.context?.subject_id || '',
+          }).html,
           renderInboxList({
             context: state.context,
             health: state.health,
@@ -305,6 +312,12 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         paint();
       });
     }
+    root.querySelectorAll('[data-handoff-accept="true"]').forEach((btn) => {
+      btn.addEventListener('click', () => void postHandoff(btn.getAttribute('data-handoff-id'), 'accept'));
+    });
+    root.querySelectorAll('[data-handoff-release="true"]').forEach((btn) => {
+      btn.addEventListener('click', () => void postHandoff(btn.getAttribute('data-handoff-id'), 'release'));
+    });
     const prefForm = root.querySelector('[data-component="preference-editor"]');
     if (prefForm) {
       prefForm.addEventListener('submit', async (ev) => {
@@ -623,8 +636,12 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     state.inboxLoading = true;
     paint();
     try {
-      const out = await api('/staff/briefs', { token: state.token, fetchImpl });
+      const [out, handoffOut] = await Promise.all([
+        api('/staff/briefs', { token: state.token, fetchImpl }),
+        api('/staff/handoffs', { token: state.token, fetchImpl }),
+      ]);
       state.briefs = out.briefs || [];
+      state.handoffs = handoffOut.handoffs || [];
       state.inboxError = null;
     } catch (err) {
       state.inboxError = err;
@@ -632,6 +649,28 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       state.inboxLoading = false;
       paint();
     }
+  }
+
+  async function postHandoff(handoffId, verb) {
+    if (!handoffId || (verb !== 'accept' && verb !== 'release')) return;
+    try {
+      const row = await api(`/staff/handoffs/${handoffId}/${verb}`, {
+        method: 'POST',
+        token: state.token,
+        body: {},
+        fetchImpl,
+      });
+      state.handoffs = (state.handoffs || []).map((item) => (
+        item.handoff_id === row.handoff_id ? row : item
+      )).filter((item) => item.status === 'received' || item.status === 'accepted');
+      if (verb === 'release') {
+        state.handoffs = state.handoffs.filter((item) => item.handoff_id !== handoffId);
+      }
+      state.inboxError = null;
+    } catch (err) {
+      state.inboxError = err;
+    }
+    paint();
   }
 
   async function loadPreferences() {

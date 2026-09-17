@@ -55,6 +55,7 @@ test('every message key the server or the adapter can emit has copy in both lang
     'agent.ungrounded_price', 'agent.ungrounded_fact', 'agent.ungrounded_link', 'agent.invalid_output', 'agent.contract_invalid', 'agent.refused',
     'photo.consent_required', 'preference.consent_required', 'action.consent_required',
     'brief.share_consent', 'brief.photo_consent',
+    'handoff.queued', 'handoff.accepted', 'handoff.not_found',
     'store.unavailable', 'upload.rejected', 'input.invalid', 'session.invalid',
   ]) {
     assert.notEqual(messageFromKey(key, 'ar'), key, `${key} has Arabic copy`);

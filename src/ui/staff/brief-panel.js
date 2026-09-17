@@ -3,6 +3,7 @@ import { t } from '../copy.js';
 import { actionPresentation } from '../policy.js';
 import { renderApprovedBrief } from '../brief/approved-brief.js';
 import { renderActionResult } from '../states/action-result.js';
+import { renderPhotoNotes } from './photo-notes.js';
 
 export function renderBriefPanel({
   brief = null,
@@ -45,14 +46,17 @@ export function renderBriefPanel({
   }, t(locale, 'ack'));
 
   const result = renderActionResult({ actionResult, locale });
+  const notes = renderPhotoNotes({ observations: brief?.observations, locale });
 
   const html = el('section', {
     class: 'wk-panel',
     'data-surface': 'staff_brief_panel',
     'data-success': String(success),
     'data-ack-is-booking': 'false',
+    'data-photo-bytes': 'false',
   }, [
     briefView.html,
+    notes.html,
     receiptBlock,
     ack,
     el('p', { class: 'wk-note' }, t(locale, 'ack_not_booking')),
@@ -68,6 +72,8 @@ export function renderBriefPanel({
       saved: success,
       booking: false,
       pending: delivered && !hasAck,
+      photoNotes: notes.meta.shown,
+      photoBytes: false,
     },
   };
 }
