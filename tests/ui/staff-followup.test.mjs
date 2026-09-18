@@ -55,6 +55,34 @@ test('received handoff offers accept and does not claim staff already took it', 
   assert.match(view.html, /data-handoff-release="true"/);
   assert.match(view.html, /data-accepted="false"/);
   assert.match(view.html, /ما انقبل بعد/);
+  assert.match(view.html, /data-handoff-warning="not_accepted_until_click"/);
+  assert.match(view.html, /ما نقول إن الفريق استلم إلا بعد زر القبول/);
+});
+
+test('accepted copy depends on mine and hides the not-accepted warning', () => {
+  const acceptedByOther = {
+    ...received,
+    status: 'accepted',
+    accepted_at: '2026-09-17T10:05:00Z',
+    accepted_by: 'sub_syn_staff_b',
+  };
+  const other = renderHandoffList({
+    handoffs: [acceptedByOther],
+    locale: 'en',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(other.html, /Accepted by another staff member/);
+  assert.doesNotMatch(other.html, /data-handoff-warning="not_accepted_until_click"/);
+  assert.doesNotMatch(other.html, /Do not treat this as staff-accepted until Accept is pressed/);
+
+  const mine = renderHandoffList({
+    handoffs: [{ ...acceptedByOther, accepted_by: 'sub_syn_staff_a' }],
+    locale: 'ar',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(mine.html, /قبلت الطلب/);
+  assert.doesNotMatch(mine.html, /قبل الطلب موظف آخر/);
+  assert.doesNotMatch(mine.html, /data-handoff-warning="not_accepted_until_click"/);
 });
 
 test('another staff member cannot steal an accepted handoff', () => {

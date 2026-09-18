@@ -9,9 +9,12 @@ export function renderHandoffList({
   const rows = Array.isArray(handoffs) ? handoffs : [];
   const cards = rows.map((item) => {
     const status = item.status;
+    const mine = Boolean(selfSubjectId && item.accepted_by === selfSubjectId);
     const canAccept = status === 'received';
     const canRelease = status === 'received' || status === 'accepted';
-    const statusKey = status === 'accepted' ? 'handoff_accepted' : 'handoff_received';
+    const statusKey = status === 'accepted'
+      ? (mine ? 'handoff_accepted' : 'handoff_accepted_by_other')
+      : 'handoff_received';
     const actions = [];
     if (canAccept) {
       actions.push(el('button', {
@@ -37,7 +40,9 @@ export function renderHandoffList({
     }, [
       el('div', { class: 'wk-brief-label' }, t(locale, statusKey)),
       el('div', { class: 'wk-note' }, escapeHtml(item.handoff_id)),
-      el('p', { class: 'wk-note' }, t(locale, 'handoff_not_accepted_until_click')),
+      status === 'received'
+        ? el('p', { class: 'wk-note', 'data-handoff-warning': 'not_accepted_until_click' }, t(locale, 'handoff_not_accepted_until_click'))
+        : '',
       ...actions,
     ]);
   });
