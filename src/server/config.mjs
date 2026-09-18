@@ -101,8 +101,9 @@ export function loadConfig(env) {
   if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
   if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
 
-  // Owner-review opens /try passcode-free by default (documented intent), but an explicit
-  // WEEKEND_PUBLIC_GUEST=false in Railway must close it without a redeploy. Local defaults to off.
+  // Owner-review opens /try passcode-free by default (documented intent). The value is read once at
+  // process start: an explicit WEEKEND_PUBLIC_GUEST=false takes effect only when a new deployment
+  // (or a restart) runs with it. Local defaults to off.
   const publicGuestDefault = weekendEnv === 'owner-review' ? 'true' : 'false';
   const publicGuestRaw = present(env.WEEKEND_PUBLIC_GUEST) ? env.WEEKEND_PUBLIC_GUEST.trim() : publicGuestDefault;
   if (!['true', 'false'].includes(publicGuestRaw)) throw new ConfigError('WEEKEND_PUBLIC_GUEST');
