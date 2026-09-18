@@ -322,7 +322,7 @@ const MESSAGE_KEYS = {
   'http.internal': { ar: 'صار خلل في الخادم. جرّب بعد شوي.', en: 'The server hit an internal error. Try again shortly.' },
   'http.not_found': { ar: 'ما لقيت الصفحة.', en: 'That page was not found.' },
   'http.body_too_large': { ar: 'الطلب أكبر من المسموح.', en: 'The request is larger than allowed.' },
-  'http.invalid_json': { ar: 'الطلب غير صالح.', en: 'The request body is not valid JSON.' },
+  'http.invalid_json': { ar: 'الطلب غير صالح.', en: 'The request is not valid.' },
   'http.port': { ar: 'المنفذ غير صالح.', en: 'The port is not valid.' },
   'staff.required': { ar: 'هذا المسار للفريق فقط.', en: 'This path is for staff only.' },
   'brief.role': { ar: 'الدور ما يسمح بهذا الموجز.', en: 'This role cannot use that brief.' },

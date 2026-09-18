@@ -74,3 +74,8 @@ test('every message key the server or the adapter can emit has copy in both lang
     assert.notEqual(messageFromKey(key, 'en'), key, `${key} has English copy`);
   }
 });
+
+test('http.invalid_json English matches the Arabic meaning', () => {
+  assert.equal(messageFromKey('http.invalid_json', 'en'), 'The request is not valid.');
+  assert.equal(messageFromKey('http.invalid_json', 'ar'), 'الطلب غير صالح.');
+});
