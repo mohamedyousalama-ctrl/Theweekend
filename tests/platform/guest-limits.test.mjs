@@ -172,6 +172,113 @@ test('guest spend alerts fire on settled cost, not the reservation', async () =>
   app.close();
 });
 
+test('guest settlement clamps against settled spend, not in-flight reservations', async () => {
+  const logs = [];
+  const turnA = '11111111-2222-4333-8444-555555555651';
+  const turnB = '11111111-2222-4333-8444-555555555652';
+  const costs = { [turnA]: 300, [turnB]: 0 };
+  const gates = new Map();
+  const entered = [];
+  for (const id of [turnA, turnB]) {
+    let release;
+    gates.set(id, { opened: new Promise((resolve) => { release = resolve; }), release: () => release() });
+  }
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+    WEEKEND_GUEST_TURNS_PER_MIN: '8',
+  }, {
+    adapter: async ({ context, input, now }) => {
+      entered.push(input.turn_id);
+      await gates.get(input.turn_id).opened;
+      const result = runModelTurn({ context, input, now });
+      result.usage.cost_estimate_minor = costs[input.turn_id];
+      return result;
+    },
+    costCeilingMinor: 200,
+    log: (record) => logs.push(record),
+  });
+  const guestA = app.createSession('customer', '', { clientKey: '203.0.113.81' });
+  const guestB = app.createSession('customer', '', { clientKey: '203.0.113.82' });
+  const promiseA = app.submitTurn(guestA.token, turn(guestA.context.session_id, turnA));
+  const promiseB = app.submitTurn(guestB.token, turn(guestB.context.session_id, turnB));
+  for (let i = 0; i < 50 && entered.length < 2; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(entered.length, 2);
+  const reserved = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(reserved.guest_cost_minor, 400);
+  assert.equal(reserved.guest_settled_minor, 0);
+  gates.get(turnA).release();
+  const outA = await promiseA;
+  assert.equal(outA.output.state, 'ok');
+  assert.equal(app.store.get('SELECT guest_settled_minor FROM daily_spend').guest_settled_minor, 300);
+  assert.equal(logs.filter((row) => row.kind === 'guest_spend').length, 0, '300 is below 80% of the 400 share');
+  gates.get(turnB).release();
+  const outB = await promiseB;
+  assert.equal(outB.output.state, 'ok');
+  const spent = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spent.guest_settled_minor, 300);
+  assert.equal(spent.guest_cost_minor, 300);
+  const guestC = app.createSession('customer', '', { clientKey: '203.0.113.83' });
+  await assert.rejects(
+    () => app.submitTurn(guestC.token, turn(guestC.context.session_id, '11111111-2222-4333-8444-555555555653')),
+    err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
+      && err.shape.message_key === 'model.budget_exceeded',
+  );
+  assert.equal(logs.filter((row) => row.kind === 'guest_spend').length, 0);
+  app.close();
+});
+
+test('a failed spend reservation does not burn the guest turn slot', async () => {
+  const turnA = '11111111-2222-4333-8444-555555555661';
+  let releaseA;
+  const holdA = new Promise((resolve) => { releaseA = resolve; });
+  let aEntered = false;
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_GUEST_TURNS_PER_MIN: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+  }, {
+    adapter: async ({ context, input, now }) => {
+      if (input.turn_id === turnA) {
+        aEntered = true;
+        await holdA;
+        const result = runModelTurn({ context, input, now });
+        result.usage.cost_estimate_minor = 0;
+        return result;
+      }
+      const result = runModelTurn({ context, input, now });
+      result.usage.cost_estimate_minor = 50;
+      return result;
+    },
+    costCeilingMinor: 400,
+    log() {},
+  });
+  const guestA = app.createSession('customer', '', { clientKey: '203.0.113.91' });
+  const guestB = app.createSession('customer', '', { clientKey: '203.0.113.92' });
+  const promiseA = app.submitTurn(guestA.token, turn(guestA.context.session_id, turnA));
+  for (let i = 0; i < 50 && !aEntered; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(aEntered, true);
+  await assert.rejects(
+    () => app.submitTurn(guestB.token, turn(guestB.context.session_id, '11111111-2222-4333-8444-555555555662')),
+    err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
+      && err.shape.message_key === 'model.budget_exceeded',
+  );
+  releaseA();
+  const outA = await promiseA;
+  assert.equal(outA.output.state, 'ok');
+  const retry = await app.submitTurn(guestB.token, turn(guestB.context.session_id, '11111111-2222-4333-8444-555555555663'));
+  assert.equal(retry.output.state, 'ok', 'the burned-slot bug would have returned session.throttled');
+  app.close();
+});
+
 test('public-guest paid turns are limited per client per minute', async () => {
   const { app } = testApp({
     WEEKEND_PUBLIC_GUEST: 'true',

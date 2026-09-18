@@ -47,3 +47,16 @@ test('AttemptLimiter evicts the oldest key when the map is full', () => {
   assert.equal(limiter.byKey.has('a'), false);
   assert.equal(limiter.byKey.has('d'), true);
 });
+
+test('WindowCounter.release drops the latest event for a key', () => {
+  const counter = new WindowCounter(() => 1_000, { windowMs: 60_000, max: 2 });
+  assert.equal(counter.tryRecord('a'), true);
+  assert.equal(counter.tryRecord('a'), true);
+  assert.equal(counter.tryRecord('a'), false);
+  counter.release('a');
+  assert.equal(counter.tryRecord('a'), true);
+  counter.release('missing');
+  counter.release('a');
+  counter.release('a');
+  assert.equal(counter.byKey.has('a'), false);
+});

@@ -643,8 +643,8 @@ export function createApp(config, deps = {}) {
 
   function ensureSpendDay(day) {
     store.run(
-      `INSERT INTO daily_spend (day, calls, cost_minor, guest_cost_minor, guest_alert_80, guest_alert_100)
-       VALUES (?, 0, 0, 0, 0, 0)
+      `INSERT INTO daily_spend (day, calls, cost_minor, guest_cost_minor, guest_alert_80, guest_alert_100, guest_settled_minor)
+       VALUES (?, 0, 0, 0, 0, 0, 0)
        ON CONFLICT(day) DO NOTHING`,
       [day],
     );
@@ -655,7 +655,8 @@ export function createApp(config, deps = {}) {
     if (guestCap <= 0) return;
     const row = store.get('SELECT * FROM daily_spend WHERE day = ?', [day]);
     if (!row) return;
-    if (row.guest_cost_minor >= Math.ceil(guestCap * 0.8)) {
+    const settled = row.guest_settled_minor ?? 0;
+    if (settled >= Math.ceil(guestCap * 0.8)) {
       const marked = store.run(
         'UPDATE daily_spend SET guest_alert_80 = 1 WHERE day = ? AND guest_alert_80 = 0',
         [day],
@@ -664,12 +665,12 @@ export function createApp(config, deps = {}) {
         log({
           kind: 'guest_spend',
           share_reached: 80,
-          guest_cost_minor: row.guest_cost_minor,
+          guest_settled_minor: settled,
           guest_cap_minor: guestCap,
         });
       }
     }
-    if (row.guest_cost_minor >= guestCap) {
+    if (settled >= guestCap) {
       const marked = store.run(
         'UPDATE daily_spend SET guest_alert_100 = 1 WHERE day = ? AND guest_alert_100 = 0',
         [day],
@@ -678,7 +679,7 @@ export function createApp(config, deps = {}) {
         log({
           kind: 'guest_spend',
           share_reached: 100,
-          guest_cost_minor: row.guest_cost_minor,
+          guest_settled_minor: settled,
           guest_cap_minor: guestCap,
         });
       }
@@ -714,7 +715,8 @@ export function createApp(config, deps = {}) {
 
   /**
    * After the call: the reserved ceiling is replaced by the real cost. Owner/staff actuals are recorded even past
-   * the cap. A guest actual is clamped to the remaining guest share so it cannot consume the owner reserve.
+   * the cap. A guest actual is clamped to the remaining guest share measured on settled guest spend
+   * (in-flight reservations do not count) so it cannot consume the owner reserve.
    */
   function settleSpend(now, reservedMinor, actualMinor, { guest = false } = {}) {
     const day = now.slice(0, 10);
@@ -723,14 +725,14 @@ export function createApp(config, deps = {}) {
       store.run('UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?) WHERE day = ?', [reservedMinor, actual, day]);
       return;
     }
-    const row = store.get('SELECT guest_cost_minor FROM daily_spend WHERE day = ?', [day]);
+    const row = store.get('SELECT guest_settled_minor FROM daily_spend WHERE day = ?', [day]);
     const guestCap = guestShareMinor();
-    const guestBase = Math.max(0, (row?.guest_cost_minor ?? 0) - reservedMinor);
-    const charged = Math.max(0, Math.min(actual, guestCap - guestBase));
+    const settledSoFar = row?.guest_settled_minor ?? 0;
+    const charged = Math.max(0, Math.min(actual, guestCap - settledSoFar));
     const overage = actual - charged;
     store.run(
-      `UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?), guest_cost_minor = MAX(0, guest_cost_minor - ? + ?) WHERE day = ?`,
-      [reservedMinor, charged, reservedMinor, charged, day],
+      `UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?), guest_cost_minor = MAX(0, guest_cost_minor - ? + ?), guest_settled_minor = guest_settled_minor + ? WHERE day = ?`,
+      [reservedMinor, charged, reservedMinor, charged, charged, day],
     );
     if (overage > 0) {
       log({
@@ -1513,6 +1515,7 @@ export function createApp(config, deps = {}) {
       }, 429);
     }
     if (!reserveSpend(now, costCeilingMinor, { guest })) {
+      if (guest) guestTurnLimiter.release(session.client_key || 'unknown');
       fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
         capability: 'model',
         limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,
