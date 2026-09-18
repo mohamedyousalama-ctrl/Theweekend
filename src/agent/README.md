@@ -2,7 +2,7 @@
 
 | Piece | File | Status |
 |---|---|---|
-| Persona and rules | `prompts/rakan.system.md` (`rakan.system.v0.6`) | `proposal` — native-speaker and barber review NOT_RUN |
+| Persona and rules | `prompts/rakan.system.md` (`rakan.system.v0.7`) | `proposal` — native-speaker and barber review NOT_RUN |
 | Knowledge pack | `knowledge/build.mjs` → `knowledge/marsiya.v1.json` (47 records, revision 3) | built from `research/claude-20260913/` + the owner's answers; every record validates against `KnowledgeRecord` |
 | Adapter | `src/agent/adapter.mjs` | Claude API via the official SDK, structured JSON output, grounding check, contract validation, in-memory bounded history, photo bytes in memory only |
 | Deterministic tests | `tests/agent/*.test.mjs` (38) | run by `npm test` with a fake client — no network, no key |

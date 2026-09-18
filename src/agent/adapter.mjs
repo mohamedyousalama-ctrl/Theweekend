@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.6';
+export const PROMPT_VERSION = 'rakan.system.v0.7';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -225,7 +225,18 @@ export function dynamicContext(context, now, hasImage) {
     `photo_capability: ${caps.photo}; photo_in_this_turn: ${hasImage ? 'yes' : 'no'}; active_permissions: ${consents.join(',') || 'none'}`,
     `booking_handoff: ${caps.booking_handoff}; staff_inbox: ${caps.staff_inbox}; preferences: ${caps.preferences}`,
     `action_kinds_allowed_now: ${allowed.join(',')}`,
+    'identity_already_shown: yes',
+    'pacing: greeting-only → one short reply, empty style_options, no brief, no save_preference',
   ].join('\n');
+}
+
+/** Bare hello / السلام with no service request — application-side pacing, not a model assertion. */
+export function isGreetingOnly(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length > 48) return false;
+  return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
 }
 
 export function actionAllowed(kind, caps, hasImage) {
@@ -624,16 +635,21 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   }
   for (const n of notes) if (!flags.includes(n)) flags.push(n);
 
+  const greetingOnly = !hasImage && isGreetingOnly(input?.text);
+  const pacedStyles = greetingOnly ? [] : styleOptions;
+  const pacedBrief = greetingOnly ? null : briefDraft;
+  const pacedActions = greetingOnly ? [] : proposedActions;
+
   return {
     contract_version: '0.1.0',
     turn_id: input.turn_id,
     state: 'ok',
     messages: messages.length ? messages : [{ text: 'وش أقدر أساعدك فيه؟', lang: 'ar' }],
     observations,
-    style_options: styleOptions,
-    proposed_actions: proposedActions,
+    style_options: pacedStyles,
+    proposed_actions: pacedActions,
     knowledge_refs: refs,
-    brief_draft: briefDraft,
+    brief_draft: pacedBrief,
     usage_ref: usageId,
     flags,
     error: null,

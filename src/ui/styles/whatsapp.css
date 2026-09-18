@@ -240,21 +240,67 @@
 }
 
 .wa-stage .wk-photo-upload {
+  position: relative;
   flex-shrink: 0;
+  width: 42px;
+  height: 42px;
 }
 
-.wa-stage .wk-photo-upload label {
-  position: static;
+.wa-stage .wk-photo-upload label,
+.wa-stage .wa-attach {
+  position: absolute;
+  inset: 0;
   clip: auto;
-  width: auto;
-  height: auto;
-  overflow: visible;
+  width: 42px;
+  height: 42px;
+  overflow: hidden;
   font-size: 0;
+  cursor: pointer;
+  border-radius: 50%;
+  background: #fff;
+}
+
+.wa-stage .wa-attach::before {
+  content: "";
+  position: absolute;
+  top: 11px;
+  right: 18px;
+  width: 7px;
+  height: 16px;
+  border: 2px solid #54656f;
+  border-radius: 8px;
+  transform: rotate(-35deg);
 }
 
 .wa-stage .wk-photo-upload input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
   width: 42px;
   height: 42px;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.wa-stage .wk-bubble-photo {
+  display: block;
+  max-width: 220px;
+  max-height: 280px;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+  object-fit: cover;
+  margin-top: 4px;
+}
+
+.wa-stage .wk-message[data-has-photo="true"] {
+  padding: 5px;
+}
+
+.wa-stage .wk-transcript .wk-style-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .wa-quick {

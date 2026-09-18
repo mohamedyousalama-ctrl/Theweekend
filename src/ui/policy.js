@@ -154,6 +154,15 @@ export function hasActiveReceipt(consents, kind) {
   ));
 }
 
+/** Bare hello with no service request. Used by the WhatsApp skin so a greeting does not dump cards. */
+export function isGreetingOnly(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length > 48) return false;
+  return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
+}
+
 export function photoPreviewPermitted(context) {
   if (!context || typeof context !== 'object') return false;
   return context.capabilities?.photo === 'enabled'

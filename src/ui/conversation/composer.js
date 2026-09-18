@@ -36,7 +36,11 @@ export function renderComposer({
     fieldError,
     variant === 'whatsapp' && photoEnabled
       ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
-        el('label', { for: 'wk-photo-upload' }, t(locale, 'photo_upload')),
+        el('label', {
+          for: 'wk-photo-upload',
+          class: 'wa-attach',
+          title: t(locale, 'photo_upload'),
+        }, t(locale, 'photo_upload')),
         el('input', {
           id: 'wk-photo-upload',
           name: 'photo',
@@ -44,6 +48,7 @@ export function renderComposer({
           accept: 'image/jpeg,image/png,image/webp',
           disabled,
           'data-photo-input': 'true',
+          'aria-label': t(locale, 'photo_upload'),
         }, ''),
       ])
       : '',

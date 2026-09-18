@@ -9,6 +9,7 @@ import { renderOptionalImage } from './optional-image.js';
 import { renderBriefDraft } from '../brief/brief-draft.js';
 import { renderError } from '../states/error.js';
 import { renderActionResult } from '../states/action-result.js';
+import { isGreetingOnly } from '../policy.js';
 
 export function renderConversation({
   context = null,
@@ -30,7 +31,37 @@ export function renderConversation({
   const messages = Array.isArray(thread) && thread.length
     ? thread
     : outputMessages.map((msg) => ({ ...msg, from: 'khalid' }));
-  const transcript = renderTranscript({ messages, locale, loading });
+  const lastGuest = [...messages].reverse().find((msg) => msg.from === 'guest');
+  const lastFromGuest = messages.length ? messages[messages.length - 1].from === 'guest' : false;
+  const greetingTurn = !lastGuest || isGreetingOnly(lastGuest.text);
+  const pickedStyle = Boolean(lastGuest && /^(الأول|الثاني|بدون هالخيارات|The first|The second|Skip these options)$/u.test(String(lastGuest.text || '').trim()));
+  const hasAttachedPhoto = messages.some((msg) => Boolean(msg.imageUrl));
+  const lastKhalid = [...messages].reverse().find((msg) => msg.from !== 'guest');
+  const photoMentioned = Boolean(lastKhalid && /صور|photo/i.test(lastKhalid.text || ''));
+
+  const styles = renderStyleOptionCards({ styleOptions: output?.style_options, locale, variant });
+  const styleCount = styles.meta.count;
+  const hasBrief = output?.brief_draft?.status === 'draft' && Boolean(output?.brief_draft?.requested_look?.text_ar);
+  const whatsapp = variant === 'whatsapp';
+  const showStyles = whatsapp
+    ? styleCount > 0 && !greetingTurn && !lastFromGuest && !loading && !hasBrief && !pickedStyle
+    : styleCount > 0;
+  const showBrief = whatsapp
+    ? hasBrief && !showStyles && !greetingTurn && !lastFromGuest && !loading
+    : true;
+  const whatsappContinue = whatsapp
+    && !quickReplies
+    && !greetingTurn
+    && !hasAttachedPhoto
+    && !showStyles
+    && photoMentioned;
+
+  const transcript = renderTranscript({
+    messages,
+    locale,
+    loading,
+    extras: whatsapp && showStyles ? styles.html : '',
+  });
   const composerDisabled = loading || output?.state === 'unavailable';
   const composer = renderComposer({
     locale,
@@ -42,7 +73,6 @@ export function renderConversation({
     photoEnabled: context?.capabilities?.photo === 'enabled',
     validationError: error?.code === 'VALIDATION_ERROR' ? error : (output?.error?.code === 'VALIDATION_ERROR' ? output.error : null),
   });
-  const styles = renderStyleOptionCards({ styleOptions: output?.style_options, locale, variant });
   const actions = renderActionRow({
     allowedActions,
     proposedActions: output?.proposed_actions,
@@ -50,6 +80,11 @@ export function renderConversation({
     disabled: loading || reconnectInvalidates,
     reconnectInvalidates,
     variant,
+    greetingTurn: whatsapp ? greetingTurn : false,
+    showStyles: whatsapp ? showStyles : false,
+    hasBrief: whatsapp ? showBrief : hasBrief,
+    lastGuestText: lastGuest?.text || '',
+    flags: output?.flags,
   });
   const limits = renderObservationLimits({ observations: output?.observations, locale });
   const photo = renderOptionalImage({
@@ -58,20 +93,20 @@ export function renderConversation({
     locale,
     allowedActions,
     variant,
+    offerContinueOverride: whatsapp ? whatsappContinue : null,
   });
-  const briefDraft = renderBriefDraft({
-    draft: output?.brief_draft,
-    locale,
-    approving: briefApproving,
-  });
+  const briefDraft = showBrief
+    ? renderBriefDraft({
+      draft: output?.brief_draft,
+      locale,
+      approving: briefApproving,
+    })
+    : { html: '', meta: { shown: false } };
   const err = error || (output && output.state !== 'ok' ? output.error : null);
   const errorBlock = err ? renderError({ error: err, locale, keepDraft: Boolean(draft) }) : { html: '', meta: {} };
   const result = renderActionResult({ actionResult, locale });
   const flags = Array.isArray(output?.flags) ? output.flags : [];
 
-  const whatsapp = variant === 'whatsapp';
-  const styleCount = styles.meta.count;
-  const hasBrief = output?.brief_draft?.status === 'draft' && Boolean(output?.brief_draft?.requested_look?.text_ar);
   const welcomeQuick = whatsapp && quickReplies
     ? el('div', { class: 'wa-quick', 'data-quick-replies': 'true' }, [
       el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_fade') }, t(locale, 'quick_fade')),
@@ -79,14 +114,14 @@ export function renderConversation({
       el('button', { type: 'button', 'data-quick-book': 'true' }, t(locale, 'quick_book')),
     ])
     : '';
-  const styleQuick = whatsapp && styleCount > 0 && !quickReplies
+  const styleQuick = whatsapp && showStyles
     ? el('div', { class: 'wa-quick', 'data-style-replies': 'true' }, [
       styleCount >= 1 ? el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_first') }, t(locale, 'quick_first')) : '',
       styleCount >= 2 ? el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_second') }, t(locale, 'quick_second')) : '',
       el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_skip_styles') }, t(locale, 'quick_skip_styles')),
     ])
     : '';
-  const briefQuick = whatsapp && hasBrief && !quickReplies
+  const briefQuick = whatsapp && showBrief && hasBrief && !quickReplies
     ? el('div', { class: 'wa-quick', 'data-brief-replies': 'true' }, [
       el('button', { type: 'button', 'data-action': 'approve-brief' }, t(locale, 'quick_ok')),
       el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_edit') }, t(locale, 'quick_edit')),
@@ -102,7 +137,7 @@ export function renderConversation({
   }, [
     transcript.html,
     whatsapp ? '' : (flags.length ? el('p', { class: 'wk-note', 'data-flags': flags.join(',') }, `${t(locale, 'flags')}: ${escapeHtml(flags.join(', '))}`) : ''),
-    styles.html,
+    whatsapp ? '' : styles.html,
     whatsapp ? '' : limits.html,
     photo.html,
     briefDraft.html,
@@ -117,15 +152,16 @@ export function renderConversation({
     html,
     meta: {
       ...transcript.meta,
-      styleCount: styles.meta.count,
+      styleCount: showStyles ? styles.meta.count : (whatsapp ? 0 : styles.meta.count),
       actionKinds: actions.meta.kinds,
       proposedNotExecutable: actions.meta.proposedNotExecutable,
-      photoPreviewShown: photo.meta.previewShown,
+      photoPreviewShown: photo.meta.previewShown || Boolean(transcript.meta.photoBubbles),
       photoOptional: true,
       continueOffered: photo.meta.continueOffered,
       success: result.meta.showSuccess,
       bookingConfirmed: false,
       composerDisabled,
+      greetingTurn: whatsapp ? greetingTurn : false,
     },
   };
 }

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -210,6 +210,46 @@ test('mapModelOutput never emits more than the contract allows', () => {
   assert.equal(out.style_options[0].feasible_in_person, true);
   assert.deepEqual(out.flags, ['refusal_medical']);
   assert.ok(validateContract('ChatTurnOutput', out).ok);
+});
+
+test('greeting-only turns drop dumped styles, brief and extra actions', () => {
+  assert.equal(isGreetingOnly('هلا والله'), true);
+  assert.equal(isGreetingOnly('أبغى فيد'), false);
+  assert.equal(isGreetingOnly('كم سعر الحلاقة؟'), false);
+  const raw = modelJson({
+    reply: [{ text: 'هلا والله. تبي حلاقة؟', lang: 'ar' }],
+    style_options: [
+      { name_ar: 'فيد', name_en: 'fade', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+      { name_ar: 'كلاسيك', name_en: 'classic', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+    ],
+    brief_draft: { present: true, barber_preference: '', requested_look_ar: 'فيد مع تحديد اللحية', do_not: [] },
+    proposed_actions: [
+      { kind: 'open_official_booking', label_ar: 'حجز', label_en: 'book', payload: { preference_kind: 'none', value_text: '' } },
+      { kind: 'save_preference', label_ar: 'حفظ', label_en: 'save', payload: { preference_kind: 'style', value_text: 'فيد' } },
+      { kind: 'continue_without_photo', label_ar: 'بدون', label_en: 'skip', payload: { preference_kind: 'none', value_text: '' } },
+    ],
+  });
+  const dumped = mapModelOutput(raw, {
+    context: context(),
+    input: input('هلا والله'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(dumped.style_options.length, 0);
+  assert.equal(dumped.brief_draft, null);
+  assert.equal(dumped.proposed_actions.length, 0);
+  const priced = mapModelOutput(raw, {
+    context: context(),
+    input: input('كم سعر الحلاقة؟'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(priced.style_options.length, 2);
+  assert.equal(priced.proposed_actions.some((a) => a.kind === 'open_official_booking'), true);
 });
 
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {
