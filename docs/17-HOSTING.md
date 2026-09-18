@@ -26,7 +26,7 @@
 
 ## Owner steps (unblocked 2026-09-15; project created the same day)
 
-C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). This is not a customer-facing release.
+C2 (PR #24), the consent/brief UI (PR #25), then PRs #26–#29 are on `main` (`2050d45`). This is not a customer-facing release.
 
 **Created (2026-09-15, owner Railway account `mohamed.you.salama@gmail.com`, CLI):**
 
@@ -36,15 +36,15 @@ C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). This is
 | Service | `rakan`, GitHub repo `mohamedyousalama-ctrl/Theweekend` branch `main` |
 | Volume | `rakan-volume` mounted at `/data`; `WEEKEND_DB_PATH=/data/weekend.sqlite` |
 | Domain | `https://rakan-production-7ae6.up.railway.app` |
-| Deployed commit | `4bfe6b526daa5bc5ebe448e2c90abc3f8415e673` (Railway deployment `2a6de687`, SUCCESS 2026-09-15 17:04 UTC) |
-| Health | **HTTP 200** at `https://rakan-production-7ae6.up.railway.app/health` (checked 2026-09-15 17:08 UTC). `HealthState`: `model`, `photo`, `booking_handoff`, `staff_inbox`, `preferences`, `store` all `ok`; `contract_version` `0.1.0`. Startup log: `weekend listening on 0.0.0.0:8080 env=owner-review`. |
+| Deployed commit | auto-deploys `main`; pin `2050d452aab515f807de7a83d88eb470648eba0e` (2026-09-18). Confirm the live Railway deployment SHA in the dashboard after each merge. |
+| Health | **HTTP 200** at `https://rakan-production-7ae6.up.railway.app/health` (rechecked 2026-09-18). `HealthState` capabilities `ok`. |
 
 All names from the table below, including `WEEKEND_MODEL_API_KEY`, are set on the `rakan` service. Owner and staff passcodes are the Railway variables `WEEKEND_OWNER_PASSCODE` and `WEEKEND_STAFF_PASSCODE` (read them in the Railway Variables tab; they are not in Git or this file).
 
 **Owner still does:**
 
 1. Share `https://rakan-production-7ae6.up.railway.app` and the owner passcode (from the Variables tab) with Khalid for the #8 walkthrough.
-2. One `npm run eval:agent` with the live key (results to issue #5). That run has not happened yet.
+2. Vision eval still needs an owner-approved permitted-face directory (never customer photos in Git). Text eval is in `docs/19-EVAL-AGENT-2026-09-15.md`.
 
 Health 200 is owner-review readiness of the process and store, not G01–G13 production release and not a substitute for `eval:agent` or the #8 walkthrough.
 

@@ -16,19 +16,18 @@ Truth order: (1) latest comments on issue #2 and on open PRs, (2) this file, (3)
 
 Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merge without D17's checks, no force pushes, no secrets in Git or chat.
 
-## 2. State snapshot (2026-09-15, ~09:10 UTC) — verify against #2 before trusting
+## 2. State snapshot (2026-09-18) — verify against #2 before trusting
 
 | Item | State |
 |---|---|
-| `main` = `4bfe6b5` | **PR #24** (C2 platform) merged `de6da6b`, then **PR #25** (UI third handback) merged `4bfe6b5`. Combined `npm test` on that tree: 357 pass / 0 fail (Node v22.14.0). Owner instructed Cursor to merge #24 and continue; Cursor also merged #25 after a fidelity pass and a clean merge onto C2 `main`. This is not a two-agent D17 review of #25 by Claude Code + Codex on the final UI head. |
-| Package C2 (Cursor, issue #7) | **merged** (PR #24). Share-actions, inbox gating, photo observations, retention, idempotency, staff accept/release of `talk_to_staff`. |
-| UI third handback (issue #6, PR #25) | **merged**. Consent step, brief approve/share, preference save, polish, optional upload. Follow-ups: dedicated `handoff.queued` copy; staff inbox `observations`; staff accept/release UI. |
-| #8 owner walkthrough | product code on `main`; Railway `Theweekend` / `rakan` at `https://rakan-production-7ae6.up.railway.app`; `GET /health` HTTP 200 (2026-09-15 17:08 UTC). Next: `npm run eval:agent` then #8 |
+| `main` = `2050d45` | Owner instructed Cursor to merge: **#26** (docs/health), **#28** (eval record + prompt v0.5), **#27** (retry resend), **#29** (staff handoffs + photo notes). Ancestor `npm test` on the #29 merge tree: 364 pass / 0 fail. This is not a two-agent D17 review of those heads. |
+| Package C2 (Cursor, issue #7) | **merged** (PR #24). |
+| UI third handback (issue #6, PR #25) plus follow-up **PR #29** | **merged**. Consent/brief/prefs/upload, then dedicated `handoff.queued` copy, staff photo notes (text only), staff accept/release UI. |
+| Prompt | `rakan.system.v0.5` on `main` (PR #28). |
+| #8 owner walkthrough | Railway live; `/health` 200. Text eval recorded in `docs/19-EVAL-AGENT-2026-09-15.md` (28/30 on v0.4; two-case recheck on v0.5). Vision **NOT RUN**. Walkthrough with Khalid not done. |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
-| Hosting | Railway **project live for owner-review** (`docs/17-HOSTING.md`): `Theweekend` / `rakan`, volume `/data`, GitHub auto-deploy from `main`, `/health` 200. **Not released.** Passcodes live in Railway Variables. |
-| Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
-| Bot reviews | current roster and state in §8 (Qodo paused since 2026-09-14); a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
-| Idle agents | if Cursor or Grok stay idle, the integrator may do small, in-scope required fixes on their branches after an adversarial audit (done on #20 and #21 on 2026-09-14); larger packages stay theirs |
+| Hosting | Railway **project live for owner-review**. **Not released.** Passcodes live in Railway Variables. |
+| Open owner questions | MISSING-FACTS rows 18–19; photo share: observations only (D14) or the real photo later |
 
 ## 3. Decisions log (all recorded; do not reopen without the owner)
 
@@ -75,22 +74,22 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 
 **4.5 Tests (`tests/agent/`)** — deterministic with the mock: schema validity of every fixture reply; grounding (a price without `knowledge_refs` fails); refusal cases (medical, child, injection); no scarcity/no repeated offer; booking never confirmed; photo path blocked without receipt; Arabic/English switch. Real-model evaluation (after the key exists): ≥ 30 text cases and ≥ 10 permitted images (blurry, covered, reference photo of a public style, two genuinely different faces); report prompt version, model id, case counts, timings, cost, failures — separately from the deterministic results.
 
-**4.6 Stream A next steps** — (1) after the first Railway deploy, one `npm run eval:agent` run with the owner's key set on Railway only; results (counts, timings, cost, failures, prompt version, model id) posted to #5; fix what fails in a small PR. (2) When the owner answers `MISSING-FACTS.md` rows 18–19: rebuild the pack (`node knowledge/build.mjs`), bump `pack_revision`, update the prompt if the wording changes, tests. (3) Contract v0.2 (D13) with stream C, after #10 has its key.
+**4.6 Stream A next steps** — (1) vision pack (`npm run eval:agent -- --images`) with owner-approved permitted faces, never customer photos in Git; results to #5. (2) When the owner answers `MISSING-FACTS.md` rows 18–19: rebuild the pack (`node knowledge/build.mjs`), bump `pack_revision`, update the prompt if the wording changes, tests. (3) Contract v0.2 (D13) with stream C, after #10 has its key.
 
 ## 5. Stream C next steps (Cursor)
 
 1. **Package C2 — done** (PR #24 on `main`).
-2. **Railway**: project `Theweekend` / service `rakan` created; GitHub auto-deploys `main`; volume `/data`; domain `https://rakan-production-7ae6.up.railway.app`. `GET /health` HTTP 200 (2026-09-15). Next: `npm run eval:agent` on a host that has the owner's key (results to #5), then the #8 walkthrough.
-3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10): quote → approve → create, cancel of test reservations, hosted payment link.
+2. **Railway** — live owner-review at `https://rakan-production-7ae6.up.railway.app`; `/health` 200. After each merge to `main`, confirm auto-deploy. **Not released.**
+3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10).
 
 ## 6. Stream B next steps (Grok)
 
-Third handback **merged** (PR #25). Remaining UI follow-ups, not a new package unless the owner asks: dedicated copy for `handoff.queued` (generic pending today); render `observations` on the staff inbox; wire staff accept/release of `talk_to_staff` (`GET /staff/handoffs`, `POST .../accept`, `POST .../release`). No framework; tests in `tests/ui/`; `design/reference/**` SHA unchanged.
+Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29): `handoff.queued` copy, photo notes on the inbox, accept/release UI. Remaining polish only if the owner asks. No framework; `design/reference/**` SHA unchanged.
 
 ## 7. Owner pending tasks (as of this file)
 
 1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
-2. One `npm run eval:agent` with that key (results to #5), then the #8 owner walkthrough. Owner/staff passcodes are already in Railway Variables (`WEEKEND_OWNER_PASSCODE`, `WEEKEND_STAFF_PASSCODE`). URL: `https://rakan-production-7ae6.up.railway.app`.
+2. **#8 owner walkthrough** with Khalid at `https://rakan-production-7ae6.up.railway.app`. Text eval is recorded (`docs/19`); vision eval still needs permitted faces.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 
