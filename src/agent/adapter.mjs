@@ -699,16 +699,17 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   const directService = !hasImage && !sellingHold && isDirectServiceAsk(input?.text, flags);
   const identityQuestion = isIdentityQuestion(input?.text);
   const cleanedMessages = messages
-    .map((m) => ({
-      ...m,
-      text: identityQuestion ? m.text : stripIdentityDump(m.text, { dropLeadGreeting: directService }),
-    }))
+    .map((m) => {
+      if (identityQuestion) return m;
+      const stripped = stripIdentityDump(m.text, { dropLeadGreeting: directService });
+      return { ...m, text: stripped };
+    })
     .filter((m) => m.text);
+  // If the strip emptied every bubble, keep the model's pre-strip text — never an app-authored filler.
+  const sourceMessages = cleanedMessages.length ? cleanedMessages : messages.filter((m) => m.text);
   const fallbackLang = customerLang(input?.text);
-  const fallbackText = directService
-    ? (fallbackLang === 'en' ? 'Sure. Want me to open the booking page?' : 'أبشر. أفتح لك صفحة الحجز؟')
-    : (fallbackLang === 'en' ? 'What can I help with?' : 'وش أقدر أساعدك فيه؟');
-  const pacedMessages = (cleanedMessages.length ? cleanedMessages : [{ text: fallbackText, lang: fallbackLang }])
+  const fallbackText = fallbackLang === 'en' ? 'What can I help with?' : 'وش أقدر أساعدك فيه؟';
+  const pacedMessages = (sourceMessages.length ? sourceMessages : [{ text: fallbackText, lang: fallbackLang }])
     .slice(0, greetingOnly || directService ? 1 : 3);
   const pacedStyles = greetingOnly || directService ? [] : styleOptions;
   const pacedBrief = greetingOnly || directService ? null : briefDraft;

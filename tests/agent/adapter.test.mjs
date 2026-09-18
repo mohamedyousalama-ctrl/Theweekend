@@ -431,6 +431,41 @@ test('complaints and follow-up questions are not booking turns', () => {
   assert.match(typesOut.messages[1].text, /واطي/);
 });
 
+test('an emptied identity strip falls back to the pre-strip text, never filler', () => {
+  const identityOnly = 'معك خالد، مساعد ذا ويكند الرقمي.';
+  const raw = modelJson({
+    reply: [{ text: identityOnly, lang: 'ar' }],
+    proposed_actions: [],
+    knowledge_refs: [],
+  });
+  const out = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(stripIdentityDump(identityOnly), '');
+  assert.equal(out.messages.length, 1);
+  assert.equal(out.messages[0].text, identityOnly);
+  assert.equal(/أبشر|أفتح لك صفحة الحجز|Sure\. Want me to open/.test(out.messages[0].text), false);
+  const english = mapModelOutput(modelJson({
+    reply: [{ text: "I'm Khalid, The Weekend's digital assistant.", lang: 'en' }],
+    proposed_actions: [],
+    knowledge_refs: [],
+  }), {
+    context: context(),
+    input: input('I want a fade'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.match(english.messages[0].text, /Khalid/);
+  assert.equal(/Want me to open the booking page/.test(english.messages[0].text), false);
+});
+
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {
   const byId = new Map([['kno_a', { text_ar: 'قص الشعر: 30 ريال', text_en: 'Haircut 30 SAR' }], ['kno_b', { text_ar: 'العضوية السنوية: 2499 ريال', text_en: 'Annual 2499 SAR' }]]);
   assert.deepEqual(ungroundedPrices([{ text: 'السعر ٩٩٩ ريال' }], ['kno_a'], byId), ['999'], 'Arabic-Indic digits are checked');
