@@ -34,6 +34,8 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'at most one question per turn',
     'No scarcity',
     'The web chat UI already shows your digital identity',
+    'surfaces that render persistent identity chrome',
+    'a future WhatsApp channel',
     'greeting-only',
     'named service',
     'Hospitality pacing',
