@@ -12,8 +12,8 @@
 | Baseline suite rerun on `468fbe4` | `node --test tests/*.test.mjs` → **112 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-14 04:35 UTC) | tested, this checkout |
 | CodeRabbit on PR #1 | skipped the draft — **not** a pass | recorded |
 | Non-author review of PR #1 content | NOT_RUN in this pass (historical reviews in docs 14/15 stand as what they are) | honest status |
-| Current `main` after PRs #24–#34 | `0e3c687a910a47b1514cfac5b5cc8662a4c5bdb6` | verified (git), 2026-09-18 |
-| `npm test` on `0e3c687` plus the #8 record | **387 pass, 0 fail, 0 skipped** (Node v22) | tested, this checkout |
+| Current `main` after PRs #24–#36 | `55c4c6b7d4314b8f64786ae310b88fca326a6465` | verified (git), 2026-09-18 |
+| `npm test` on this walkthrough checkout (`55c4c6b` plus the #8 record) | `npm test` → **396 pass, 0 fail, 0 skipped** (Node v22.14.0, npm 10.9.7, 2026-09-18) | tested, this checkout |
 
 The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application. A green `npm test` pin is still not G01–G13 production release. Text `eval:agent` ran on 2026-09-15 (28/30 on prompt v0.4; two-case recheck on v0.5). Vision **NOT RUN**. Issue #8 live walkthrough on 2026-09-18 recorded unauthenticated probes only (`docs/20`); Khalid’s phone walkthrough was not run.
 
@@ -25,7 +25,8 @@ The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next
 4. Work branches: `work/a-rakan-agent`, `work/b-rakan-ui`, `work/c-rakan-platform`. One PR per coherent change. Merges per `CONTINUE.md` §3 item 7 (owner until 2026-09-14, then the integrator under D17).
 5. (2026-09-15.) Package C2 merged as **PR #24** (`de6da6b`) and the UI third handback as **PR #25** (`4bfe6b5`) onto `main`.
 6. (2026-09-18.) Owner instructed Cursor to merge remaining PRs: **#26** docs/health, **#28** eval/prompt v0.5, **#27** retry, **#29** staff inbox follow-up. Resulting `main` at that moment was `2050d452aab515f807de7a83d88eb470648eba0e`.
-7. (2026-09-18.) **#30** docs pin (`fcf75f2`); privacy scrub **#31**; C3 **#32**; A3 **#33**; B4 **#34**. Resulting `main` is `0e3c687a910a47b1514cfac5b5cc8662a4c5bdb6`. Live owner-review static UI on that date still hashed as PR #25 (`4bfe6b5`); auto-deploy of this pin was not verified.
+7. (2026-09-18.) **#30** docs pin (`fcf75f2`); privacy scrub **#31**; C3 **#32**; A3 **#33**; B4 **#34**. Resulting `main` at that moment was `0e3c687a910a47b1514cfac5b5cc8662a4c5bdb6`.
+8. (2026-09-18.) **#36** Arabic hub / خالد public `/try`. Resulting `main` is `55c4c6b7d4314b8f64786ae310b88fca326a6465`. Owner-reported 15:17 UTC: live `GET /customer.js` HTTP 200 (CSP build). Auto-deploy of this pin is not independently confirmed in the Railway dashboard.
 
 ## 3. Ownership map (items 3, 5 of #2; repeated in `CONTINUE.md`)
 

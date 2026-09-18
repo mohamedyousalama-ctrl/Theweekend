@@ -4,22 +4,24 @@
 
 This is M1 owner-review evidence, not permission for unrestricted customers.
 
-Method: `node scripts/owner-walkthrough.mjs` with `WEEKEND_WALKTHROUGH_URL` supplied only in the runner environment (HTTPS origin; value not recorded here). Started 2026-09-18 ~12:26 UTC. No customer photographs. No passcodes, tokens or API keys in this file.
-
 ## Checkout versus live static UI
+
+Method for the first live fetch: `node scripts/owner-walkthrough.mjs` with `WEEKEND_WALKTHROUGH_URL` supplied only in the runner environment (HTTPS origin; value not recorded here). Started 2026-09-18 ~12:26 UTC. No customer photographs. No passcodes, tokens or API keys in this file.
 
 | Object | Observation |
 |---|---|
-| Git `main` at this record | `0e3c687a910a47b1514cfac5b5cc8662a4c5bdb6` (includes B4 PR #34) |
-| Live `GET /app.js` SHA-256 | `4eb5e30ebcf4a378897030744bfc21aa3fe3895eb4f7556fa8b398515aca1f62` (22695 bytes) |
-| That hash on `main` | matches `4bfe6b5` (PR #25 UI third handback), not `0e3c687` |
-| Live `GET /staff/handoff-list.js` | HTTP 404 |
+| Git `main` at this record | `55c4c6b7d4314b8f64786ae310b88fca326a6465` (PR #36 hub after B4 PR #34) |
+| Live `GET /customer.js` | **HTTP 200** at 2026-09-18 **15:17 UTC** — owner-reported CSP customer bootstrap. This merge did not re-fetch the live host. |
+| Earlier same-day `GET /app.js` (~12:26 UTC) | SHA-256 `4eb5e30ebcf4a378897030744bfc21aa3fe3895eb4f7556fa8b398515aca1f62` (22695 bytes), then matching PR #25 (`4bfe6b5`). That is the morning observation, not the 15:17 claim. |
+| Live `GET /staff/handoff-list.js` (~12:26 UTC) | HTTP 404 |
 | Same path on this checkout | present (PR #29) |
-| Live `GET /` | HTTP 200, `lang="ar"` `dir="rtl"` |
-| Live tokens | `--wk-ground: #07090F`, `--wk-red: #E11D2E` (same bytes as this checkout) |
-| `cache-control` on `/app.js` | `no-store` (not a CDN explanation) |
+| Live `GET /` (~12:26 UTC) | HTTP 200, `lang="ar"` `dir="rtl"` |
+| Live tokens (~12:26 UTC) | `--wk-ground: #07090F`, `--wk-red: #E11D2E` (same bytes as this checkout) |
+| `cache-control` on `/app.js` (~12:26 UTC) | `no-store` (not a CDN explanation) |
 
-Auto-deploy of `main` after PR #25 is **not verified**. A phone walkthrough against the current live process exercises PR #25 UI plus whatever server that deploy contains, not the B4 retry/copy package.
+Auto-deploy of `55c4c6b` is **not independently verified** in the Railway dashboard. A phone walkthrough should use the CSP surfaces (`/customer.js`, hub `/try`) that the 15:17 host observation reports.
+
+The 15:17 UTC `/customer.js` 200 is **owner-reported**, not reproduced by this pin-refresh checkout.
 
 ## Health
 
@@ -67,7 +69,7 @@ Forged/expired action **after** a valid session, cross-subject preference isolat
 
 ## Suites on this checkout
 
-A green `npm test` on this checkout was **387 pass / 0 fail / 0 skipped** (includes the walkthrough-record privacy test). That count is still not G01–G13.
+A green `npm test` on this checkout is recorded in `docs/16-C-BASELINE.md` §1. That count is still not G01–G13.
 
 Text eval remains `docs/19-EVAL-AGENT-2026-09-15.md` (28/30 on prompt v0.4; two-case recheck on v0.5). That is not a full-pack pass on v0.5 and is not this walkthrough.
 
@@ -77,7 +79,7 @@ No data leak in the unauthenticated probes. No image processing was attempted. N
 
 ## Still blocking #8 acceptance
 
-1. Confirm Railway auto-deploy of `0e3c687` (or newer) in the dashboard; live `/app.js` still matches PR #25.
+1. Confirm Railway auto-deploy of `55c4c6b` (or newer) in the dashboard; owner-reported 15:17 UTC live `GET /customer.js` HTTP 200 (CSP build).
 2. Re-run `npm run walkthrough:owner` with owner and staff passcodes in the runner environment only.
 3. Khalid phone walkthrough of the eight steps.
 4. Vision pack on owner-approved permitted faces, never customer photos in Git.

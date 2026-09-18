@@ -154,9 +154,10 @@ async function sha256Of(base, path) {
   };
 }
 
-function localAppJsHash() {
-  const bytes = readFileSync(join(ROOT, 'src/ui/app.js'));
+function localFileHash(rel) {
+  const bytes = readFileSync(join(ROOT, rel));
   return {
+    path: rel,
     bytes: bytes.length,
     sha256: createHash('sha256').update(bytes).digest('hex'),
   };
@@ -195,18 +196,23 @@ async function main() {
 
   report.steps.static = {
     index: await sha256Of(base, '/'),
+    customer_js: await sha256Of(base, '/customer.js'),
     app_js: await sha256Of(base, '/app.js'),
     tokens_css: await sha256Of(base, '/styles/tokens.css'),
     handoff_list_js: await sha256Of(base, '/staff/handoff-list.js'),
     photo_notes_js: await sha256Of(base, '/staff/photo-notes.js'),
-    checkout_app_js: localAppJsHash(),
+    checkout_customer_js: localFileHash('src/ui/customer.js'),
+    checkout_app_js: localFileHash('src/ui/app.js'),
   };
-  const liveApp = report.steps.static.app_js;
-  const localApp = report.steps.static.checkout_app_js;
-  report.steps.static.app_js_matches_checkout = liveApp.sha256 === localApp.sha256;
+  const liveCustomer = report.steps.static.customer_js;
+  const localCustomer = report.steps.static.checkout_customer_js;
+  report.steps.static.customer_js_ok = liveCustomer.status === 200;
+  report.steps.static.customer_js_matches_checkout = liveCustomer.sha256 === localCustomer.sha256;
   report.steps.static.staff_followup_ui_present = report.steps.static.handoff_list_js.status === 200;
-  if (!report.steps.static.app_js_matches_checkout) {
-    report.blockers.push('live /app.js sha256 does not match this checkout src/ui/app.js (auto-deploy of main not verified)');
+  if (!report.steps.static.customer_js_ok) {
+    report.blockers.push('live /customer.js is not HTTP 200 (CSP customer bootstrap)');
+  } else if (!report.steps.static.customer_js_matches_checkout) {
+    report.blockers.push('live /customer.js sha256 does not match this checkout src/ui/customer.js (auto-deploy of main not verified)');
   }
   if (report.steps.static.index.dir_rtl !== true || report.steps.static.index.lang_ar !== true) {
     report.blockers.push('live index.html is not lang=ar dir=rtl');

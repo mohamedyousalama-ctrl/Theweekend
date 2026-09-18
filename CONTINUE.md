@@ -49,4 +49,4 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 - Contract definitions: `src/contracts/CONTRACT-v0.1.md` (implemented as schemas + fixtures + tests under #3).
 - Sandbox tools from the earlier pack: `sandbox/` (regression fixtures, not live capabilities).
 - Configuration names: `.env.example`; rules in `docs/16-C-BASELINE.md` §5.
-- Current `main` pin (2026-09-18): `0e3c687a910a47b1514cfac5b5cc8662a4c5bdb6` after PRs #26–#34 (docs/health, eval v0.5, retry, staff inbox follow-up, docs pin, privacy scrub, C3, A3, B4). Issue comments remain newer than this line. A live static-file check on 2026-09-18 still matched PR #25 (`4bfe6b5`), not this pin — see `docs/20-OWNER-WALKTHROUGH-2026-09-18.md`.
+- Current `main` pin (2026-09-18): `55c4c6b7d4314b8f64786ae310b88fca326a6465` after PRs #26–#34 and **#36** (Arabic hub / خالد public `/try`). Issue comments remain newer than this line. Live-host notes: `docs/20-OWNER-WALKTHROUGH-2026-09-18.md`.
