@@ -7,13 +7,15 @@
  * Optional (session steps skipped if either is missing):
  *   WEEKEND_OWNER_PASSCODE
  *   WEEKEND_STAFF_PASSCODE
+ * Optional (default off — a wrong passcode still counts toward five failures / 15 min):
+ *   WEEKEND_WALKTHROUGH_NEGATIVE=1  run the staff wrong-passcode probe after authenticated logins
  *
  * Prints JSON with ids, counts, hashes and truncated reply previews.
  * Never prints passcodes, tokens, Authorization headers or image bytes.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { readFileSync, realpathSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,6 +31,66 @@ const SECRET_KEYS = new Set([
   'WEEKEND_STAFF_PASSCODE',
   'WEEKEND_SESSION_SECRET',
 ]);
+
+export function isNegativeProbeEnabled(env = process.env) {
+  return env.WEEKEND_WALKTHROUGH_NEGATIVE === '1';
+}
+
+export const NEGATIVE_PROBE_DEFAULT_SKIP =
+  'wrong-passcode probe (WEEKEND_WALKTHROUGH_NEGATIVE unset; default off to avoid self-lockout)';
+
+export const TEXT_ONLY_TURN_BLOCKER =
+  'step 4-5: text-only style turn was not HTTP 200 with output.state=ok';
+
+export function textOnlyTurnBlocker(style) {
+  if (style?.status === 200 && style?.json?.output?.state === 'ok') return null;
+  return TEXT_ONLY_TURN_BLOCKER;
+}
+
+export const STYLE_FLOW_BLOCKER =
+  'step 4-5: text-only turn offered neither a style option nor continue_without_photo/decline';
+
+export function styleFlowBlocker(style, styleActions) {
+  const n = Array.isArray(style?.json?.output?.style_options) ? style.json.output.style_options.length : 0;
+  const hasPath = (styleActions || []).some((a) => a?.kind === 'continue_without_photo' || a?.kind === 'decline');
+  return n > 0 || hasPath ? null : STYLE_FLOW_BLOCKER;
+}
+
+export const STYLE_ACTION_EXECUTION_BLOCKER =
+  'step 4-5: continue_without_photo/decline action did not execute (status!=200 or outcome!=done)';
+
+export function styleActionExecutionBlocker(chosen, executed) {
+  if (!chosen) return null;
+  return (executed?.status === 200 && executed?.json?.outcome === 'done') ? null : STYLE_ACTION_EXECUTION_BLOCKER;
+}
+
+export const HANDOFF_NOT_RUN =
+  'staff handoff (no talk_to_staff on greet/price/style turns)';
+
+export const HANDOFF_SKIP_BLOCKER =
+  'staff handoff was not exercised: no talk_to_staff on greet/price/style turns';
+
+export function handoffSkip(talk) {
+  if (talk) return null;
+  return {
+    not_run: HANDOFF_NOT_RUN,
+    blocker: HANDOFF_SKIP_BLOCKER,
+  };
+}
+
+export const HANDOFF_OUTCOME_BLOCKER =
+  'staff handoff was queued but not confirmed: outcome!=pending, or /staff/handoffs did not return it';
+
+export function handoffOutcomeBlocker(queued, staffList, sessionId) {
+  if (queued?.status !== 200 || queued?.json?.outcome !== 'pending' || queued?.json?.message_key !== 'handoff.queued') return HANDOFF_OUTCOME_BLOCKER;
+  if (staffList?.status !== 200) return HANDOFF_OUTCOME_BLOCKER;
+  const rows = Array.isArray(staffList?.json?.handoffs) ? staffList.json.handoffs : [];
+  return rows.some((h) => h.session_id === sessionId) ? null : HANDOFF_OUTCOME_BLOCKER;
+}
+
+export function walkthroughExitCode(report) {
+  return Array.isArray(report?.blockers) && report.blockers.length > 0 ? 1 : 0;
+}
 
 function failUsage(message) {
   process.stderr.write(`${message}\n`);
@@ -238,18 +300,6 @@ async function main() {
     }
   }
 
-  const badSession = await http(base, '/session', {
-    method: 'POST',
-    body: { role: 'staff', passcode: 'nope' },
-  });
-  report.steps.wrong_passcode = {
-    status: badSession.status,
-    code: badSession.json?.code,
-    message_key: badSession.json?.message_key,
-    retryable: badSession.json?.retryable,
-  };
-  if (badSession.status !== 401) report.blockers.push('wrong staff passcode was not 401');
-
   const forged = await http(base, '/actions/act_forged', {
     method: 'POST',
     token: 'forged',
@@ -276,9 +326,14 @@ async function main() {
 
   if (!report.authenticated_steps) {
     report.not_run.push('authenticated session turns (WEEKEND_OWNER_PASSCODE / WEEKEND_STAFF_PASSCODE unset)');
+    report.not_run.push(
+      isNegativeProbeEnabled()
+        ? 'wrong-passcode probe (WEEKEND_WALKTHROUGH_NEGATIVE=1 but authenticated logins were skipped)'
+        : NEGATIVE_PROBE_DEFAULT_SKIP,
+    );
     report.finished_at = new Date().toISOString();
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    process.exit(report.blockers.length ? 1 : 0);
+    process.exit(walkthroughExitCode(report));
   }
 
   const customer = await http(base, '/session', {
@@ -309,6 +364,22 @@ async function main() {
   const staffToken = staff.json.token;
   const otherToken = other.json.token;
   const sessionId = customer.json.context.session_id;
+
+  if (isNegativeProbeEnabled()) {
+    const badSession = await http(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: 'nope' },
+    });
+    report.steps.wrong_passcode = {
+      status: badSession.status,
+      code: badSession.json?.code,
+      message_key: badSession.json?.message_key,
+      retryable: badSession.json?.retryable,
+    };
+    if (badSession.status !== 401) report.blockers.push('wrong staff passcode was not 401');
+  } else {
+    report.not_run.push(NEGATIVE_PROBE_DEFAULT_SKIP);
+  }
 
   const greet = await http(base, '/turns', {
     method: 'POST',
@@ -356,6 +427,10 @@ async function main() {
     allowed_action_kinds: actionKinds(styleActions),
     photo_path: 'text_only_no_upload',
   };
+  const styleBlocker = textOnlyTurnBlocker(style);
+  if (styleBlocker) report.blockers.push(styleBlocker);
+  const flowBlocker = styleFlowBlocker(style, styleActions);
+  if (flowBlocker) report.blockers.push(flowBlocker);
 
   const continueWithout = findAction(styleActions, 'continue_without_photo');
   const decline = findAction(styleActions, 'decline');
@@ -372,6 +447,8 @@ async function main() {
       outcome: executed.json?.outcome,
       message_key: executed.json?.message_key,
     };
+    const executedBlocker = styleActionExecutionBlocker(chosen, executed);
+    if (executedBlocker) report.blockers.push(executedBlocker);
   }
 
   const photoBeforeConsent = await http(base, '/uploads', {
@@ -477,7 +554,11 @@ async function main() {
 
   const talk = findAction(styleActions, 'talk_to_staff') || findAction(price.json?.allowed_actions, 'talk_to_staff')
     || findAction(greet.json?.allowed_actions, 'talk_to_staff');
-  if (talk) {
+  const skippedHandoff = handoffSkip(talk);
+  if (skippedHandoff) {
+    report.not_run.push(skippedHandoff.not_run);
+    report.blockers.push(skippedHandoff.blocker);
+  } else {
     const queued = await http(base, `/actions/${talk.action_id}`, {
       method: 'POST',
       token: customerToken,
@@ -493,6 +574,8 @@ async function main() {
       customer_list_status: customerHandoffs.status,
       customer_list_code: customerHandoffs.json?.code,
     };
+    const handoffBlocker = handoffOutcomeBlocker(queued, staffHandoffs, sessionId);
+    if (handoffBlocker) report.blockers.push(handoffBlocker);
     if (customerHandoffs.status !== 401) {
       report.blockers.push('customer GET /staff/handoffs was not 401');
     }
@@ -500,10 +583,21 @@ async function main() {
 
   report.finished_at = new Date().toISOString();
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  process.exit(report.blockers.length ? 1 : 0);
+  process.exit(walkthroughExitCode(report));
 }
 
-main().catch((err) => {
-  process.stderr.write(`${err?.stack || String(err)}\n`);
-  process.exit(1);
-});
+function isEntryPoint() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(resolve(process.argv[1])) === fileURLToPath(import.meta.url);
+  } catch {
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
+  main().catch((err) => {
+    process.stderr.write(`${err?.stack || String(err)}\n`);
+    process.exit(1);
+  });
+}

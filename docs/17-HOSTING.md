@@ -71,7 +71,7 @@ The original numbered signup steps (1–5), including the model key, are done. N
 | `WEEKEND_STAFF_PASSCODE` or `WEEKEND_STAFF_PASSCODE_HASH` | plain or `scrypt$…` |
 | `WEEKEND_BRANCH_ID` | `br_…` for فرع النرجس (مرسية) |
 | `WEEKEND_TRUST_PROXY` | `1` |
-| `WEEKEND_PUBLIC_GUEST` | optional; default `false` everywhere; set `true` only on purpose |
+| `WEEKEND_PUBLIC_GUEST` | optional in local (default `false`). **owner-review `/try` is always on** |
 | `WEEKEND_GUEST_SESSIONS_PER_10MIN` | optional; default `5` public-guest session creates per client per 10 minutes |
 | `WEEKEND_GUEST_TURNS_PER_MIN` | optional; default `6` public-guest paid turns per client per minute |
 | `WEEKEND_OWNER_RESERVED_USD_PER_DAY` | optional; default 20% of the daily cap, reserved for owner/staff |
@@ -90,7 +90,7 @@ Retention on the Railway volume (deadline plus at most one 10-minute idle sweep)
 | Client address | HMAC-SHA256 digest in `sessions.client_key` (never the raw IP) | nulled after session expiry + 24 h (rolling, not a UTC-midnight boundary) |
 | Guest upload counter | SQLite `guest_upload_quota` (client digest, day, count) | rows for past UTC days deleted by the idle sweep |
 
-Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied. `WEEKEND_PUBLIC_GUEST` (PR #36) switches the passcode gate off for customer sessions (the `/try` chat); since 2026-09-18 it defaults to `false` in every environment and is set to `true` only on purpose, in the Railway Variables, after the guest limits (package C4 on #7) are on `main`. Those guest limits key on the client address, so `WEEKEND_TRUST_PROXY=1` (variables table above) must stay set on Railway; without it every guest shares the proxy's address and one bucket. The domain, the project id and the account e-mail are therefore not written in this repository (it is public). They were published in this file between 2026-09-15 and 2026-09-18 and remain in Git history: the owner should regenerate the domain in Railway (Settings → Networking) and share the new one privately.
+Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain for staff/owner shells; no public launch is implied. Owner-review `/try` is passcode-free (empty customer session) with C4 guest limits on this revision. Those guest limits key on the client address, so `WEEKEND_TRUST_PROXY=1` (variables table above) must stay set on Railway; without it every guest shares the proxy's address and one bucket. The domain, the project id and the account e-mail are therefore not written in this repository (it is public). They were published in this file between 2026-09-15 and 2026-09-18 and remain in Git history: the owner should regenerate the domain in Railway (Settings → Networking) and share the new one privately.
 
 ## Later modifications the owner mentioned
 

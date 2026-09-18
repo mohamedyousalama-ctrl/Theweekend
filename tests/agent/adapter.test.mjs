@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, isComplaintAsk, stripIdentityDump, dynamicContext, shellHasIdentityChrome } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -49,6 +49,7 @@ test('grounded price reply → valid contract output, actions kept, usage costed
   assert.equal(req.system[0].cache_control.type, 'ephemeral');
   assert.match(req.system[1].text, /kno_mrs_price_haircut/);
   assert.match(req.system[2].text, /booking_handoff: official_link/);
+  assert.match(req.system[2].text, /identity_already_shown: yes/);
   assert.equal(req.messages.length, 1);
   await adapter({ context: context(), input: input('وش الإضافات؟'), now, image_bytes: null });
   assert.equal(client.calls[1].messages.length, 3, 'second turn carries the first exchange as history');
@@ -210,6 +211,298 @@ test('mapModelOutput never emits more than the contract allows', () => {
   assert.equal(out.style_options[0].feasible_in_person, true);
   assert.deepEqual(out.flags, ['refusal_medical']);
   assert.ok(validateContract('ChatTurnOutput', out).ok);
+});
+
+test('greeting-only turns drop dumped styles, brief and extra actions', () => {
+  assert.equal(isGreetingOnly('هلا والله'), true);
+  assert.equal(isGreetingOnly('أبغى فيد'), false);
+  assert.equal(isGreetingOnly('كم سعر الحلاقة؟'), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد'), true);
+  assert.equal(isDirectServiceAsk('كم سعر الحلاقة؟'), true);
+  assert.equal(isDirectServiceAsk('أبغى شكل يناسبني'), false);
+  const raw = modelJson({
+    reply: [{ text: 'هلا والله. تبي حلاقة؟', lang: 'ar' }],
+    style_options: [
+      { name_ar: 'فيد', name_en: 'fade', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+      { name_ar: 'كلاسيك', name_en: 'classic', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+    ],
+    brief_draft: { present: true, barber_preference: '', requested_look_ar: 'فيد مع تحديد اللحية', do_not: [] },
+    proposed_actions: [
+      { kind: 'open_official_booking', label_ar: 'حجز', label_en: 'book', payload: { preference_kind: 'none', value_text: '' } },
+      { kind: 'save_preference', label_ar: 'حفظ', label_en: 'save', payload: { preference_kind: 'style', value_text: 'فيد' } },
+      { kind: 'continue_without_photo', label_ar: 'بدون', label_en: 'skip', payload: { preference_kind: 'none', value_text: '' } },
+    ],
+  });
+  const dumped = mapModelOutput(raw, {
+    context: context(),
+    input: input('هلا والله'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(dumped.style_options.length, 0);
+  assert.equal(dumped.brief_draft, null);
+  assert.equal(dumped.proposed_actions.length, 0);
+  const priced = mapModelOutput(raw, {
+    context: context(),
+    input: input('كم سعر الحلاقة؟'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(priced.style_options.length, 0);
+  assert.equal(priced.brief_draft, null);
+  assert.equal(priced.proposed_actions.length, 1);
+  assert.equal(priced.proposed_actions[0].kind, 'open_official_booking');
+  const lookAsk = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى شكل يناسبني'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(lookAsk.style_options.length, 2);
+  assert.equal(lookAsk.proposed_actions.some((a) => a.kind === 'open_official_booking'), true);
+  const photoAsk = mapModelOutput(raw, {
+    context: context(),
+    input: input('صورتي'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(photoAsk.style_options.length, 0);
+  assert.equal(photoAsk.brief_draft, null);
+  assert.equal(photoAsk.proposed_actions.length, 0);
+});
+
+test('named-service turns strip identity dumps and keep booking only', () => {
+  assert.match(stripIdentityDump('هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد قص شعر.'), /الفيد قص شعر/);
+  assert.equal(/معك خالد/.test(stripIdentityDump('هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد قص شعر.')), false);
+  const raw = modelJson({
+    reply: [{ text: 'هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد هو قص شعر.', lang: 'ar' }],
+    style_options: [
+      { name_ar: 'فيد', name_en: 'fade', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+    ],
+    brief_draft: { present: true, barber_preference: '', requested_look_ar: 'فيد', do_not: [] },
+    proposed_actions: [
+      { kind: 'continue_without_photo', label_ar: 'بدون', label_en: 'skip', payload: { preference_kind: 'none', value_text: '' } },
+      { kind: 'save_preference', label_ar: 'حفظ', label_en: 'save', payload: { preference_kind: 'style', value_text: 'فيد' } },
+    ],
+  });
+  const out = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(out.messages.length, 1);
+  assert.equal(/معك خالد|مساعد ذا ويكند الرقمي/.test(out.messages[0].text), false);
+  assert.match(out.messages[0].text, /الفيد/);
+  assert.equal(out.style_options.length, 0);
+  assert.equal(out.brief_draft, null);
+  assert.equal(out.proposed_actions.length, 1);
+  assert.equal(out.proposed_actions[0].kind, 'open_official_booking');
+});
+
+test('complaints and follow-up questions are not booking turns', () => {
+  const ruined = 'الحلاقة اللي سويتها لي خربت، ليش صار كذا؟';
+  const uneven = 'قصيت شعري طلع مو متساوي';
+  const typesAsk = 'أبي فيد، أول مرة، هل فيه فرق بين الأنواع؟';
+  assert.equal(isComplaintAsk(ruined), true);
+  assert.equal(isComplaintAsk(uneven), true);
+  assert.equal(isDirectServiceAsk(ruined), false);
+  assert.equal(isDirectServiceAsk(uneven), false);
+  assert.equal(isDirectServiceAsk(typesAsk), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد', ['complaint']), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد', ['no_offer_after_decline']), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد'), true);
+
+  const staffAction = {
+    kind: 'talk_to_staff',
+    label_ar: 'كلام مع الفريق',
+    label_en: 'Talk to staff',
+    payload: { preference_kind: 'none', value_text: '' },
+  };
+  const bookAction = {
+    kind: 'open_official_booking',
+    label_ar: 'حجز',
+    label_en: 'book',
+    payload: { preference_kind: 'none', value_text: '' },
+  };
+  const complaintRaw = modelJson({
+    reply: [
+      { text: 'آسف على اللي صار.', lang: 'ar' },
+      { text: 'أوصلك لأحد من الفريق؟', lang: 'ar' },
+    ],
+    proposed_actions: [staffAction, bookAction],
+    flags: ['complaint'],
+    knowledge_refs: [],
+  });
+  const ruinedOut = mapModelOutput(complaintRaw, {
+    context: context(),
+    input: input(ruined),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(ruinedOut.messages.length, 2, 'complaint keeps the model\'s two-message reply');
+  assert.deepEqual(ruinedOut.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+  assert.equal(ruinedOut.proposed_actions.some((a) => a.kind === 'open_official_booking'), false);
+  assert.ok(validateContract('ChatTurnOutput', ruinedOut).ok);
+
+  const noFlagRaw = modelJson({
+    reply: [
+      { text: 'آسف، القصة طلعت مو متوقعة.', lang: 'ar' },
+      { text: 'تبي أحد من الفريق يتابع معك؟', lang: 'ar' },
+    ],
+    proposed_actions: [staffAction],
+    flags: [],
+    knowledge_refs: [],
+  });
+  const unevenOut = mapModelOutput(noFlagRaw, {
+    context: context(),
+    input: input(uneven),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(unevenOut.messages.length, 2);
+  assert.deepEqual(unevenOut.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+  assert.equal(unevenOut.proposed_actions.some((a) => a.kind === 'open_official_booking'), false, 'no synthesized booking on a complaint');
+
+  const flagOnFade = mapModelOutput(complaintRaw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(flagOnFade.messages.length, 2, 'complaint flag gates pacing even when the text is a named service');
+  assert.deepEqual(flagOnFade.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+
+  const declineRaw = modelJson({
+    reply: [{ text: 'تمام، ما راح أعرض عليك شي ثاني.', lang: 'ar' }],
+    proposed_actions: [{
+      kind: 'decline',
+      label_ar: 'لا شكراً',
+      label_en: 'No thanks',
+      payload: { preference_kind: 'none', value_text: '' },
+    }],
+    flags: ['no_offer_after_decline'],
+    knowledge_refs: [],
+  });
+  const declined = mapModelOutput(declineRaw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.ok(declined.proposed_actions.some((a) => a.kind === 'decline'));
+  assert.equal(declined.proposed_actions.some((a) => a.kind === 'open_official_booking'), false);
+
+  const typesRaw = modelJson({
+    reply: [
+      { text: 'الفيد فيه عالي ووسط وواطي.', lang: 'ar' },
+      { text: 'العالي أوضح، والواطي أهدى. تبي نمشي على واحد؟', lang: 'ar' },
+    ],
+    proposed_actions: [bookAction],
+    knowledge_refs: [],
+  });
+  const typesOut = mapModelOutput(typesRaw, {
+    context: context(),
+    input: input(typesAsk),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(typesOut.messages.length, 2, 'a follow-up question keeps the model\'s full answer');
+  assert.match(typesOut.messages[0].text, /عالي/);
+  assert.match(typesOut.messages[1].text, /واطي/);
+});
+
+test('identity_already_shown follows whether the shell renders identity chrome', () => {
+  const now = '2026-09-14T06:00:00Z';
+  const ctx = context();
+  assert.equal(shellHasIdentityChrome('try'), true);
+  assert.equal(shellHasIdentityChrome('customer'), true);
+  assert.equal(shellHasIdentityChrome('app'), true);
+  assert.equal(shellHasIdentityChrome('staff'), true);
+  assert.equal(shellHasIdentityChrome('web'), true);
+  assert.equal(shellHasIdentityChrome('whatsapp'), false);
+  assert.equal(shellHasIdentityChrome(''), false);
+  const tryCtx = dynamicContext(ctx, now, false, 'try');
+  assert.match(tryCtx, /ui_shell: try/);
+  assert.match(tryCtx, /identity_already_shown: yes/);
+  const customerCtx = dynamicContext(ctx, now, false, 'customer');
+  assert.match(customerCtx, /ui_shell: customer/);
+  assert.match(customerCtx, /identity_already_shown: yes/);
+  const channel = dynamicContext(ctx, now, false, 'whatsapp');
+  assert.match(channel, /ui_shell: whatsapp/);
+  assert.match(channel, /identity_already_shown: no/);
+});
+
+test('adapter injects identity_already_shown from the shell', async () => {
+  const { adapter, client } = adapterWith([response(modelJson())]);
+  await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.match(client.calls[0].system[2].text, /ui_shell: web/);
+  assert.match(client.calls[0].system[2].text, /identity_already_shown: yes/);
+  const channel = fakeClient([response(modelJson())]);
+  const adapter2 = createRakanAdapter(realConfig(), {
+    client: channel,
+    knowledge,
+    clock: () => 1_000,
+    uiShell: 'whatsapp',
+  });
+  await adapter2({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.match(channel.calls[0].system[2].text, /ui_shell: whatsapp/);
+  assert.match(channel.calls[0].system[2].text, /identity_already_shown: no/);
+});
+
+test('an emptied identity strip falls back to the pre-strip text, never filler', () => {
+  const identityOnly = 'معك خالد، مساعد ذا ويكند الرقمي.';
+  const raw = modelJson({
+    reply: [{ text: identityOnly, lang: 'ar' }],
+    proposed_actions: [],
+    knowledge_refs: [],
+  });
+  const out = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(stripIdentityDump(identityOnly), '');
+  assert.equal(out.messages.length, 1);
+  assert.equal(out.messages[0].text, identityOnly);
+  assert.equal(/أبشر|أفتح لك صفحة الحجز|Sure\. Want me to open/.test(out.messages[0].text), false);
+  const english = mapModelOutput(modelJson({
+    reply: [{ text: "I'm Khalid, The Weekend's digital assistant.", lang: 'en' }],
+    proposed_actions: [],
+    knowledge_refs: [],
+  }), {
+    context: context(),
+    input: input('I want a fade'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.match(english.messages[0].text, /Khalid/);
+  assert.equal(/Want me to open the booking page/.test(english.messages[0].text), false);
 });
 
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {

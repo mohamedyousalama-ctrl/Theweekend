@@ -12,47 +12,62 @@ export function renderComposer({
   variant = 'weekend',
   photoEnabled = false,
 } = {}) {
+  const whatsapp = variant === 'whatsapp';
   const fieldCopy = validationError?.message_key
     ? (messageFromKey(validationError.message_key, locale) || t(locale, 'validation'))
     : t(locale, 'validation');
   const fieldError = validationError?.details?.field === 'text'
     ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, escapeHtml(fieldCopy))
     : '';
+  const attach = whatsapp && photoEnabled
+    ? el('label', {
+      for: 'wk-photo-upload',
+      class: 'wa-attach',
+      title: t(locale, 'photo_upload'),
+    }, t(locale, 'photo_upload'))
+    : '';
+  const fileInput = whatsapp && photoEnabled
+    ? el('input', {
+      id: 'wk-photo-upload',
+      class: 'wa-file',
+      name: 'photo',
+      type: 'file',
+      accept: 'image/jpeg,image/png,image/webp',
+      disabled,
+      tabindex: '-1',
+      'aria-hidden': 'true',
+      'data-photo-input': 'true',
+      'aria-label': t(locale, 'photo_upload'),
+    }, '')
+    : '';
+  const textarea = el('textarea', {
+    id: 'wk-composer-text',
+    name: 'text',
+    maxlength: '2000',
+    rows: whatsapp ? '1' : '3',
+    placeholder: t(locale, whatsapp ? 'wa_composer_placeholder' : 'composer_placeholder'),
+    disabled,
+    'aria-invalid': validationError ? 'true' : 'false',
+    'aria-describedby': validationError ? 'composer-error' : false,
+  }, escapeHtml(draft));
+  const send = el('button', {
+    type: 'submit',
+    class: 'wk-pill',
+    disabled,
+    'data-send': 'true',
+  }, whatsapp ? '➤' : t(locale, 'send'));
+  const inputShell = whatsapp
+    ? el('div', { class: 'wa-input-shell' }, [attach, fileInput, textarea].filter(Boolean))
+    : textarea;
   const html = el('form', {
     class: 'wk-composer',
     'data-component': 'composer',
     'aria-disabled': String(disabled),
   }, [
     el('label', { for: 'wk-composer-text' }, t(locale, 'composer_label')),
-    el('textarea', {
-      id: 'wk-composer-text',
-      name: 'text',
-      maxlength: '2000',
-      placeholder: t(locale, 'composer_placeholder'),
-      disabled,
-      'aria-invalid': validationError ? 'true' : 'false',
-      'aria-describedby': validationError ? 'composer-error' : false,
-    }, escapeHtml(draft)),
+    inputShell,
     fieldError,
-    variant === 'whatsapp' && photoEnabled
-      ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
-        el('label', { for: 'wk-photo-upload' }, t(locale, 'photo_upload')),
-        el('input', {
-          id: 'wk-photo-upload',
-          name: 'photo',
-          type: 'file',
-          accept: 'image/jpeg,image/png,image/webp',
-          disabled,
-          'data-photo-input': 'true',
-        }, ''),
-      ])
-      : '',
-    el('button', {
-      type: 'submit',
-      class: 'wk-pill',
-      disabled,
-      'data-send': 'true',
-    }, variant === 'whatsapp' ? '➤' : t(locale, 'send')),
+    send,
   ]);
   return {
     html,

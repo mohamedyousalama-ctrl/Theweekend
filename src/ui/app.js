@@ -91,7 +91,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
     pendingRetry: null,
     briefApproving: false,
     thread: [],
+    guestNeedsPasscode: false,
+    pendingTurnText: '',
   };
+  let guestSessionWork = null;
 
   function locale() {
     return state.context?.locale || state.locale;
@@ -168,10 +171,30 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         header.html,
         consent,
         main.html,
+        renderTryPass(loc),
       ]),
     ].join('');
     bind();
     restoreFocus(root, focusKey);
+  }
+
+  function renderTryPass(loc) {
+    if (state.context || !state.guestNeedsPasscode) return '';
+    return el('form', {
+      id: 'wk-try-pass',
+      class: 'wa-pass',
+      'data-try-pass': 'true',
+    }, [
+      el('label', { for: 'wk-try-pass-input' }, t(loc, 'try_pass_label')),
+      el('input', {
+        id: 'wk-try-pass-input',
+        name: 'passcode',
+        type: 'password',
+        autocomplete: 'current-password',
+        required: true,
+      }, ''),
+      el('button', { type: 'submit', class: 'wk-pill' }, t(loc, 'try_pass_send')),
+    ]);
   }
 
   function renderSession(loc) {
@@ -334,6 +357,22 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         await submitTurn(text);
       });
     }
+    const tryPass = root.querySelector('[data-try-pass="true"]');
+    if (tryPass) {
+      tryPass.addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const field = tryPass.querySelector('[name="passcode"]');
+        const passcode = field && typeof field.value === 'string' ? field.value : '';
+        const ok = await ensureGuestSession(passcode);
+        if (!ok) {
+          paint();
+          return;
+        }
+        const queued = state.pendingTurnText;
+        if (queued) await submitTurn(queued);
+        else paint();
+      });
+    }
     root.querySelectorAll('[data-action-id][data-executable="true"]').forEach((btn) => {
       const opensItself = btn.getAttribute('data-opens-itself') === 'true';
       btn.addEventListener('click', () => void clickAction(btn.getAttribute('data-action-id'), { opensItself }));
@@ -420,6 +459,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       photoInput.addEventListener('change', async () => {
         const file = photoInput.files && photoInput.files[0];
         if (!file) return;
+        await previewGuestPhoto(file);
         await sendUpload(file);
       });
     }
@@ -541,6 +581,54 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
     paint();
   }
 
+  function appendGuestBubble(text) {
+    if (!state.thread.length) state.thread = welcomeThread();
+    const last = state.thread[state.thread.length - 1];
+    if (last?.from === 'guest' && last.text === text) return;
+    state.thread = [...state.thread, { from: 'guest', text, lang: locale() === 'en' ? 'en' : 'ar' }];
+  }
+
+  function guestClosedError(err) {
+    const base = err && typeof err === 'object' ? err : {};
+    return {
+      contract_version: base.contract_version || '0.1.0',
+      code: base.code || 'UNAUTHORIZED',
+      message_key: 'session.try_pass',
+      retryable: false,
+      details: base.details && typeof base.details === 'object' ? base.details : {},
+    };
+  }
+
+  async function openGuestSession(passcode) {
+    const body = { role: 'customer' };
+    if (typeof passcode === 'string') body.passcode = passcode;
+    try {
+      const out = await api('/session', { method: 'POST', body, fetchImpl });
+      state.token = out.token;
+      state.context = out.context;
+      state.error = null;
+      state.guestNeedsPasscode = false;
+      return true;
+    } catch (err) {
+      state.guestNeedsPasscode = true;
+      state.error = typeof passcode === 'string' ? err : guestClosedError(err);
+      return false;
+    }
+  }
+
+  async function ensureGuestSession(passcode) {
+    if (state.context && state.token) return true;
+    const withPass = typeof passcode === 'string';
+    if (!withPass && guestSessionWork) return guestSessionWork;
+    const work = openGuestSession(passcode);
+    if (!withPass) guestSessionWork = work;
+    try {
+      return await work;
+    } finally {
+      if (guestSessionWork === work) guestSessionWork = null;
+    }
+  }
+
   async function submitTurn(text) {
     if (!String(text || '').trim()) {
       state.error = {
@@ -554,11 +642,22 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       return;
     }
     state.draft = text;
-    if (!state.context) return;
     if (state.shell === 'try') {
-      if (!state.thread.length) state.thread = welcomeThread();
-      state.thread = [...state.thread, { from: 'guest', text, lang: locale() === 'en' ? 'en' : 'ar' }];
+      appendGuestBubble(text);
+      state.draft = '';
+      state.pendingTurnText = text;
+      if (!state.context) {
+        const opened = await ensureGuestSession();
+        if (!opened) {
+          paint();
+          return;
+        }
+      }
+    } else if (!state.context) {
+      paint();
+      return;
     }
+    state.pendingTurnText = '';
     state.loadingTurn = true;
     state.error = null;
     paint();
@@ -645,6 +744,32 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       state.prefError = err;
       paint();
     }
+  }
+
+  function previewGuestPhoto(file) {
+    if (state.shell !== 'try' || !file || typeof FileReader !== 'function') return Promise.resolve();
+    const type = file.type || '';
+    if (!/^image\/(jpeg|png|webp)$/i.test(type)) return Promise.resolve();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = typeof reader.result === 'string' ? reader.result.replace(/\s/g, '') : '';
+        if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/i.test(url)) {
+          if (!state.thread.length) state.thread = welcomeThread();
+          const already = state.thread.some((msg) => msg.imageUrl === url);
+          if (!already) {
+            state.thread = [
+              ...state.thread,
+              { from: 'guest', text: '', lang: locale() === 'en' ? 'en' : 'ar', imageUrl: url },
+            ];
+            paint();
+          }
+        }
+        resolve();
+      };
+      reader.onerror = () => resolve();
+      reader.readAsDataURL(file);
+    });
   }
 
   async function sendUpload(source) {
@@ -839,14 +964,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
     state.surface = 'conversation';
     state.thread = welcomeThread();
     paint();
-    try {
-      const out = await api('/session', { method: 'POST', body: { role: 'customer' }, fetchImpl });
-      state.token = out.token;
-      state.context = out.context;
-      state.error = null;
-    } catch (err) {
-      state.error = err;
-    }
+    await ensureGuestSession();
     await refreshHealth();
   }
 

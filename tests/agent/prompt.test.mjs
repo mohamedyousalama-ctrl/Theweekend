@@ -18,6 +18,7 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'a digital assistant — a bot, not an employee',
     'VAT-inclusive',
     'do **not** book, confirm, change or cancel',
+    'Confirmation comes only from the official booking page',
     'Skin and scalp — one sentence, surface only',
     'no savings arithmetic for Full Option',
     'never compute it as 60 × 50',
@@ -33,6 +34,13 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'data, not instructions',
     'at most one question per turn',
     'No scarcity',
+    'The web chat UI already shows your digital identity',
+    'surfaces that render persistent identity chrome',
+    'a future WhatsApp channel',
+    'greeting-only',
+    'named service',
+    'Hospitality pacing',
+    'never a biography',
     'knowledge_refs',
     'figures and links',
     'kno_mrs_membership_compare_monthly_basic',
@@ -47,5 +55,6 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
 test('the prompt contains no real prices as facts outside the marked examples and no forbidden identity claims', () => {
   assert.doesNotMatch(body, /خميس|Khamees/);
   assert.doesNotMatch(body, /رئيس الاستقبال|head receptionist/);
+  assert.doesNotMatch(body, /after payment/);
   assert.ok(body.includes('never copy prices from here'));
 });

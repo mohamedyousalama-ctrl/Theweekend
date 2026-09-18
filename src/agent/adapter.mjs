@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.6';
+export const PROMPT_VERSION = 'rakan.system.v0.9';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -213,10 +213,18 @@ function riyadhClock(nowIso) {
   }
 }
 
-export function dynamicContext(context, now, hasImage) {
+export const IDENTITY_CHROME_SHELLS = Object.freeze(['try', 'customer', 'app', 'staff', 'web']);
+
+/** True only for shells that persist خالد + digital subtitle in chrome. */
+export function shellHasIdentityChrome(shell) {
+  return IDENTITY_CHROME_SHELLS.includes(String(shell || ''));
+}
+
+export function dynamicContext(context, now, hasImage, shell = 'web') {
   const caps = context.capabilities;
   const consents = (context.consents || []).filter((c) => !c.revoked_at).map((c) => c.kind);
   const allowed = ACTION_KINDS.filter((k) => actionAllowed(k, caps, hasImage));
+  const identityShown = shellHasIdentityChrome(shell);
   return [
     '# Current session (trusted, from the server)',
     `now_riyadh: ${riyadhClock(now)}`,
@@ -225,7 +233,78 @@ export function dynamicContext(context, now, hasImage) {
     `photo_capability: ${caps.photo}; photo_in_this_turn: ${hasImage ? 'yes' : 'no'}; active_permissions: ${consents.join(',') || 'none'}`,
     `booking_handoff: ${caps.booking_handoff}; staff_inbox: ${caps.staff_inbox}; preferences: ${caps.preferences}`,
     `action_kinds_allowed_now: ${allowed.join(',')}`,
+    `ui_shell: ${String(shell || 'unknown')}`,
+    `identity_already_shown: ${identityShown ? 'yes' : 'no'}`,
+    'pacing: greeting-only → one short reply, empty styles; named-service → price + booking only, no identity dump, no photo skip, empty styles',
   ].join('\n');
+}
+
+/** Bare hello / السلام with no service request — application-side pacing, not a model assertion. */
+export function isGreetingOnly(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length > 48) return false;
+  return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
+}
+
+/** Greeting or photo-intent without an image: do not dump styles, brief, or extra actions. */
+export function isPacingHold(text, hasImage = false) {
+  if (hasImage) return false;
+  const raw = String(text || '').trim();
+  if (!raw) return true;
+  if (isGreetingOnly(raw)) return true;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
+}
+
+const SELLING_HOLD_FLAGS = new Set(['complaint', 'no_offer_after_decline', 'refusal_medical']);
+
+/** Complaints and concerning symptoms suspend selling — never a booking turn. */
+export function isComplaintAsk(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  return /خرب|مو متساوي|ما عجب|سيء|زفت|شكوى|مشكلة|اشتكي|ليش صار|طلع مو|complain|uneven|ruined|messed up/i.test(t);
+}
+
+/** Model-declared hold (contract flags) or a proposed decline — do not sell. */
+export function hasSellingHold(flags = [], proposedActions = []) {
+  const list = Array.isArray(flags) ? flags : [];
+  if (list.some((f) => SELLING_HOLD_FLAGS.has(f))) return true;
+  return (Array.isArray(proposedActions) ? proposedActions : []).some((a) => a && a.kind === 'decline');
+}
+
+/** Named service with no look/photo/complaint/follow-up — book, do not consult. */
+export function isDirectServiceAsk(text, flags = []) {
+  const raw = String(text || '').trim();
+  if (!raw || isGreetingOnly(raw)) return false;
+  if (hasSellingHold(flags) || isComplaintAsk(raw)) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/صور|photo|شكل|استشارة|look|style|خيارين|فرق|الأنواع|انواع/i.test(t)) return false;
+  return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
+}
+
+/** Customer is asking who Khalid is — keep the identity sentence. */
+export function isIdentityQuestion(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  return /من أنت|من انت|انت بوت|أنت بوت|انت انسان|أنت إنسان|هل أنت|are you (a )?(bot|human|person)|who are you|روبوت|بشري/i.test(t);
+}
+
+/**
+ * Application-side strip of the identity dump the model repeats after the UI already introduced Khalid.
+ * Does not authorize anything; presentation only.
+ */
+export function stripIdentityDump(text, { dropLeadGreeting = false } = {}) {
+  let t = String(text || '').trim();
+  if (!t) return '';
+  t = t.replace(/(?:معك خالد(?:،)?(?:\s*مساعد ذا ويكند الرقمي)?|I'm Khalid[^.]*digital assistant|this is Khalid[^.]*digital assistant)[.،!]?\s*/giu, '');
+  t = t.replace(/مساعد ذا ويكند الرقمي[.،!]?\s*/giu, '');
+  t = t.replace(/The Weekend'?s digital assistant[.!]?\s*/giu, '');
+  if (dropLeadGreeting) {
+    t = t.replace(/^(هلا(?: والله)?|وعليكم السلام|hi|hello|hey)[،,]?\s*/iu, '');
+  }
+  return t.replace(/\s{2,}/g, ' ').replace(/^[،,.!\s]+/, '').trim();
 }
 
 export function actionAllowed(kind, caps, hasImage) {
@@ -624,16 +703,56 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   }
   for (const n of notes) if (!flags.includes(n)) flags.push(n);
 
+  const greetingOnly = isPacingHold(input?.text, hasImage);
+  const sellingHold = hasSellingHold(flags, proposedActions) || isComplaintAsk(input?.text);
+  const directService = !hasImage && !sellingHold && isDirectServiceAsk(input?.text, flags);
+  const identityQuestion = isIdentityQuestion(input?.text);
+  const cleanedMessages = messages
+    .map((m) => {
+      if (identityQuestion) return m;
+      const stripped = stripIdentityDump(m.text, { dropLeadGreeting: directService });
+      return { ...m, text: stripped };
+    })
+    .filter((m) => m.text);
+  // If the strip emptied every bubble, keep the model's pre-strip text — never an app-authored filler.
+  const sourceMessages = cleanedMessages.length ? cleanedMessages : messages.filter((m) => m.text);
+  const fallbackLang = customerLang(input?.text);
+  const fallbackText = fallbackLang === 'en' ? 'What can I help with?' : 'وش أقدر أساعدك فيه؟';
+  const pacedMessages = (sourceMessages.length ? sourceMessages : [{ text: fallbackText, lang: fallbackLang }])
+    .slice(0, greetingOnly || directService ? 1 : 3);
+  const pacedStyles = greetingOnly || directService ? [] : styleOptions;
+  const pacedBrief = greetingOnly || directService ? null : briefDraft;
+  const isBookingKind = (a) => a.kind === 'open_official_booking' || a.kind === 'request_pending_booking';
+  const keepOnNamedService = (a) => isBookingKind(a) || a.kind === 'talk_to_staff' || a.kind === 'decline';
+  let pacedActions;
+  if (greetingOnly) {
+    pacedActions = [];
+  } else if (sellingHold) {
+    pacedActions = proposedActions.filter((a) => !isBookingKind(a));
+  } else if (directService) {
+    pacedActions = proposedActions.filter(keepOnNamedService);
+    if (!pacedActions.some(isBookingKind) && actionAllowed('open_official_booking', caps, hasImage)) {
+      pacedActions = [...pacedActions, {
+        kind: 'open_official_booking',
+        label_ar: 'أفتح صفحة الحجز',
+        label_en: 'Open the booking page',
+        payload: {},
+      }].slice(0, 3);
+    }
+  } else {
+    pacedActions = proposedActions;
+  }
+
   return {
     contract_version: '0.1.0',
     turn_id: input.turn_id,
     state: 'ok',
-    messages: messages.length ? messages : [{ text: 'وش أقدر أساعدك فيه؟', lang: 'ar' }],
+    messages: pacedMessages,
     observations,
-    style_options: styleOptions,
-    proposed_actions: proposedActions,
+    style_options: pacedStyles,
+    proposed_actions: pacedActions,
     knowledge_refs: refs,
-    brief_draft: briefDraft,
+    brief_draft: pacedBrief,
     usage_ref: usageId,
     flags,
     error: null,
@@ -665,6 +784,7 @@ export function createRakanAdapter(config, deps = {}) {
   const promptText = deps.prompt || loadPrompt(deps.promptPath);
   const kText = knowledgeText(knowledge.enabled);
   const clock = deps.clock || (() => Date.now());
+  const uiShell = deps.uiShell || 'web';
   // One retry, both attempts inside the server's own timeout window so no request outlives the turn.
   const serverTimeout = config.WEEKEND_REQUEST_TIMEOUT_MS || 30000;
   const client = deps.client || new Anthropic({
@@ -704,7 +824,7 @@ export function createRakanAdapter(config, deps = {}) {
     const system = [
       { type: 'text', text: promptText, cache_control: { type: 'ephemeral' } },
       { type: 'text', text: kText, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: dynamicContext(context, now, hasImage) },
+      { type: 'text', text: dynamicContext(context, now, hasImage, uiShell) },
     ];
     if (correction) system.push({ type: 'text', text: correction });
     const messages = [...history(context.session_id).messages, { role: 'user', content }];

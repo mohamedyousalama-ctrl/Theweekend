@@ -59,6 +59,17 @@ test('empty customer passcode is rejected when public guest is off', () => {
   app.close();
 });
 
+test('owner-review opens a customer session with an empty passcode even if the flag is false', () => {
+  const { app } = testApp({
+    WEEKEND_ENV: 'owner-review',
+    WEEKEND_MODEL_MODE: 'real',
+    WEEKEND_PUBLIC_GUEST: 'false',
+  });
+  const out = app.createSession('customer', '');
+  assert.equal(out.context.role, 'customer');
+  app.close();
+});
+
 test('plain owner and staff passcodes hash at start', () => {
   const env = testEnv();
   delete env.WEEKEND_OWNER_PASSCODE_HASH;

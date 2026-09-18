@@ -16,7 +16,7 @@ Use a dedicated branch based on a freshly read commit. Inspect current main, bra
 
 Never commit customer photographs, phone lists, booking exports, chat transcripts, profile records, signed media URLs, access tokens, API keys, tenant credentials, private staff performance or commercially confidential merchant exports. Use synthetic examples and non-routable identifiers. Production truth belongs in approved private systems, not Markdown.
 
-Do not claim a commercial agreement or use a real employee identity without permission. Rakan is a proposed fictional assistant name. Do not copy a person's likeness or voice. Public source visibility is not an automatic right to reuse it. Do not choose a distribution license without the owner's decision; preserve applicable third-party notices.
+Do not claim a commercial agreement or use a real employee identity without permission. The working name before PR #36 was Rakan; the visible name خالد (D18) awaits the owner's confirmation on #2. Do not copy a person's likeness or voice. Public source visibility is not an automatic right to reuse it. Do not choose a distribution license without the owner's decision; preserve applicable third-party notices.
 
 ## Truth and evidence
 
