@@ -231,6 +231,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
   }
 
   function bind() {
+    if (state.error && !root.querySelector('[data-error-code]')) {
+      const extra = renderError({ error: state.error, locale: locale(), keepDraft: Boolean(state.draft) });
+      root.querySelector('#wk-main')?.insertAdjacentHTML('afterbegin', extra.html);
+    }
     root.querySelectorAll('[data-surface].wk-pill').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.surface = btn.getAttribute('data-surface');
@@ -264,6 +268,17 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       composer.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const text = composer.querySelector('textarea').value;
+        if (!String(text || '').trim()) {
+          state.error = {
+            contract_version: '0.1.0',
+            code: 'VALIDATION_ERROR',
+            message_key: 'turn.invalid',
+            retryable: false,
+            details: { field: 'text' },
+          };
+          paint();
+          return;
+        }
         await submitTurn(text);
       });
     }
@@ -283,9 +298,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       btn.addEventListener('click', () => {
         state.error = null;
         const pending = state.pendingRetry;
-        const draft = state.draft;
-        if (pending?.type === 'turn' || (draft && state.output?.error?.retryable)) {
-          void runPending(pending || { type: 'turn', text: draft });
+        if (pending) {
+          void runPending(pending);
           return;
         }
         paint();
@@ -372,10 +386,6 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         state.pendingRetry = null;
         paint();
       });
-    }
-    if (state.error && !root.querySelector('[data-error-code]')) {
-      const extra = renderError({ error: state.error, locale: locale(), keepDraft: Boolean(state.draft) });
-      root.querySelector('#wk-main')?.insertAdjacentHTML('afterbegin', extra.html);
     }
   }
 
@@ -473,6 +483,17 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
   }
 
   async function submitTurn(text) {
+    if (!String(text || '').trim()) {
+      state.error = {
+        contract_version: '0.1.0',
+        code: 'VALIDATION_ERROR',
+        message_key: 'turn.invalid',
+        retryable: false,
+        details: { field: 'text' },
+      };
+      paint();
+      return;
+    }
     state.draft = text;
     if (!state.context) return;
     state.loadingTurn = true;
@@ -578,6 +599,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       });
       if (out && typeof out.image_ref === 'string') state.imageRef = out.image_ref;
       state.error = null;
+      state.pendingRetry = null;
     } catch (err) {
       if (isConsentRequired(err)) {
         beginConsent(err, {
@@ -589,6 +611,13 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       }
       state.error = err;
       if (err.code === 'UPLOAD_REJECTED') state.imageRef = null;
+      if (err.retryable) {
+        state.pendingRetry = {
+          type: 'upload',
+          bytes: packed.bytes,
+          contentType: packed.contentType,
+        };
+      }
     }
     paint();
   }
@@ -629,6 +658,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
           return;
         }
         state.shareActions = [];
+        state.error = shareErr;
+        state.pendingRetry = { type: 'share_actions' };
       }
       state.surface = 'approved_brief';
     } catch (err) {
@@ -710,12 +741,16 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         fetchImpl,
       });
       state.shareActions = Array.isArray(out.allowed_actions) ? out.allowed_actions : [];
+      state.error = null;
+      state.pendingRetry = null;
     } catch (err) {
       if (isConsentRequired(err)) {
         beginConsent(err, { type: 'share_actions' });
         return;
       }
       state.shareActions = [];
+      state.error = err;
+      state.pendingRetry = { type: 'share_actions' };
     }
     paint();
   }

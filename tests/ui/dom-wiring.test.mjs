@@ -241,6 +241,70 @@ test('brief approve posts /briefs then share-actions and renders executable shar
   assert.match(root.innerHTML, /مشاركة ملاحظات الصورة/);
 });
 
+test('share-actions 500 surfaces the error instead of an empty action list', async () => {
+  const calls = [];
+  const serverErr = {
+    contract_version: '0.1.0',
+    code: 'CAPABILITY_UNAVAILABLE',
+    message_key: 'store.unavailable',
+    retryable: true,
+    details: {},
+  };
+  let shareHits = 0;
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    calls.push({ path, method: opts.method || 'GET', json });
+    if (path === '/briefs' && opts.method === 'POST') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...brief,
+          status: 'approved',
+          requested_look: { ...brief.requested_look, text_ar: json.text_ar },
+        }),
+      };
+    }
+    if (path === `/briefs/${brief.brief_id}/share-actions`) {
+      shareHits += 1;
+      if (shareHits === 1) {
+        return { ok: false, status: 500, json: async () => serverErr };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          contract_version: '0.1.0',
+          allowed_actions: [
+            action('share_brief_text', 'act_syn_share_after_retry', { requires_receipt_kind: 'staff_sharing_text' }),
+          ],
+        }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.state.output = { ...output, brief_draft: { ...brief, status: 'draft' } };
+  app.paint();
+  root.querySelector('[data-action="approve-brief"]').click();
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  assert.equal(app.state.surface, 'approved_brief');
+  assert.equal(app.state.shareActions.length, 0);
+  assert.equal(app.state.error?.code, 'CAPABILITY_UNAVAILABLE');
+  assert.match(root.innerHTML, /data-error-code="CAPABILITY_UNAVAILABLE"/);
+  const retry = root.querySelector('[data-retry="true"]');
+  assert.ok(retry);
+  retry.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === `/briefs/${brief.brief_id}/share-actions`).length, 2);
+  assert.equal(app.state.error, null);
+  assert.ok(root.querySelector('[data-action-id="act_syn_share_after_retry"]'));
+});
+
 test('direct preference save posts /preferences when no save_preference action exists', async () => {
   const calls = [];
   const fetchImpl = async (path, opts = {}) => {
@@ -426,4 +490,167 @@ test('retryable MODEL_UNAVAILABLE keeps the draft and retry posts /turns again',
   assert.equal(app.state.output?.state, 'ok');
   assert.equal(app.state.draft, '');
   assert.equal(calls.filter((c) => c.path === '/turns').length, 2);
+});
+
+test('retry after a retryable turn then a retryable upload posts /uploads once and no /turns', async () => {
+  const calls = [];
+  const down = failure('unavailable-model').instance;
+  const uploadErr = {
+    contract_version: '0.1.0',
+    code: 'TIMEOUT',
+    message_key: 'model.timeout',
+    retryable: true,
+    details: { capability: 'photo' },
+  };
+  const photoContext = {
+    ...context,
+    capabilities: { ...context.capabilities, photo: 'enabled' },
+  };
+  let uploads = 0;
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/turns') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ output: down, allowed_actions: [], action_result: null, context: photoContext }),
+      };
+    }
+    if (path === '/uploads') {
+      uploads += 1;
+      if (uploads === 1) {
+        return { ok: false, status: 504, json: async () => uploadErr };
+      }
+      return { ok: true, status: 200, json: async () => ({ image_ref: 'img_syn_retry_up' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = photoContext;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'سلام';
+  composer.fire('submit');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 1);
+  const input = root.querySelector('#wk-photo-upload');
+  assert.ok(input);
+  input.files = [{
+    type: 'image/jpeg',
+    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+  }];
+  input.fire('change');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/uploads' && c.method === 'POST').length, 1);
+  const retry = root.querySelector('[data-retry="true"]');
+  assert.ok(retry, 'retry control shown for retryable upload failure');
+  const before = calls.length;
+  retry.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  const after = calls.slice(before);
+  assert.equal(after.filter((c) => c.path === '/uploads' && c.method === 'POST').length, 1);
+  assert.equal(after.filter((c) => c.path === '/turns').length, 0);
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 1);
+  assert.equal(app.state.imageRef, 'img_syn_retry_up');
+});
+
+test('empty or whitespace composer submit does not post /turns and shows turn.invalid', async () => {
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const composer = root.querySelector('[data-component="composer"]');
+  composer.fire('submit');
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 0);
+  assert.equal(app.state.error?.message_key, 'turn.invalid');
+  assert.match(root.innerHTML, /اكتب نصاً قبل الإرسال/);
+
+  const again = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = '   ';
+  again.fire('submit');
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 0);
+});
+
+test('first paint leaves Send enabled; typing without a repaint posts /turns once', async () => {
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    calls.push({ path, method: opts.method || 'GET', json });
+    if (path === '/turns') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          output,
+          allowed_actions: [],
+          action_result: null,
+          context,
+        }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const send = root.querySelector('[data-send="true"]');
+  assert.ok(send);
+  assert.equal(send.hasAttribute('disabled'), false);
+  const textarea = root.querySelector('#wk-composer-text');
+  const composer = root.querySelector('[data-component="composer"]');
+  textarea.value = 'سلام';
+  assert.equal(send.hasAttribute('disabled'), false, 'no repaint required to keep Send enabled');
+  assert.equal(composer.fire('submit'), 1);
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns' && c.method === 'POST').length, 1);
+});
+
+test('non-retryable upload error does not record pendingRetry', async () => {
+  const rejected = failure('upload-rejected').instance;
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/uploads') {
+      return { ok: false, status: 400, json: async () => rejected };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = {
+    ...context,
+    capabilities: { ...context.capabilities, photo: 'enabled' },
+  };
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const input = root.querySelector('#wk-photo-upload');
+  assert.ok(input);
+  input.files = [{
+    type: 'image/jpeg',
+    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+  }];
+  input.fire('change');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/uploads').length, 1);
+  assert.equal(app.state.pendingRetry, null);
+  assert.equal(root.querySelector('[data-retry="true"]'), null);
+  assert.equal(app.state.imageRef, null);
 });

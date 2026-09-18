@@ -42,3 +42,19 @@ test('index.html is RTL, mobile-first, keyboard skip link present in source', ()
   assert.match(app, /skip-link/);
   assert.match(app, /wk-composer-text|composer/);
 });
+
+test('states.css copies stay identical and restore .wk-lead', () => {
+  const a = readFileSync(join(ROOT, 'styles/states.css'), 'utf8');
+  const b = readFileSync(join(ROOT, 'src/ui/styles/states.css'), 'utf8');
+  assert.equal(a, b);
+  const original = [
+    '.wk-lead {',
+    '  margin: 0 0 24px;',
+    '  max-width: 56ch;',
+    '  font-size: 17px;',
+    '  line-height: 1.85;',
+    '  color: var(--wk-muted-2);',
+    '}',
+  ].join('\n');
+  assert.equal(a.includes(original), true);
+});

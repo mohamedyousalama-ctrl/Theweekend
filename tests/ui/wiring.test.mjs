@@ -48,17 +48,34 @@ test('an action with the server URL is a real link that opens on the click; with
 });
 
 test('every message key the server or the adapter can emit has copy in both languages', () => {
-  for (const key of [
-    'booking.external_handoff', 'action.stale', 'action.expired', 'action.done', 'action.save_preference', 'action.delete_preference',
-    'action.continue_without_photo', 'brief.shared_text', 'brief.shared_photo', 'preference.version_conflict',
-    'model.unavailable', 'model.timeout', 'model.budget_exceeded', 'model.session_cap', 'model.temporarily_unavailable', 'model.misconfigured',
-    'agent.ungrounded_price', 'agent.ungrounded_fact', 'agent.ungrounded_link', 'agent.invalid_output', 'agent.contract_invalid', 'agent.refused',
-    'photo.consent_required', 'preference.consent_required', 'action.consent_required',
-    'brief.share_consent', 'brief.photo_consent',
-    'handoff.queued', 'handoff.accepted', 'handoff.not_found',
-    'store.unavailable', 'upload.rejected', 'input.invalid', 'session.invalid',
-  ]) {
+  const files = ['src/server/app.mjs', 'src/server/http.mjs'];
+  const keys = new Set();
+  const quoted = /'([a-z][a-z0-9_]*\.[a-z][a-z0-9_]*)'/g;
+  const skipSuffix = new Set(['html', 'css', 'js', 'mjs', 'json', 'md']);
+  for (const rel of files) {
+    const src = readFileSync(join(ROOT, rel), 'utf8');
+    let m;
+    while ((m = quoted.exec(src))) {
+      const key = m[1];
+      const suffix = key.slice(key.indexOf('.') + 1);
+      if (skipSuffix.has(suffix)) continue;
+      keys.add(key);
+    }
+    if (src.includes('action.${row.kind}')) {
+      keys.add('action.decline');
+      keys.add('action.continue_without_photo');
+    }
+  }
+  assert.ok(keys.has('session.expired'));
+  assert.ok(keys.has('action.decline'));
+  assert.ok(keys.has('http.internal'));
+  for (const key of [...keys].sort()) {
     assert.notEqual(messageFromKey(key, 'ar'), key, `${key} has Arabic copy`);
     assert.notEqual(messageFromKey(key, 'en'), key, `${key} has English copy`);
   }
+});
+
+test('http.invalid_json English matches the Arabic meaning', () => {
+  assert.equal(messageFromKey('http.invalid_json', 'en'), 'The request is not valid.');
+  assert.equal(messageFromKey('http.invalid_json', 'ar'), 'الطلب غير صالح.');
 });

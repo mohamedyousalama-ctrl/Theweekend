@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readJson } from './helpers.mjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ROOT, readJson } from './helpers.mjs';
 import { renderConsentStep } from '../../src/ui/consent/consent-step.js';
 import { renderBriefDraft } from '../../src/ui/brief/brief-draft.js';
 import { renderOptionalImage } from '../../src/ui/conversation/optional-image.js';
@@ -56,6 +58,19 @@ test('receipt kind is taken from the error or requires_receipt_kind fallback', (
   }, 'staff_sharing_photo'), 'staff_sharing_photo');
 });
 
+test('action.consent_required uses the default fallback, not a duplicate case', () => {
+  assert.equal(receiptKindFromConsentError({
+    code: 'CONSENT_REQUIRED',
+    message_key: 'action.consent_required',
+  }, 'text_preferences'), 'text_preferences');
+  assert.equal(receiptKindFromConsentError({
+    code: 'CONSENT_REQUIRED',
+    message_key: 'action.consent_required',
+  }), null);
+  const src = readFileSync(join(ROOT, 'src/ui/policy.js'), 'utf8');
+  assert.equal((src.match(/case 'action\.consent_required'/g) || []).length, 0);
+});
+
 test('brief draft approve control is not an invented AllowedAction kind', () => {
   const view = renderBriefDraft({ draft: { ...brief, status: 'draft' } });
   assert.equal(view.meta.shown, true);
@@ -99,4 +114,23 @@ test('focus helper restores by id after the node is replaced', () => {
   restoreFocus(root, key);
   assert.equal(root._activeElement.getAttribute('id'), 'wk-composer-text');
   assert.ok(root._activeElement !== first);
+});
+
+test('handoff Accept/Release restore by their own control attr, not the card data-handoff-id', () => {
+  const markup = [
+    '<div data-handoff-id="hnd_syn_a" data-handoff-status="received">',
+    '<button type="button" data-handoff-id="hnd_syn_a" data-handoff-accept="true" data-handoff-control="accept:hnd_syn_a">قبول</button>',
+    '<button type="button" data-handoff-id="hnd_syn_a" data-handoff-release="true" data-handoff-control="release:hnd_syn_a">إفلات</button>',
+    '</div>',
+  ].join('');
+  const root = createRoot();
+  root.innerHTML = markup;
+  const accept = root.querySelector('[data-handoff-control="accept:hnd_syn_a"]');
+  accept.focus();
+  const key = captureFocusKey(root);
+  assert.deepEqual(key, { kind: 'attr', attr: 'data-handoff-control', value: 'accept:hnd_syn_a' });
+  root.innerHTML = markup;
+  restoreFocus(root, key);
+  assert.equal(root._activeElement.getAttribute('data-handoff-control'), 'accept:hnd_syn_a');
+  assert.equal(root._activeElement.tagName, 'button');
 });

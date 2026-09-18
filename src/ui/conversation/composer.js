@@ -1,5 +1,5 @@
 import { el, escapeHtml, newTurnId } from '../html.js';
-import { t } from '../copy.js';
+import { messageFromKey, t } from '../copy.js';
 import { buildChatTurnInput } from '../policy.js';
 
 export function renderComposer({
@@ -10,8 +10,11 @@ export function renderComposer({
   imageRef = null,
   validationError = null,
 } = {}) {
+  const fieldCopy = validationError?.message_key
+    ? (messageFromKey(validationError.message_key, locale) || t(locale, 'validation'))
+    : t(locale, 'validation');
   const fieldError = validationError?.details?.field === 'text'
-    ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, t(locale, 'validation'))
+    ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, escapeHtml(fieldCopy))
     : '';
   const html = el('form', {
     class: 'wk-composer',
@@ -33,6 +36,7 @@ export function renderComposer({
       type: 'submit',
       class: 'wk-pill',
       disabled,
+      'data-send': 'true',
     }, t(locale, 'send')),
   ]);
   return {

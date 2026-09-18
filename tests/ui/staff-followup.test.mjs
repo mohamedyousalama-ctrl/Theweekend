@@ -5,6 +5,7 @@ import { createRoot } from './dom-shim.mjs';
 import { renderHandoffList } from '../../src/ui/staff/handoff-list.js';
 import { renderBriefPanel } from '../../src/ui/staff/brief-panel.js';
 import { renderInboxList } from '../../src/ui/staff/inbox-list.js';
+import { renderPhotoNotes } from '../../src/ui/staff/photo-notes.js';
 import { messageFromKey } from '../../src/ui/copy.js';
 
 const { createRakanUi } = await import('../../src/ui/app.js');
@@ -55,6 +56,42 @@ test('received handoff offers accept and does not claim staff already took it', 
   assert.match(view.html, /data-handoff-release="true"/);
   assert.match(view.html, /data-accepted="false"/);
   assert.match(view.html, /ما انقبل بعد/);
+  assert.match(view.html, /data-handoff-warning="not_accepted_until_click"/);
+  assert.match(view.html, /ما نقول إن الفريق استلم إلا بعد زر القبول/);
+});
+
+test('accepted copy depends on mine and hides the not-accepted warning', () => {
+  const acceptedByOther = {
+    ...received,
+    status: 'accepted',
+    accepted_at: '2026-09-17T10:05:00Z',
+    accepted_by: 'sub_syn_staff_b',
+  };
+  const other = renderHandoffList({
+    handoffs: [acceptedByOther],
+    locale: 'en',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(other.html, /Accepted by another staff member/);
+  assert.doesNotMatch(other.html, /data-handoff-warning="not_accepted_until_click"/);
+  assert.doesNotMatch(other.html, /Do not treat this as staff-accepted until Accept is pressed/);
+
+  const otherAr = renderHandoffList({
+    handoffs: [acceptedByOther],
+    locale: 'ar',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(otherAr.html, /موظف ثاني قبل الطلب/);
+  assert.doesNotMatch(otherAr.html, /قبل الطلب موظف آخر/);
+
+  const mine = renderHandoffList({
+    handoffs: [{ ...acceptedByOther, accepted_by: 'sub_syn_staff_a' }],
+    locale: 'ar',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(mine.html, /قبلت الطلب/);
+  assert.doesNotMatch(mine.html, /موظف ثاني قبل الطلب/);
+  assert.doesNotMatch(mine.html, /data-handoff-warning="not_accepted_until_click"/);
 });
 
 test('another staff member cannot steal an accepted handoff', () => {
@@ -68,8 +105,58 @@ test('another staff member cannot steal an accepted handoff', () => {
     selfSubjectId: 'sub_syn_staff_a',
   });
   assert.doesNotMatch(view.html, /data-handoff-accept="true"/);
-  assert.doesNotMatch(view.html, /data-handoff-release="true"/);
+  assert.match(view.html, /data-handoff-release="true"/);
   assert.match(view.html, /data-accepted="true"/);
+});
+
+test('a row accepted by another subject still offers Release and Release posts /staff/handoffs/:id/release', async () => {
+  const acceptedByOther = {
+    ...received,
+    status: 'accepted',
+    accepted_at: '2026-09-17T10:05:00Z',
+    accepted_by: 'sub_syn_staff_b',
+  };
+  const view = renderHandoffList({
+    handoffs: [acceptedByOther],
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(view.html, /data-handoff-release="true"/);
+  assert.doesNotMatch(view.html, /data-handoff-accept="true"/);
+
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/staff/briefs') {
+      return { ok: true, status: 200, json: async () => ({ briefs: [] }) };
+    }
+    if (path === '/staff/handoffs') {
+      return { ok: true, status: 200, json: async () => ({ handoffs: [acceptedByOther] }) };
+    }
+    if (path === '/staff/handoffs/hnd_syn_a/release') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ...acceptedByOther, status: 'released', released_at: '2026-09-17T10:10:00Z' }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = staffContext;
+  app.state.token = 'tok_syn';
+  app.state.health = healthOk;
+  app.state.surface = 'staff_inbox';
+  app.paint();
+  const inboxBtn = root.querySelector('[data-surface="staff_inbox"]');
+  assert.ok(inboxBtn);
+  inboxBtn.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  const release = root.querySelector('[data-handoff-release="true"]');
+  assert.ok(release);
+  assert.equal(release.click(), 1);
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/staff/handoffs/hnd_syn_a/release' && c.method === 'POST').length, 1);
 });
 
 test('staff brief panel renders written photo notes and never an image', () => {
@@ -81,7 +168,13 @@ test('staff brief panel renders written photo notes and never an image', () => {
   assert.equal(view.meta.photoBytes, false);
   assert.match(view.html, /data-photo-notes="true"/);
   assert.match(view.html, /data-photo-bytes="false"/);
-  assert.match(view.html, /stubble/);
+  assert.match(view.html, /ذقن خفيفة/);
+  assert.doesNotMatch(view.html, />stubble</);
+  const en = renderBriefPanel({
+    brief: { ...brief, observations },
+    locale: 'en',
+  });
+  assert.match(en.html, /light stubble/);
   assert.doesNotMatch(view.html, /<img/i);
   const card = renderInboxList({
     context: staffContext,
@@ -90,6 +183,23 @@ test('staff brief panel renders written photo notes and never an image', () => {
   });
   assert.match(card.html, /data-photo-notes="true"/);
   assert.doesNotMatch(card.html, /<img/i);
+});
+
+test('unknown photo-note limitation is labelled, not printed as a raw token', () => {
+  const view = renderPhotoNotes({
+    observations: { ...observations, limitations: ['low_resolution', 'covered'] },
+    locale: 'en',
+  });
+  assert.match(view.html, /note: low resolution/);
+  assert.doesNotMatch(view.html, /low_resolution/);
+  assert.match(view.html, /covered/);
+  assert.doesNotMatch(view.html, /note: covered/);
+  const ar = renderPhotoNotes({
+    observations: { ...observations, limitations: ['low_resolution'] },
+    locale: 'ar',
+  });
+  assert.match(ar.html, /ملاحظة: low resolution/);
+  assert.doesNotMatch(ar.html, /low_resolution/);
 });
 
 test('staff inbox loads briefs and handoffs then accept posts once', async () => {

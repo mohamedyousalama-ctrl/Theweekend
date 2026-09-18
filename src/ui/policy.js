@@ -100,8 +100,6 @@ export function receiptKindFromConsentError(error, fallbackKind = null) {
       return 'staff_sharing_text';
     case 'brief.photo_consent':
       return 'staff_sharing_photo';
-    case 'action.consent_required':
-      return isReceiptKind(fallbackKind) ? fallbackKind : null;
     default: {
       const cap = error?.details?.capability;
       switch (cap) {

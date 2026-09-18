@@ -1,5 +1,7 @@
 /** Honest M1 copy. No synthetic names, prices, waits, ratings, or face-recognition claims. */
 
+import { escapeHtml } from './html.js';
+
 export const COPY = {
   ar: {
     skip: 'تخطّ إلى المحتوى',
@@ -117,6 +119,7 @@ export const COPY = {
     handoff_queue_empty: 'ما فيه طلب تحدث مع الفريق حالياً.',
     handoff_received: 'وصل الطلب. ما انقبل بعد.',
     handoff_accepted: 'قبلت الطلب. الرد الآلي متوقف لهذه الجلسة.',
+    handoff_accepted_by_other: 'موظف ثاني قبل الطلب.',
     handoff_accept: 'قبول الطلب',
     handoff_release: 'إفلات الطلب',
     handoff_not_accepted_until_click: 'ما نقول إن الفريق استلم إلا بعد زر القبول.',
@@ -245,6 +248,7 @@ export const COPY = {
     handoff_queue_empty: 'No talk-to-staff requests right now.',
     handoff_received: 'Request arrived. Not accepted yet.',
     handoff_accepted: 'You accepted this request. Autonomous replies are paused for that session.',
+    handoff_accepted_by_other: 'Accepted by another staff member',
     handoff_accept: 'Accept request',
     handoff_release: 'Release request',
     handoff_not_accepted_until_click: 'Do not treat this as staff-accepted until Accept is pressed.',
@@ -304,6 +308,31 @@ const MESSAGE_KEYS = {
   'upload.rejected': { ar: 'رُفض الرفع. المسار النصي ما زال متاحاً.', en: 'Upload rejected. The text path remains.' },
   'input.invalid': { ar: COPY.ar.validation, en: COPY.en.validation },
   'session.invalid': { ar: 'الجلسة غير صالحة.', en: 'The session is not valid.' },
+  'session.expired': { ar: 'انتهت الجلسة. ادخل من جديد.', en: 'The session expired. Sign in again.' },
+  'session.passcode': { ar: 'رمز الدخول غير صحيح.', en: 'The passcode is not correct.' },
+  'session.role': { ar: 'الدور غير صالح.', en: 'The role is not valid.' },
+  'session.throttled': { ar: 'محاولات كثيرة. جرّب بعد شوي.', en: 'Too many attempts. Try again shortly.' },
+  'turn.invalid': { ar: 'اكتب نصاً قبل الإرسال.', en: 'Write some text before sending.' },
+  'turn.session': { ar: 'الجلسة لا تطابق هذه الرسالة.', en: 'The session does not match this message.' },
+  'turn.in_progress': { ar: 'الرسالة السابقة ما زالت تشتغل.', en: 'The previous message is still in progress.' },
+  'preference.not_found': { ar: 'ما لقيت هذا التفضيل.', en: 'That preference was not found.' },
+  'action.not_found': { ar: 'ما لقيت هذا الإجراء.', en: 'That action was not found.' },
+  'action.decline': { ar: 'تم. ما فيه عرض إضافي.', en: 'Done. No further offer.' },
+  'action.kind': { ar: 'نوع الإجراء غير معروف.', en: 'That action kind is not known.' },
+  'http.internal': { ar: 'صار خلل في الخادم. جرّب بعد شوي.', en: 'The server hit an internal error. Try again shortly.' },
+  'http.not_found': { ar: 'ما لقيت الصفحة.', en: 'That page was not found.' },
+  'http.body_too_large': { ar: 'الطلب أكبر من المسموح.', en: 'The request is larger than allowed.' },
+  'http.invalid_json': { ar: 'الطلب غير صالح.', en: 'The request is not valid.' },
+  'http.port': { ar: 'المنفذ غير صالح.', en: 'The port is not valid.' },
+  'staff.required': { ar: 'هذا المسار للفريق فقط.', en: 'This path is for staff only.' },
+  'brief.role': { ar: 'الدور ما يسمح بهذا الموجز.', en: 'This role cannot use that brief.' },
+  'brief.not_found': { ar: 'ما لقيت الموجز.', en: 'That brief was not found.' },
+  'consent.kind': { ar: 'نوع الموافقة غير معروف.', en: 'That consent kind is not known.' },
+  'consent.via': { ar: 'طريقة منح الموافقة غير مسموحة.', en: 'That way of granting consent is not allowed.' },
+  'consent.not_found': { ar: 'ما لقيت إيصال الموافقة.', en: 'That consent receipt was not found.' },
+  'photo.disabled': { ar: 'تحليل الصورة موقف في هذه الجلسة.', en: 'Photo analysis is disabled in this session.' },
+  'booking.pending_disabled': { ar: 'طلب الموعد غير المؤكد غير متاح.', en: 'Pending booking requests are not available.' },
+  'upload.not_found': { ar: 'ما لقيت مرجع الصورة.', en: 'That image reference was not found.' },
 };
 
 export function t(locale, key) {
@@ -347,7 +376,7 @@ export function capabilityLabel(name, value, locale = 'ar') {
       titleKey = name;
   }
   const title = t(locale, titleKey);
-  return `${title}: ${labels[value] ?? value}`;
+  return `${title}: ${labels[value] ?? escapeHtml(value)}`;
 }
 
 export function receiptKindLabel(kind, locale = 'ar') {
@@ -376,4 +405,53 @@ export function notInferredLabel(token, locale = 'ar') {
     gender: 'gender',
   };
   return locale === 'en' ? (en[token] ?? token) : (ar[token] ?? token);
+}
+
+export function observationValueLabel(token, locale = 'ar') {
+  const ar = {
+    short: 'قصير',
+    medium: 'متوسط',
+    long: 'طويل',
+    uncertain: 'غير مؤكد',
+    straight: 'أملس',
+    wavy: 'مموج',
+    curly: 'مجعد',
+    coily: 'ملفوف',
+    none: 'بدون',
+    stubble: 'ذقن خفيفة',
+    full: 'كامل',
+    thinning_visible: 'يظهر خفيفاً',
+    partial: 'جزئي',
+    covered: 'مغطى',
+    low: 'منخفضة',
+    high: 'عالية',
+    lighting: 'الإضاءة',
+    angle: 'الزاوية',
+    blur: 'الضبابية',
+  };
+  const en = {
+    short: 'short',
+    medium: 'medium',
+    long: 'long',
+    uncertain: 'uncertain',
+    straight: 'straight',
+    wavy: 'wavy',
+    curly: 'curly',
+    coily: 'coily',
+    none: 'none',
+    stubble: 'light stubble',
+    full: 'full',
+    thinning_visible: 'thinning visible',
+    partial: 'partial',
+    covered: 'covered',
+    low: 'low',
+    high: 'high',
+    lighting: 'lighting',
+    angle: 'angle',
+    blur: 'blur',
+  };
+  const mapped = locale === 'en' ? en[token] : ar[token];
+  if (mapped) return mapped;
+  const spaced = String(token ?? '').replaceAll('_', ' ');
+  return locale === 'en' ? `note: ${spaced}` : `ملاحظة: ${spaced}`;
 }

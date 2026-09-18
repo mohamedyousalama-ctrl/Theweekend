@@ -51,12 +51,21 @@ class FakeElement {
   }
   // Simulate ONE physical user click: a real browser fires every registered
   // 'click' listener, in registration order, synchronously, for a single click.
+  // Disabled controls do not dispatch.
   click() {
+    if (this.hasAttribute('disabled')) return 0;
     return this.fire('click');
   }
   // Generic single-dispatch of one DOM event type (click, submit, ...): every
   // listener registered via addEventListener(type, fn) fires once, in order.
   fire(type) {
+    if (this.hasAttribute('disabled')) return 0;
+    if (type === 'submit') {
+      const submit = this.tagName === 'form'
+        ? (this.querySelector('[type="submit"]') || this.querySelector('button'))
+        : this;
+      if (submit && submit.hasAttribute('disabled')) return 0;
+    }
     const fns = this.listeners.get(type) || [];
     const calls = fns.length;
     for (const fn of fns.slice()) {
