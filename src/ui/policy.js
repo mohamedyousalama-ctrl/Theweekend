@@ -154,6 +154,41 @@ export function hasActiveReceipt(consents, kind) {
   ));
 }
 
+/** Bare hello with no service request. Used by the WhatsApp skin so a greeting does not dump cards. */
+export function isGreetingOnly(text) {
+  const raw = String(text || '').trim();
+  if (!raw) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (t.length > 48) return false;
+  return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
+}
+
+/** Text-only turns that must not dump styles, a brief, or extra actions. */
+export function isPacingHold(text, hasImage = false) {
+  if (hasImage) return false;
+  const raw = String(text || '').trim();
+  if (!raw) return true;
+  if (isGreetingOnly(raw)) return true;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
+}
+
+/** Named service with no look/photo/complaint/follow-up — book, do not consult. */
+export function isDirectServiceAsk(text, flags = []) {
+  const raw = String(text || '').trim();
+  if (!raw || isGreetingOnly(raw)) return false;
+  const flagList = Array.isArray(flags) ? flags : [];
+  if (flagList.includes('complaint') || flagList.includes('no_offer_after_decline') || flagList.includes('refusal_medical')) {
+    return false;
+  }
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/صور|photo|شكل|استشارة|look|style|خيارين|فرق|الأنواع|انواع/i.test(t)) return false;
+  if (/خرب|مو متساوي|ما عجب|سيء|زفت|شكوى|مشكلة|اشتكي|ليش صار|طلع مو|complain|uneven|ruined|messed up/i.test(t)) {
+    return false;
+  }
+  return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
+}
+
 export function photoPreviewPermitted(context) {
   if (!context || typeof context !== 'object') return false;
   return context.capabilities?.photo === 'enabled'

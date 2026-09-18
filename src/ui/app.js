@@ -420,6 +420,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       photoInput.addEventListener('change', async () => {
         const file = photoInput.files && photoInput.files[0];
         if (!file) return;
+        await previewGuestPhoto(file);
         await sendUpload(file);
       });
     }
@@ -554,10 +555,14 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       return;
     }
     state.draft = text;
-    if (!state.context) return;
+    if (!state.context) {
+      paint();
+      return;
+    }
     if (state.shell === 'try') {
       if (!state.thread.length) state.thread = welcomeThread();
       state.thread = [...state.thread, { from: 'guest', text, lang: locale() === 'en' ? 'en' : 'ar' }];
+      state.draft = '';
     }
     state.loadingTurn = true;
     state.error = null;
@@ -645,6 +650,32 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       state.prefError = err;
       paint();
     }
+  }
+
+  function previewGuestPhoto(file) {
+    if (state.shell !== 'try' || !file || typeof FileReader !== 'function') return Promise.resolve();
+    const type = file.type || '';
+    if (!/^image\/(jpeg|png|webp)$/i.test(type)) return Promise.resolve();
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const url = typeof reader.result === 'string' ? reader.result.replace(/\s/g, '') : '';
+        if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/i.test(url)) {
+          if (!state.thread.length) state.thread = welcomeThread();
+          const already = state.thread.some((msg) => msg.imageUrl === url);
+          if (!already) {
+            state.thread = [
+              ...state.thread,
+              { from: 'guest', text: '', lang: locale() === 'en' ? 'en' : 'ar', imageUrl: url },
+            ];
+            paint();
+          }
+        }
+        resolve();
+      };
+      reader.onerror = () => resolve();
+      reader.readAsDataURL(file);
+    });
   }
 
   async function sendUpload(source) {

@@ -37,6 +37,10 @@ export function renderAppHeader({
     ...(gallery ? { 'data-m2-surfaces': m2.join(',') } : {}),
   }, [
     renderWordmark(),
+    el('div', { class: 'wk-identity', 'data-identity-chrome': 'true' }, [
+      el('strong', {}, t(locale, 'product')),
+      el('span', {}, t(locale, 'wa_subtitle')),
+    ]),
     el('div', { class: 'wk-header-rule', 'aria-hidden': 'true' }, ''),
     nav,
   ]);
