@@ -9,8 +9,7 @@ import { renderWaHeader } from '../../src/ui/try/wa-header.js';
 test('customer and app shells render Khalid with the digital subtitle', () => {
   for (const shell of ['customer', 'app']) {
     const header = renderAppHeader({ locale: 'ar', shell });
-    assert.match(header.html, /data-component="assistant-identity"/);
-    assert.match(header.html, new RegExp(`data-shell="${shell}"`));
+    assert.match(header.html, /data-identity-chrome="true"/);
     assert.match(header.html, />خالد</);
     assert.match(header.html, /مساعد رقمي · ذا ويكند/);
     const en = renderAppHeader({ locale: 'en', shell });

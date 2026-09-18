@@ -8,13 +8,16 @@ export function renderOptionalImage({
   locale = 'ar',
   allowedActions = [],
   variant = 'weekend',
+  offerContinueOverride = null,
 } = {}) {
   const permitted = photoPreviewPermitted(context);
-  const offerContinue = shouldOfferContinueWithoutPhoto({
-    context,
-    allowedActions,
-    photoUiVisible: permitted && Boolean(imageRef),
-  });
+  const offerContinue = offerContinueOverride === null
+    ? shouldOfferContinueWithoutPhoto({
+      context,
+      allowedActions,
+      photoUiVisible: permitted && Boolean(imageRef),
+    })
+    : Boolean(offerContinueOverride);
   const continueAction = filterAllowedActions(allowedActions, { max: 9 })
     .find((a) => a.kind === 'continue_without_photo');
 
@@ -62,9 +65,11 @@ export function renderOptionalImage({
 
   if (variant === 'whatsapp') {
     return {
-      html: el('section', { 'data-component': 'optional-image', 'data-variant': 'whatsapp' }, [
-        continueBtn,
-      ]),
+      html: continueBtn
+        ? el('section', { 'data-component': 'optional-image', 'data-variant': 'whatsapp' }, [
+          continueBtn,
+        ])
+        : '',
       meta: {
         previewShown: false,
         photoOptional: true,

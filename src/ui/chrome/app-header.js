@@ -17,7 +17,6 @@ export function renderAppHeader({
   active = 'capability',
   locale = 'ar',
   gallery = false,
-  shell = 'app',
 } = {}) {
   const items = navForContext(context, health);
   const m2 = M2_SURFACES;
@@ -33,21 +32,15 @@ export function renderAppHeader({
     'aria-pressed': String(active === item.id),
   }, t(locale, LABELS[item.id] ?? item.id))));
 
-  const identity = el('div', {
-    class: 'wk-identity',
-    'data-component': 'assistant-identity',
-    'data-shell': shell,
-  }, [
-    el('strong', {}, t(locale, 'product')),
-    el('span', {}, t(locale, 'wa_subtitle')),
-  ]);
-
   const html = el('header', {
     class: 'wk-header',
     ...(gallery ? { 'data-m2-surfaces': m2.join(',') } : {}),
   }, [
     renderWordmark(),
-    identity,
+    el('div', { class: 'wk-identity', 'data-identity-chrome': 'true' }, [
+      el('strong', {}, t(locale, 'product')),
+      el('span', {}, t(locale, 'wa_subtitle')),
+    ]),
     el('div', { class: 'wk-header-rule', 'aria-hidden': 'true' }, ''),
     nav,
   ]);
