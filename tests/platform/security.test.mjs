@@ -59,6 +59,30 @@ test('empty customer passcode is rejected when public guest is off', () => {
   app.close();
 });
 
+test('empty-passcode customer probes do not count against the passcode limiter', () => {
+  const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'false' });
+  const clientKey = '203.0.113.12';
+  for (let i = 0; i < 6; i += 1) {
+    assert.throws(
+      () => app.createSession('customer', '', { clientKey }),
+      err => err instanceof AppError
+        && err.status === 401
+        && err.shape.code === 'UNAUTHORIZED'
+        && err.shape.message_key === 'session.passcode'
+        && err.shape.retryable === false,
+    );
+  }
+  const owner = app.createSession('owner', OWNER_PASS, { clientKey });
+  assert.equal(owner.context.role, 'owner');
+  assert.throws(
+    () => app.createSession('staff', 'nope', { clientKey }),
+    err => err instanceof AppError && err.shape.message_key === 'session.passcode' && err.shape.retryable === false,
+  );
+  const stillOk = app.createSession('owner', OWNER_PASS, { clientKey });
+  assert.equal(stillOk.context.role, 'owner', 'one recorded failure does not throttle');
+  app.close();
+});
+
 test('owner-review with WEEKEND_PUBLIC_GUEST false rejects an empty customer passcode', () => {
   const { app } = testApp({
     WEEKEND_ENV: 'owner-review',

@@ -792,7 +792,12 @@ export function createApp(config, deps = {}) {
       const localOk = config.WEEKEND_ENV === 'local'
         && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
         && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
-      if (!publicOk && !ownerOk && !localOk) rejectPasscode(clientKey);
+      if (!publicOk && !ownerOk && !localOk) {
+        if (code.length === 0) {
+          fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+        }
+        rejectPasscode(clientKey);
+      }
       guest = publicOk && !ownerOk && !localOk;
     }
     if (guest && !guestSessionLimiter.tryRecord(clientKey)) {
