@@ -64,6 +64,7 @@ test('hub routes stay split: public pages, locked team shells, JSON /health', as
     assert.equal(tryPage.status, 200);
     assert.match(tryHtml, /data-shell="try"/);
     assert.match(tryHtml, /whatsapp.css/);
+    assert.match(tryHtml, /محادثة تجريبية على موقع ذا ويكند — مو واتساب/);
     for (const path of ['/journey', '/how', '/brief']) {
       const res = await fetch(`${base}${path}`);
       assert.equal(res.status, 200, path);
@@ -86,8 +87,15 @@ test('try skin and hub pages do not ship WhatsApp trademarks or demo shame copy'
   const tryCss = readFileSync(join(ROOT, 'src/ui/styles/whatsapp.css'), 'utf8');
   const tryHtml = readFileSync(join(ROOT, 'src/ui/try.html'), 'utf8');
   const home = readFileSync(join(ROOT, 'src/ui/index.html'), 'utf8');
+  for (const hex of ['#075e54', '#efeae2', '#d9fdd3', '#25d366']) {
+    assert.doesNotMatch(tryCss, new RegExp(hex, 'i'));
+  }
+  assert.match(tryHtml, /محادثة تجريبية على موقع ذا ويكند — مو واتساب/);
+  assert.match(tryHtml, /A trial chat on The Weekend site — not WhatsApp/);
   for (const src of [tryCss, tryHtml, home]) {
-    assert.doesNotMatch(src, /WhatsApp|Meta Business|✓✓/);
+    assert.doesNotMatch(src, /Meta Business|✓✓/);
     assert.doesNotMatch(src, /This is not a real reservation|owner review|ديمو/i);
   }
+  assert.doesNotMatch(tryCss, /WhatsApp/i);
+  assert.doesNotMatch(home, /WhatsApp/i);
 });
