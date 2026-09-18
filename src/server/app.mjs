@@ -1066,7 +1066,7 @@ export function createApp(config, deps = {}) {
     }
     if (isGuestSession(session)
       && !guestUploadCounter.tryIncrement(session.client_key || 'unknown', config.WEEKEND_GUEST_UPLOADS_PER_DAY)) {
-      fail('UPLOAD_REJECTED', 'upload.guest_limit', false, {
+      fail('UPLOAD_REJECTED', 'upload.rejected', false, {
         field: 'image_ref',
         limit: config.WEEKEND_GUEST_UPLOADS_PER_DAY,
       }, 400);
@@ -1452,7 +1452,7 @@ export function createApp(config, deps = {}) {
       fail('BUDGET_EXCEEDED', 'model.session_cap', false, { capability: 'model', limit: sessionCap }, 429);
     }
     if (guest && !guestTurnLimiter.tryRecord(session.client_key || 'unknown')) {
-      fail('BUDGET_EXCEEDED', 'model.guest_turn_limit', true, {
+      fail('BUDGET_EXCEEDED', 'session.throttled', true, {
         capability: 'model',
         limit: config.WEEKEND_GUEST_TURNS_PER_MIN,
       }, 429);

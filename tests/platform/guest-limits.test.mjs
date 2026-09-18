@@ -109,7 +109,7 @@ test('public-guest paid turns are limited per client per minute', async () => {
   await assert.rejects(
     () => app.submitTurn(first.token, turn(first.context.session_id, '11111111-2222-4333-8444-555555555613')),
     err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
-      && err.shape.message_key === 'model.guest_turn_limit' && err.shape.retryable === true,
+      && err.shape.message_key === 'session.throttled' && err.shape.retryable === true,
   );
   const other = app.createSession('customer', '', { clientKey: '203.0.113.61' });
   const allowed = await app.submitTurn(other.token, turn(other.context.session_id, '11111111-2222-4333-8444-555555555614'));
@@ -136,7 +136,7 @@ test('public-guest uploads beyond the daily per-client limit are rejected', () =
   assert.throws(
     () => app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' }),
     err => err instanceof AppError && err.status === 400 && err.shape.code === 'UPLOAD_REJECTED'
-      && err.shape.message_key === 'upload.guest_limit' && err.shape.details.limit === 3,
+      && err.shape.message_key === 'upload.rejected' && err.shape.details.limit === 3,
   );
   const other = app.createSession('customer', '', { clientKey: '203.0.113.71' });
   app.grantConsent(other.token, 'photo_analysis', 'customer_ui');
