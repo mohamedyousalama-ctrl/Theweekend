@@ -10,9 +10,15 @@ import {
   NEGATIVE_PROBE_DEFAULT_SKIP,
   textOnlyTurnBlocker,
   TEXT_ONLY_TURN_BLOCKER,
+  styleFlowBlocker,
+  STYLE_FLOW_BLOCKER,
+  styleActionExecutionBlocker,
+  STYLE_ACTION_EXECUTION_BLOCKER,
   handoffSkip,
   HANDOFF_NOT_RUN,
   HANDOFF_SKIP_BLOCKER,
+  handoffOutcomeBlocker,
+  HANDOFF_OUTCOME_BLOCKER,
   walkthroughExitCode,
 } from '../../scripts/owner-walkthrough.mjs';
 
@@ -85,6 +91,42 @@ test('missing talk_to_staff records not_run and a non-zero exit', () => {
   assert.match(script, /not_run\.push\(skippedHandoff\.not_run\)/);
   assert.match(script, /blockers\.push\(skippedHandoff\.blocker\)/);
   assert.match(script, /process\.exit\(walkthroughExitCode\(report\)\)/);
+});
+
+test('handoff outcome requires pending queued result and a staff-list row for the session', () => {
+  const sessionId = 'ses_owner_walk';
+  const queued = { status: 200, json: { outcome: 'pending', message_key: 'handoff.queued' } };
+  const staffList = { status: 200, json: { handoffs: [{ session_id: sessionId }] } };
+  assert.equal(handoffOutcomeBlocker(queued, staffList, sessionId), null);
+  assert.equal(handoffOutcomeBlocker({ status: 500, json: queued.json }, staffList, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker({ status: 200, json: { outcome: 'done', message_key: 'handoff.queued' } }, staffList, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker({ status: 200, json: { outcome: 'pending', message_key: 'handoff.accepted' } }, staffList, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker(queued, { status: 401, json: staffList.json }, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker(queued, { status: 200, json: { handoffs: [] } }, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker(queued, { status: 200, json: { handoffs: [{ session_id: 'ses_other' }] } }, sessionId), HANDOFF_OUTCOME_BLOCKER);
+  assert.equal(handoffOutcomeBlocker(queued, { status: 200, json: { handoffs: null } }, sessionId), HANDOFF_OUTCOME_BLOCKER);
+
+  const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
+  assert.match(script, /handoffOutcomeBlocker\(queued, staffHandoffs, sessionId\)/);
+});
+
+test('text-only style flow requires a style option or an executed continue/decline path', () => {
+  const withOption = { json: { output: { style_options: [{ id: 'sty_fade' }] } } };
+  const empty = { json: { output: { style_options: [] } } };
+  assert.equal(styleFlowBlocker(withOption, []), null);
+  assert.equal(styleFlowBlocker(empty, [{ kind: 'continue_without_photo' }]), null);
+  assert.equal(styleFlowBlocker(empty, [{ kind: 'decline' }]), null);
+  assert.equal(styleFlowBlocker(empty, [{ kind: 'talk_to_staff' }]), STYLE_FLOW_BLOCKER);
+  assert.equal(styleFlowBlocker({ json: { output: {} } }, []), STYLE_FLOW_BLOCKER);
+
+  assert.equal(styleActionExecutionBlocker(null, { status: 500 }), null);
+  assert.equal(styleActionExecutionBlocker({ kind: 'decline' }, { status: 200, json: { outcome: 'done' } }), null);
+  assert.equal(styleActionExecutionBlocker({ kind: 'continue_without_photo' }, { status: 200, json: { outcome: 'pending' } }), STYLE_ACTION_EXECUTION_BLOCKER);
+  assert.equal(styleActionExecutionBlocker({ kind: 'decline' }, { status: 500, json: { outcome: 'done' } }), STYLE_ACTION_EXECUTION_BLOCKER);
+
+  const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
+  assert.match(script, /styleFlowBlocker\(style, styleActions\)/);
+  assert.match(script, /styleActionExecutionBlocker\(chosen, executed\)/);
 });
 
 test('walkthrough main still runs when the script is invoked through a symlink', () => {

@@ -47,6 +47,23 @@ export function textOnlyTurnBlocker(style) {
   return TEXT_ONLY_TURN_BLOCKER;
 }
 
+export const STYLE_FLOW_BLOCKER =
+  'step 4-5: text-only turn offered neither a style option nor continue_without_photo/decline';
+
+export function styleFlowBlocker(style, styleActions) {
+  const n = Array.isArray(style?.json?.output?.style_options) ? style.json.output.style_options.length : 0;
+  const hasPath = (styleActions || []).some((a) => a?.kind === 'continue_without_photo' || a?.kind === 'decline');
+  return n > 0 || hasPath ? null : STYLE_FLOW_BLOCKER;
+}
+
+export const STYLE_ACTION_EXECUTION_BLOCKER =
+  'step 4-5: continue_without_photo/decline action did not execute (status!=200 or outcome!=done)';
+
+export function styleActionExecutionBlocker(chosen, executed) {
+  if (!chosen) return null;
+  return (executed?.status === 200 && executed?.json?.outcome === 'done') ? null : STYLE_ACTION_EXECUTION_BLOCKER;
+}
+
 export const HANDOFF_NOT_RUN =
   'staff handoff (no talk_to_staff on greet/price/style turns)';
 
@@ -59,6 +76,16 @@ export function handoffSkip(talk) {
     not_run: HANDOFF_NOT_RUN,
     blocker: HANDOFF_SKIP_BLOCKER,
   };
+}
+
+export const HANDOFF_OUTCOME_BLOCKER =
+  'staff handoff was queued but not confirmed: outcome!=pending, or /staff/handoffs did not return it';
+
+export function handoffOutcomeBlocker(queued, staffList, sessionId) {
+  if (queued?.status !== 200 || queued?.json?.outcome !== 'pending' || queued?.json?.message_key !== 'handoff.queued') return HANDOFF_OUTCOME_BLOCKER;
+  if (staffList?.status !== 200) return HANDOFF_OUTCOME_BLOCKER;
+  const rows = Array.isArray(staffList?.json?.handoffs) ? staffList.json.handoffs : [];
+  return rows.some((h) => h.session_id === sessionId) ? null : HANDOFF_OUTCOME_BLOCKER;
 }
 
 export function walkthroughExitCode(report) {
@@ -402,6 +429,8 @@ async function main() {
   };
   const styleBlocker = textOnlyTurnBlocker(style);
   if (styleBlocker) report.blockers.push(styleBlocker);
+  const flowBlocker = styleFlowBlocker(style, styleActions);
+  if (flowBlocker) report.blockers.push(flowBlocker);
 
   const continueWithout = findAction(styleActions, 'continue_without_photo');
   const decline = findAction(styleActions, 'decline');
@@ -418,6 +447,8 @@ async function main() {
       outcome: executed.json?.outcome,
       message_key: executed.json?.message_key,
     };
+    const executedBlocker = styleActionExecutionBlocker(chosen, executed);
+    if (executedBlocker) report.blockers.push(executedBlocker);
   }
 
   const photoBeforeConsent = await http(base, '/uploads', {
@@ -543,6 +574,8 @@ async function main() {
       customer_list_status: customerHandoffs.status,
       customer_list_code: customerHandoffs.json?.code,
     };
+    const handoffBlocker = handoffOutcomeBlocker(queued, staffHandoffs, sessionId);
+    if (handoffBlocker) report.blockers.push(handoffBlocker);
     if (customerHandoffs.status !== 401) {
       report.blockers.push('customer GET /staff/handoffs was not 401');
     }

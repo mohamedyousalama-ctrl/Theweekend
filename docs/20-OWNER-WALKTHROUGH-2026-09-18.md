@@ -10,9 +10,9 @@ Method for the first live fetch: `node scripts/owner-walkthrough.mjs` with `WEEK
 
 The runner’s wrong-staff-passcode probe is **off by default** (C5). Set `WEEKEND_WALKTHROUGH_NEGATIVE=1` to run it **after** authenticated owner/staff logins. A failed probe still counts against five failures per client address for 15 minutes and is not cleared on success; repeating it before login locked later valid sessions. The wrong-passcode row in the Security-probes table below is the 2026-09-18 observation, when that probe still ran on every pass.
 
-A style request that is not HTTP 200 with `output.state=ok` is a blocker. Steps 4–5 must not skip that turn and still exit 0.
+A style request that is not HTTP 200 with `output.state=ok` is a blocker. Steps 4–5 must not skip that turn and still exit 0. The text-only turn must offer a style option or a `continue_without_photo`/`decline` path, and that action must execute to `outcome: done`.
 
-If no greet/price/style turn offers `talk_to_staff`, the runner records `not_run` with that reason and exits non-zero. A clean exit cannot hide an unexercised staff-handoff check.
+If no greet/price/style turn offers `talk_to_staff`, the runner records `not_run` with that reason and exits non-zero. A clean exit cannot hide an unexercised staff-handoff check. A queued handoff must return `pending` (`handoff.queued`) and appear in the staff list for that session.
 
 | Object | Observation |
 |---|---|
