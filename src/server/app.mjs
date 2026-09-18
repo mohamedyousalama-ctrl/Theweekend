@@ -35,6 +35,7 @@ const ACTION_LABELS = {
   decline: { label_ar: 'لا شكراً', label_en: 'No thanks' },
   continue_without_photo: { label_ar: 'نكمل بدون صورة', label_en: 'Continue without a photo' },
 };
+const STAFF_INBOX_ACTION_KINDS = new Set(['talk_to_staff', 'share_brief_text', 'share_photo_ref']);
 
 export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
 export const PHOTO_BYTES_MAX_ENTRIES = 32;
@@ -168,12 +169,12 @@ function modelCapability(config, realAdapter = false) {
   return 'unavailable';
 }
 
-function capabilitiesFor(config, role, realAdapter = false) {
+export function capabilitiesFor(config, role, realAdapter = false, staffInboxAvailable = false) {
   return {
     model: modelCapability(config, realAdapter),
     photo: config.WEEKEND_PHOTO_ENABLED ? 'enabled' : 'disabled',
     booking_handoff: config.WEEKEND_BOOKING_HANDOFF_MODE,
-    staff_inbox: role === 'staff' || role === 'owner' ? 'enabled' : 'unavailable',
+    staff_inbox: staffInboxAvailable ? 'enabled' : 'unavailable',
     preferences: 'enabled',
   };
 }
@@ -451,6 +452,15 @@ export function createApp(config, deps = {}) {
     return session;
   }
 
+  // Same store-up signal HealthState uses: probe the dedicated Weekend store, never the session role.
+  function staffInboxStoreUp() {
+    try {
+      return store.probe();
+    } catch {
+      return false;
+    }
+  }
+
   function contextOf(session) {
     const consents = store.all(
       `SELECT * FROM permission_receipts WHERE subject_id = ? AND revoked_at IS NULL`,
@@ -464,7 +474,7 @@ export function createApp(config, deps = {}) {
       verified: true,
       branch_id: config.WEEKEND_BRANCH_ID,
       locale: 'ar',
-      capabilities: capabilitiesFor(config, session.role, realAdapter),
+      capabilities: capabilitiesFor(config, session.role, realAdapter, staffInboxStoreUp()),
       consents,
       issued_at: iso(clock),
     };
@@ -1206,6 +1216,12 @@ export function createApp(config, deps = {}) {
       );
       return expired;
     }
+    // Check store availability before asking for consent: a customer must never be asked to grant a durable
+    // staff-sharing permission for a team that cannot currently be reached. Still inside the transaction, so a
+    // failure here rolls back the consumed_at write above and leaves the action usable once the store recovers.
+    if (STAFF_INBOX_ACTION_KINDS.has(row.kind) && !staffInboxStoreUp()) {
+      fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
+    }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
       const messageKey = row.kind === 'share_brief_text'
         ? 'brief.share_consent'
@@ -1403,7 +1419,9 @@ export function createApp(config, deps = {}) {
     } else {
       actions.push(persistAction(session, 'request_pending_booking', 'handoff_pending_booking', 1));
     }
-    actions.push(persistAction(session, 'talk_to_staff', 'handoff_staff', 1));
+    if (staffInboxStoreUp()) {
+      actions.push(persistAction(session, 'talk_to_staff', 'handoff_staff', 1));
+    }
     return actions;
   }
 
@@ -1619,7 +1637,9 @@ export function createApp(config, deps = {}) {
       );
     }
     const allowed = [];
+    const inboxUp = staffInboxStoreUp();
     for (const proposed of output.proposed_actions) {
+      if (STAFF_INBOX_ACTION_KINDS.has(proposed.kind) && !inboxUp) continue;
       const saved = persistProposedAction(session, proposed);
       if (saved) allowed.push(saved);
     }
@@ -1678,13 +1698,16 @@ export function createApp(config, deps = {}) {
     if (!brief || brief.subject_id !== session.subject_id) {
       fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
     }
+    if (!staffInboxStoreUp()) {
+      fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
+    }
     const allowed = [
       persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {
         requires_receipt_kind: 'staff_sharing_text',
         payload: { brief_id: brief.brief_id },
       }),
     ];
-    const caps = capabilitiesFor(config, session.role, realAdapter);
+    const caps = capabilitiesFor(config, session.role, realAdapter, staffInboxStoreUp());
     if (caps.photo === 'enabled') {
       const image = latestSessionImage(session);
       if (image) {
@@ -1740,13 +1763,7 @@ export function createApp(config, deps = {}) {
   return {
     store,
     health() {
-      let storeUp = false;
-      try {
-        storeUp = store.probe();
-      } catch {
-        storeUp = false;
-      }
-      const state = { ...healthOf(config, storeUp, realAdapter), checked_at: iso(clock) };
+      const state = { ...healthOf(config, staffInboxStoreUp(), realAdapter), checked_at: iso(clock) };
       assertContract('HealthState', state);
       return state;
     },
