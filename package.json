@@ -9,7 +9,8 @@
     "build:knowledge": "node knowledge/build.mjs",
     "eval:agent": "node src/agent/eval.mjs",
     "eval:agent:text-only": "node src/agent/eval.mjs --text-only",
-    "chat:agent": "node src/agent/chat.mjs"
+    "chat:agent": "node src/agent/chat.mjs",
+    "walkthrough:owner": "node scripts/owner-walkthrough.mjs"
   },
   "engines": {
     "node": ">=22"
