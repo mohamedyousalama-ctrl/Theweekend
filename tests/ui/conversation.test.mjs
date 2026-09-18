@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readJson, failure, assertNoForbiddenCopy } from './helpers.mjs';
 import { renderConversation } from '../../src/ui/conversation/view.js';
-import { composeTurn } from '../../src/ui/conversation/composer.js';
+import { composeTurn, renderComposer } from '../../src/ui/conversation/composer.js';
 import { renderActionRow } from '../../src/ui/conversation/action-row.js';
 import { renderOptionalImage } from '../../src/ui/conversation/optional-image.js';
 import { photoPreviewPermitted } from '../../src/ui/policy.js';
@@ -44,6 +44,24 @@ test('composer builds ChatTurnInput with client turn_id uuid', () => {
   assert.equal(result.ok, true, result.errors.join('; '));
   assert.equal(built.turn_id, inputFix.turn_id);
   assert.equal(built.image_ref, null);
+});
+
+test('empty composer disables Send and shows turn.invalid copy locally', () => {
+  const empty = renderComposer({ locale: 'ar', draft: '   ' });
+  assert.match(empty.html, /disabled data-send="true"|data-send="true"[^>]*disabled/);
+  const invalid = renderComposer({
+    locale: 'ar',
+    draft: '',
+    validationError: {
+      code: 'VALIDATION_ERROR',
+      message_key: 'turn.invalid',
+      details: { field: 'text' },
+    },
+  });
+  assert.match(invalid.html, /اكتب نصاً قبل الإرسال/);
+  const filled = renderComposer({ locale: 'en', draft: 'hello' });
+  assert.doesNotMatch(filled.html, /data-send="true"[^>]*disabled/);
+  assert.doesNotMatch(filled.html, /disabled[^>]*data-send="true"/);
 });
 
 test('action row drops invented kinds and does not execute proposals', () => {

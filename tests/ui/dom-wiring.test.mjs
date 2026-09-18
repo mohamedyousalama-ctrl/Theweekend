@@ -557,3 +557,30 @@ test('retry after a retryable turn then a retryable upload posts /uploads once a
   assert.equal(calls.filter((c) => c.path === '/turns').length, 1);
   assert.equal(app.state.imageRef, 'img_syn_retry_up');
 });
+
+test('empty or whitespace composer submit does not post /turns and shows turn.invalid', async () => {
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const composer = root.querySelector('[data-component="composer"]');
+  composer.fire('submit');
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 0);
+  assert.equal(app.state.error?.message_key, 'turn.invalid');
+  assert.match(root.innerHTML, /اكتب نصاً قبل الإرسال/);
+
+  const again = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = '   ';
+  again.fire('submit');
+  for (let i = 0; i < 10; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 0);
+});

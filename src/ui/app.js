@@ -268,6 +268,17 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       composer.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const text = composer.querySelector('textarea').value;
+        if (!String(text || '').trim()) {
+          state.error = {
+            contract_version: '0.1.0',
+            code: 'VALIDATION_ERROR',
+            message_key: 'turn.invalid',
+            retryable: false,
+            details: { field: 'text' },
+          };
+          paint();
+          return;
+        }
         await submitTurn(text);
       });
     }
@@ -472,6 +483,17 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
   }
 
   async function submitTurn(text) {
+    if (!String(text || '').trim()) {
+      state.error = {
+        contract_version: '0.1.0',
+        code: 'VALIDATION_ERROR',
+        message_key: 'turn.invalid',
+        retryable: false,
+        details: { field: 'text' },
+      };
+      paint();
+      return;
+    }
     state.draft = text;
     if (!state.context) return;
     state.loadingTurn = true;
