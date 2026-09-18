@@ -12,10 +12,10 @@
 | Baseline suite rerun on `468fbe4` | `node --test tests/*.test.mjs` → **112 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-14 04:35 UTC) | tested, this checkout |
 | CodeRabbit on PR #1 | skipped the draft — **not** a pass | recorded |
 | Non-author review of PR #1 content | NOT_RUN in this pass (historical reviews in docs 14/15 stand as what they are) | honest status |
-| Current `main` after PR #24 (C2) and PR #25 (UI third handback) | `4bfe6b526daa5bc5ebe448e2c90abc3f8415e673` | verified (git), 2026-09-15 |
-| `npm test` on a clean merge of those two PRs | **357 pass, 0 fail, 0 skipped** (Node v22.14.0) | tested, this checkout's ancestor |
+| Current `main` after PRs #24–#29 | `2050d452aab515f807de7a83d88eb470648eba0e` | verified (git), 2026-09-18 |
+| `npm test` on `2050d45` (staff-inbox follow-up merged with retry) | **364 pass, 0 fail, 0 skipped** (Node v22.14.0) | tested, this checkout's ancestor |
 
-The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application. The 357-test pin is still not G01–G13 production release; real model, Railway, and the #8 browser walkthrough were not run.
+The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application. The 364-test pin is still not G01–G13 production release. Text `eval:agent` ran on 2026-09-15 (28/30 on prompt v0.4; two-case recheck on v0.5). Vision and the #8 browser walkthrough were not run.
 
 ## 2. Immutable base pin and merge sequence (item 8)
 
@@ -23,7 +23,8 @@ The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next
 2. After that merge, the resulting `main` commit is the **immutable base pin**; the integrator posts its SHA in #3 and #2 within the same day.
 3. Until it is posted, A/B/C prepare on branches created from the C-baseline PR head (`work/c-rakan-platform`) and **rebase onto the pin before opening a non-draft PR**. Nothing executable may be invented outside the contract in §6.
 4. Work branches: `work/a-rakan-agent`, `work/b-rakan-ui`, `work/c-rakan-platform`. One PR per coherent change. Merges per `CONTINUE.md` §3 item 7 (owner until 2026-09-14, then the integrator under D17).
-5. (2026-09-15.) Package C2 merged as **PR #24** (`de6da6b`) and the UI third handback as **PR #25** (`4bfe6b5`) onto `main`. Later C work branches from `4bfe6b5` (or a newer `main`), not from `cursor/c2-rakan-platform-4ab6`.
+5. (2026-09-15.) Package C2 merged as **PR #24** (`de6da6b`) and the UI third handback as **PR #25** (`4bfe6b5`) onto `main`.
+6. (2026-09-18.) Owner instructed Cursor to merge remaining PRs: **#26** docs/health, **#28** eval/prompt v0.5, **#27** retry, **#29** staff inbox follow-up. Resulting `main` is `2050d452aab515f807de7a83d88eb470648eba0e`.
 
 ## 3. Ownership map (items 3, 5 of #2; repeated in `CONTINUE.md`)
 
