@@ -8,6 +8,10 @@ import {
   NEGATIVE_PROBE_DEFAULT_SKIP,
   textOnlyTurnBlocker,
   TEXT_ONLY_TURN_BLOCKER,
+  handoffSkip,
+  HANDOFF_NOT_RUN,
+  HANDOFF_SKIP_BLOCKER,
+  walkthroughExitCode,
 } from '../../scripts/owner-walkthrough.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -64,4 +68,19 @@ test('a failed or non-ok style turn records a text-only blocker', () => {
 
   const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
   assert.match(script, /textOnlyTurnBlocker\(style\)/);
+});
+
+test('missing talk_to_staff records not_run and a non-zero exit', () => {
+  assert.equal(handoffSkip({ kind: 'talk_to_staff', action_id: 'act_staff' }), null);
+  const skip = handoffSkip(null);
+  assert.equal(skip.not_run, HANDOFF_NOT_RUN);
+  assert.equal(skip.blocker, HANDOFF_SKIP_BLOCKER);
+  assert.equal(walkthroughExitCode({ blockers: [] }), 0);
+  assert.equal(walkthroughExitCode({ blockers: [skip.blocker] }), 1);
+
+  const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
+  assert.match(script, /handoffSkip\(talk\)/);
+  assert.match(script, /not_run\.push\(skippedHandoff\.not_run\)/);
+  assert.match(script, /blockers\.push\(skippedHandoff\.blocker\)/);
+  assert.match(script, /process\.exit\(walkthroughExitCode\(report\)\)/);
 });

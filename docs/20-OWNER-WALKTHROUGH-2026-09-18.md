@@ -12,6 +12,8 @@ The runner’s wrong-staff-passcode probe is **off by default** (C5). Set `WEEKE
 
 A style request that is not HTTP 200 with `output.state=ok` is a blocker. Steps 4–5 must not skip that turn and still exit 0.
 
+If no greet/price/style turn offers `talk_to_staff`, the runner records `not_run` with that reason and exits non-zero. A clean exit cannot hide an unexercised staff-handoff check.
+
 | Object | Observation |
 |---|---|
 | Git `main` at this record | `55c4c6b7d4314b8f64786ae310b88fca326a6465` (PR #36 hub after B4 PR #34) |

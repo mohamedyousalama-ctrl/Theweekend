@@ -47,6 +47,24 @@ export function textOnlyTurnBlocker(style) {
   return TEXT_ONLY_TURN_BLOCKER;
 }
 
+export const HANDOFF_NOT_RUN =
+  'staff handoff (no talk_to_staff on greet/price/style turns)';
+
+export const HANDOFF_SKIP_BLOCKER =
+  'staff handoff was not exercised: no talk_to_staff on greet/price/style turns';
+
+export function handoffSkip(talk) {
+  if (talk) return null;
+  return {
+    not_run: HANDOFF_NOT_RUN,
+    blocker: HANDOFF_SKIP_BLOCKER,
+  };
+}
+
+export function walkthroughExitCode(report) {
+  return Array.isArray(report?.blockers) && report.blockers.length > 0 ? 1 : 0;
+}
+
 function failUsage(message) {
   process.stderr.write(`${message}\n`);
   process.exit(2);
@@ -288,7 +306,7 @@ async function main() {
     );
     report.finished_at = new Date().toISOString();
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-    process.exit(report.blockers.length ? 1 : 0);
+    process.exit(walkthroughExitCode(report));
   }
 
   const customer = await http(base, '/session', {
@@ -505,7 +523,11 @@ async function main() {
 
   const talk = findAction(styleActions, 'talk_to_staff') || findAction(price.json?.allowed_actions, 'talk_to_staff')
     || findAction(greet.json?.allowed_actions, 'talk_to_staff');
-  if (talk) {
+  const skippedHandoff = handoffSkip(talk);
+  if (skippedHandoff) {
+    report.not_run.push(skippedHandoff.not_run);
+    report.blockers.push(skippedHandoff.blocker);
+  } else {
     const queued = await http(base, `/actions/${talk.action_id}`, {
       method: 'POST',
       token: customerToken,
@@ -528,7 +550,7 @@ async function main() {
 
   report.finished_at = new Date().toISOString();
   process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-  process.exit(report.blockers.length ? 1 : 0);
+  process.exit(walkthroughExitCode(report));
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
