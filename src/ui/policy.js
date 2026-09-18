@@ -163,6 +163,16 @@ export function isGreetingOnly(text) {
   return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
 }
 
+/** Text-only turns that must not dump styles, a brief, or extra actions. */
+export function isPacingHold(text, hasImage = false) {
+  if (hasImage) return false;
+  const raw = String(text || '').trim();
+  if (!raw) return true;
+  if (isGreetingOnly(raw)) return true;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
+}
+
 export function photoPreviewPermitted(context) {
   if (!context || typeof context !== 'object') return false;
   return context.capabilities?.photo === 'enabled'

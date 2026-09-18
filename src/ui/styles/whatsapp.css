@@ -1,7 +1,8 @@
 .try-body {
   min-height: 100vh;
   margin: 0;
-  background: var(--wk-ground);
+  background: #0b141a;
+  color: #111b21;
 }
 
 .wa-stage {
@@ -10,7 +11,10 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background: #efeae2;
+  background-color: #efeae2;
+  background-image:
+    radial-gradient(rgba(0, 0, 0, 0.04) 0.6px, transparent 0.6px);
+  background-size: 18px 18px;
   color: #111b21;
 }
 
@@ -37,12 +41,14 @@
   padding: 10px 12px;
   background: #075e54;
   color: #fff;
+  flex-shrink: 0;
 }
 
 .wa-back {
   color: #fff;
   text-decoration: none;
-  font-size: 20px;
+  font-size: 22px;
+  line-height: 1;
   padding: 4px 6px;
 }
 
@@ -57,6 +63,7 @@
   justify-content: center;
   font-size: 13px;
   font-weight: 700;
+  flex-shrink: 0;
 }
 
 .wa-who {
@@ -64,62 +71,27 @@
   flex-direction: column;
   gap: 1px;
   min-width: 0;
+  flex: 1;
 }
 
 .wa-who strong {
   font-size: 16px;
+  font-weight: 600;
 }
 
-.wa-who span {
-  font-size: 12px;
-  opacity: 0.85;
-}
-
+.wa-who span,
 .wa-who em {
   font-style: normal;
-  font-size: 11px;
-  opacity: 0.75;
-}
-
-.wa-stage [data-action-kind="open_official_booking"] {
-  display: block;
-  max-width: 82%;
-  margin-left: auto;
-  text-align: center;
-  background: #fff;
-  color: #027a5a;
-}
-
-.wa-stage [data-component="brief-draft"] {
-  max-width: 82%;
-  margin-left: auto;
-  background: #fff;
-  border: 0;
-  border-radius: 8px;
-  color: #111b21;
-  padding: 10px 12px;
-}
-
-.wa-stage [data-component="brief-draft"] .wk-pill {
-  display: none;
-}
-
-.wa-stage [data-component="optional-image"] {
-  padding: 0 4px 8px;
-}
-
-.wa-quick-btn {
-  border: 1px solid #027a5a;
-  background: #fff;
-  color: #027a5a;
-  border-radius: 18px;
-  padding: 7px 12px;
-  font-size: 13px;
-  cursor: pointer;
+  font-size: 12px;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .wa-stage .wk-phone {
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   background: transparent;
@@ -128,37 +100,48 @@
 
 .wa-stage .wk-transcript {
   flex: 1;
+  min-height: 0;
+  overflow: auto;
   gap: 6px;
 }
 
 .wa-stage .wk-message {
   max-width: 82%;
   background: #fff;
+  color: #111b21;
   border: 0;
   border-radius: 8px 8px 2px 8px;
   padding: 8px 10px;
   font-size: 14.5px;
   line-height: 1.6;
-  color: #111b21;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.08);
 }
 
+.wa-stage .wk-message:empty {
+  display: none;
+}
+
 .wa-stage .wk-message[data-from="guest"] {
-  margin-right: auto;
-  margin-left: 0;
+  margin-inline-start: auto;
+  margin-inline-end: 0;
   background: #d9fdd3;
+  color: #111b21;
   border-radius: 8px 8px 8px 2px;
 }
 
 .wa-stage .wk-message[data-from="khalid"],
 .wa-stage .wk-message[data-from="rakan"] {
-  margin-left: auto;
+  margin-inline-start: 0;
+  margin-inline-end: auto;
 }
 
-.wa-stage .wk-empty {
+.wa-stage .wk-empty,
+.wa-stage .wk-skeleton {
   color: #54656f;
   background: transparent;
   border: 0;
+  min-height: 0;
+  padding: 8px;
 }
 
 .wa-stage .wk-style-grid {
@@ -167,10 +150,16 @@
   gap: 6px;
 }
 
-.wa-stage .wk-style-card {
+.wa-stage .wk-style-card,
+.wa-stage .wk-transcript .wk-style-grid {
   max-width: 82%;
-  margin-left: auto;
+}
+
+.wa-stage .wk-style-card {
+  margin-inline-end: auto;
+  margin-inline-start: 0;
   background: #fff;
+  color: #111b21;
   border: 0;
   border-radius: 8px;
   padding: 10px 12px;
@@ -190,9 +179,71 @@
   display: none;
 }
 
+.wa-stage [data-action-kind="open_official_booking"] {
+  display: block;
+  max-width: 82%;
+  margin-inline-end: auto;
+  margin-inline-start: 0;
+  text-align: center;
+  background: #fff;
+  color: #027a5a;
+}
+
+.wa-stage [data-component="brief-draft"] {
+  max-width: 82%;
+  margin-inline-end: auto;
+  margin-inline-start: 0;
+  background: #fff;
+  border: 0;
+  border-radius: 8px;
+  color: #111b21;
+  padding: 8px 10px;
+}
+
+.wa-stage [data-component="brief-draft"] .wk-eyebrow,
+.wa-stage .wa-brief-kicker {
+  color: #667781;
+  letter-spacing: 0;
+  font-size: 12px;
+  margin: 0 0 6px;
+}
+
+.wa-stage [data-component="brief-draft"] .wk-brief-row {
+  background: transparent;
+  border: 0;
+  padding: 4px 0;
+}
+
+.wa-stage [data-component="brief-draft"] .wk-brief-label {
+  color: #667781;
+}
+
+.wa-stage [data-component="brief-draft"] .wk-brief-value {
+  color: #111b21;
+}
+
+.wa-stage [data-component="brief-draft"] .wk-pill {
+  display: none;
+}
+
+.wa-stage [data-component="optional-image"] {
+  padding: 0 4px 8px;
+}
+
+.wa-quick-btn,
+.wa-quick button {
+  border: 1px solid #027a5a;
+  background: #fff;
+  color: #027a5a;
+  border-radius: 18px;
+  padding: 7px 12px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
 .wa-stage .wk-action-row {
-  flex-wrap: nowrap;
-  overflow-x: auto;
+  flex-wrap: wrap;
+  overflow: visible;
   padding: 4px 0 8px;
 }
 
@@ -207,11 +258,12 @@
   background: #f0f2f5;
   padding: 8px;
   flex-direction: row;
-  align-items: flex-end;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
-.wa-stage .wk-composer label {
+.wa-stage .wk-composer > label[for="wk-composer-text"] {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -220,6 +272,9 @@
 }
 
 .wa-stage .wk-composer textarea {
+  width: auto;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 42px;
   max-height: 120px;
   border-radius: 22px;
@@ -227,11 +282,13 @@
   color: #111b21;
   border: 0;
   padding: 10px 14px;
+  resize: none;
 }
 
 .wa-stage .wk-composer [data-send="true"] {
   background: #25d366;
   color: #fff;
+  border: 0;
   border-radius: 50%;
   width: 42px;
   height: 42px;
@@ -246,15 +303,14 @@
   height: 42px;
 }
 
-.wa-stage .wk-photo-upload label,
-.wa-stage .wa-attach {
+.wa-stage .wk-photo-upload .wa-attach {
   position: absolute;
   inset: 0;
-  clip: auto;
   width: 42px;
   height: 42px;
   overflow: hidden;
   font-size: 0;
+  color: transparent;
   cursor: pointer;
   border-radius: 50%;
   background: #fff;
@@ -264,7 +320,7 @@
   content: "";
   position: absolute;
   top: 11px;
-  right: 18px;
+  inset-inline-end: 18px;
   width: 7px;
   height: 16px;
   border: 2px solid #54656f;
@@ -272,35 +328,42 @@
   transform: rotate(-35deg);
 }
 
-.wa-stage .wk-photo-upload input {
+.wa-stage .wk-photo-upload input[type="file"] {
   position: absolute;
   inset: 0;
   opacity: 0;
   width: 42px;
   height: 42px;
-  cursor: pointer;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  color: transparent;
   font-size: 0;
+  cursor: pointer;
+  appearance: none;
+}
+
+.wa-stage .wk-photo-upload input[type="file"]::file-selector-button,
+.wa-stage .wk-photo-upload input[type="file"]::-webkit-file-upload-button {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .wa-stage .wk-bubble-photo {
   display: block;
-  max-width: 220px;
-  max-height: 280px;
-  width: 100%;
+  max-width: 180px;
+  max-height: 220px;
+  width: auto;
   height: auto;
   border-radius: 6px;
   object-fit: cover;
-  margin-top: 4px;
+  margin: 0;
 }
 
 .wa-stage .wk-message[data-has-photo="true"] {
-  padding: 5px;
-}
-
-.wa-stage .wk-transcript .wk-style-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
+  max-width: 196px;
+  padding: 4px;
 }
 
 .wa-quick {
@@ -308,14 +371,46 @@
   gap: 6px;
   flex-wrap: wrap;
   padding: 0 4px 8px;
+  justify-content: flex-start;
 }
 
-.wa-quick button {
-  border: 1px solid #027a5a;
+.wa-typing {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 64px;
+  margin-inline-end: auto;
+  margin-inline-start: 0;
   background: #fff;
-  color: #027a5a;
-  border-radius: 18px;
-  padding: 7px 12px;
-  font-size: 13px;
-  cursor: pointer;
+  border-radius: 8px;
+  padding: 10px 12px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.08);
+}
+
+.wa-typing span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #8696a0;
+  opacity: 0.4;
+}
+
+.wa-stage .wk-consent,
+.wa-stage .wk-error {
+  background: #fff;
+  color: #111b21;
+  border: 0;
+  border-radius: 10px;
+  margin: 0 4px 10px;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.08);
+}
+
+.wa-stage .wk-consent-title,
+.wa-stage .wk-lead,
+.wa-stage .wk-error p {
+  color: #111b21;
+}
+
+.wa-stage .wk-result {
+  color: #54656f;
 }

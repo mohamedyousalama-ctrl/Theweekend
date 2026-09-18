@@ -555,10 +555,14 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       return;
     }
     state.draft = text;
-    if (!state.context) return;
+    if (!state.context) {
+      paint();
+      return;
+    }
     if (state.shell === 'try') {
       if (!state.thread.length) state.thread = welcomeThread();
       state.thread = [...state.thread, { from: 'guest', text, lang: locale() === 'en' ? 'en' : 'ar' }];
+      state.draft = '';
     }
     state.loadingTurn = true;
     state.error = null;

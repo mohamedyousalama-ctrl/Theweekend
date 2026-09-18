@@ -5,9 +5,22 @@ export function renderBriefDraft({
   draft = null,
   locale = 'ar',
   approving = false,
+  variant = 'weekend',
 } = {}) {
   if (!draft || draft.status !== 'draft' || !draft.requested_look?.text_ar) {
     return { html: '', meta: { shown: false } };
+  }
+  if (variant === 'whatsapp') {
+    const html = el('article', {
+      class: 'wk-message',
+      'data-from': 'khalid',
+      'data-component': 'brief-draft',
+      'data-brief-status': 'draft',
+    }, [
+      el('p', { class: 'wa-brief-kicker' }, t(locale, 'draft_brief')),
+      el('p', {}, escapeHtml(draft.requested_look.text_ar)),
+    ]);
+    return { html, meta: { shown: true, status: 'draft' } };
   }
   const html = el('section', {
     class: 'wk-brief',

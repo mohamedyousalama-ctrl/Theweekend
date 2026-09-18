@@ -19,7 +19,8 @@ function renderMessage(msg, locale) {
       'data-chat-photo': 'true',
     })
     : '';
-  const text = msg.text ? escapeHtml(msg.text) : '';
+  const text = msg.text && String(msg.text).trim() ? escapeHtml(msg.text) : '';
+  if (!text && !photo) return '';
   return el('article', {
     class: 'wk-message',
     'data-from': from,
@@ -28,25 +29,39 @@ function renderMessage(msg, locale) {
   }, [text, photo].filter(Boolean).join(''));
 }
 
+function typingIndicator(locale) {
+  return el('div', {
+    class: 'wa-typing',
+    'data-state': 'loading',
+    'aria-label': t(locale, 'loading'),
+  }, [
+    el('span', {}, ''),
+    el('span', {}, ''),
+    el('span', {}, ''),
+  ]);
+}
+
 export function renderTranscript({
   messages = [],
   locale = 'ar',
   loading = false,
   extras = '',
+  keepOnLoad = false,
 } = {}) {
-  if (loading) {
+  if (loading && !keepOnLoad) {
     return {
       html: el('div', {
         class: 'wk-transcript',
         'data-surface': 'conversation',
         'aria-busy': 'true',
       }, el('div', { class: 'wk-skeleton', 'data-state': 'loading' }, t(locale, 'loading'))),
-      meta: { count: 0, loading: true },
+      meta: { count: 0, loading: true, photoBubbles: 0 },
     };
   }
   const list = Array.isArray(messages) ? messages.slice(-THREAD_MAX) : [];
-  const inner = list.length
-    ? [...list.map((msg) => renderMessage(msg, locale)), extras]
+  const bubbles = list.map((msg) => renderMessage(msg, locale)).filter(Boolean);
+  const inner = bubbles.length
+    ? [...bubbles, extras, loading ? typingIndicator(locale) : '']
     : [el('div', { class: 'wk-empty', 'data-state': 'empty' }, t(locale, 'empty_messages'))];
 
   return {
@@ -54,7 +69,12 @@ export function renderTranscript({
       class: 'wk-transcript',
       'data-surface': 'conversation',
       'aria-live': 'polite',
+      'aria-busy': loading ? 'true' : 'false',
     }, inner),
-    meta: { count: list.length, loading: false, photoBubbles: list.filter((m) => isSafeChatPhotoUrl(m.imageUrl)).length },
+    meta: {
+      count: bubbles.length,
+      loading: Boolean(loading),
+      photoBubbles: list.filter((m) => isSafeChatPhotoUrl(m.imageUrl)).length,
+    },
   };
 }

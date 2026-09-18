@@ -239,6 +239,16 @@ export function isGreetingOnly(text) {
   return /^(وعليكم السلام\s+)?(هلا( والله)?|السلام عليكم|مرحباً?|أهلاً?( وسهلاً?)?|اهلا|سلام عليكم|سلام|hi there|hello|hey|hi)(\s+(والله|فيك))?$/iu.test(t);
 }
 
+/** Greeting or photo-intent without an image: do not dump styles, brief, or extra actions. */
+export function isPacingHold(text, hasImage = false) {
+  if (hasImage) return false;
+  const raw = String(text || '').trim();
+  if (!raw) return true;
+  if (isGreetingOnly(raw)) return true;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
+}
+
 export function actionAllowed(kind, caps, hasImage) {
   switch (kind) {
     case 'open_official_booking': return caps.booking_handoff === 'official_link';
@@ -635,7 +645,7 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   }
   for (const n of notes) if (!flags.includes(n)) flags.push(n);
 
-  const greetingOnly = !hasImage && isGreetingOnly(input?.text);
+  const greetingOnly = isPacingHold(input?.text, hasImage);
   const pacedStyles = greetingOnly ? [] : styleOptions;
   const pacedBrief = greetingOnly ? null : briefDraft;
   const pacedActions = greetingOnly ? [] : proposedActions;

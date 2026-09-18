@@ -250,6 +250,17 @@ test('greeting-only turns drop dumped styles, brief and extra actions', () => {
   });
   assert.equal(priced.style_options.length, 2);
   assert.equal(priced.proposed_actions.some((a) => a.kind === 'open_official_booking'), true);
+  const photoAsk = mapModelOutput(raw, {
+    context: context(),
+    input: input('صورتي'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(photoAsk.style_options.length, 0);
+  assert.equal(photoAsk.brief_draft, null);
+  assert.equal(photoAsk.proposed_actions.length, 0);
 });
 
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {

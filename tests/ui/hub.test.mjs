@@ -57,6 +57,7 @@ test('WhatsApp composer uses a paperclip control, not a native file caption', ()
   assert.match(composer.html, /wa-attach/);
   assert.match(composer.html, /data-photo-input="true"/);
   assert.match(composer.html, /accept="image\/jpeg,image\/png,image\/webp"/);
+  assert.match(composer.html, /placeholder="رسالة"/);
 });
 
 const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -168,6 +169,61 @@ test('WhatsApp thread shows an attached photo inside the chat bubble', () => {
   assert.doesNotMatch(blocked.html, /data-chat-photo="true"/);
 });
 
+test('WhatsApp loading keeps the thread and does not replace it with a dark skeleton', () => {
+  const view = renderConversation({
+    locale: 'ar',
+    variant: 'whatsapp',
+    loading: true,
+    thread: [
+      { from: 'khalid', text: COPY.ar.wa_welcome, lang: 'ar' },
+      { from: 'guest', text: 'صورتي', lang: 'ar' },
+    ],
+    allowedActions: [{
+      action_id: 'act_syn_nophoto',
+      kind: 'continue_without_photo',
+      label_ar: 'بدون صورة',
+      label_en: 'No photo',
+    }],
+  });
+  assert.match(view.html, /مساعد ذا ويكند الرقمي/);
+  assert.match(view.html, /صورتي/);
+  assert.match(view.html, /wa-typing/);
+  assert.doesNotMatch(view.html, /wk-skeleton/);
+  assert.doesNotMatch(view.html, /بدون صورة/);
+});
+
+test('WhatsApp brief is a chat bubble, not a black staff card', () => {
+  const view = renderConversation({
+    locale: 'ar',
+    variant: 'whatsapp',
+    thread: [
+      { from: 'khalid', text: COPY.ar.wa_welcome, lang: 'ar' },
+      { from: 'guest', text: 'أبغى فيد', lang: 'ar' },
+      { from: 'khalid', text: 'تمام', lang: 'ar' },
+      { from: 'guest', text: 'الأول', lang: 'ar' },
+      { from: 'khalid', text: 'أبشر', lang: 'ar' },
+    ],
+    output: {
+      state: 'ok',
+      messages: [{ text: 'أبشر', lang: 'ar' }],
+      style_options: [],
+      brief_draft: { status: 'draft', requested_look: { text_ar: 'فيد جانبي مع تهذيب اللحية' } },
+      flags: [],
+    },
+    allowedActions: [{
+      action_id: 'act_syn_book_link_a',
+      kind: 'open_official_booking',
+      label_ar: 'صفحة الحجز الرسمية',
+      label_en: 'Official booking page',
+      url: 'https://example.invalid/book',
+    }],
+  });
+  assert.match(view.html, /فيد جانبي مع تهذيب اللحية/);
+  assert.match(view.html, /wa-brief-kicker/);
+  assert.doesNotMatch(view.html, /wk-brief-value/);
+  assert.doesNotMatch(view.html, /data-style-replies/);
+});
+
 test('hub routes stay split: public pages, locked team shells, JSON /health', async () => {
   const { app, config } = testApp();
   const server = createHttpServer(app, config);
@@ -209,4 +265,6 @@ test('try skin and hub pages do not ship WhatsApp trademarks or demo shame copy'
   }
   assert.match(tryCss, /\.wa-attach::before/);
   assert.match(tryCss, /opacity:\s*0/);
+  assert.match(tryCss, /::file-selector-button/);
+  assert.match(tryCss, /\.wa-typing/);
 });

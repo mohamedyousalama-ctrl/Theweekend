@@ -11,6 +11,11 @@ import { renderError } from '../states/error.js';
 import { renderActionResult } from '../states/action-result.js';
 import { isGreetingOnly } from '../policy.js';
 
+function lastGuestText(messages) {
+  const lastGuest = [...messages].reverse().find((msg) => msg.from === 'guest');
+  return lastGuest || null;
+}
+
 export function renderConversation({
   context = null,
   output = null,
@@ -31,13 +36,24 @@ export function renderConversation({
   const messages = Array.isArray(thread) && thread.length
     ? thread
     : outputMessages.map((msg) => ({ ...msg, from: 'khalid' }));
-  const lastGuest = [...messages].reverse().find((msg) => msg.from === 'guest');
+  const lastGuest = lastGuestText(messages);
   const lastFromGuest = messages.length ? messages[messages.length - 1].from === 'guest' : false;
-  const greetingTurn = !lastGuest || isGreetingOnly(lastGuest.text);
-  const pickedStyle = Boolean(lastGuest && /^(الأول|الثاني|بدون هالخيارات|The first|The second|Skip these options)$/u.test(String(lastGuest.text || '').trim()));
+  const guestSaid = String(lastGuest?.text || '').trim();
+  const guestSentPhoto = Boolean(lastGuest?.imageUrl);
+  const greetingTurn = !guestSaid && !guestSentPhoto
+    ? true
+    : (!guestSentPhoto && isGreetingOnly(guestSaid));
+  const pickedStyle = Boolean(guestSaid && /^(الأول|الثاني|بدون هالخيارات|The first|The second|Skip these options)$/u.test(guestSaid));
   const hasAttachedPhoto = messages.some((msg) => Boolean(msg.imageUrl));
-  const lastKhalid = [...messages].reverse().find((msg) => msg.from !== 'guest');
-  const photoMentioned = Boolean(lastKhalid && /صور|photo/i.test(lastKhalid.text || ''));
+  const khalidLines = messages.filter((msg) => msg.from !== 'guest' && String(msg.text || '').trim());
+  const lastKhalid = khalidLines.at(-1);
+  const welcomeText = t(locale, 'wa_welcome');
+  const lastIsWelcome = Boolean(lastKhalid && lastKhalid.text === welcomeText);
+  const photoOffered = Boolean(
+    lastKhalid
+    && !lastIsWelcome
+    && /أرفق|ارفق|تبي ترسل|بدون صورة|attach a photo|without a photo/i.test(lastKhalid.text || ''),
+  );
 
   const styles = renderStyleOptionCards({ styleOptions: output?.style_options, locale, variant });
   const styleCount = styles.meta.count;
@@ -54,13 +70,14 @@ export function renderConversation({
     && !greetingTurn
     && !hasAttachedPhoto
     && !showStyles
-    && photoMentioned;
+    && photoOffered;
 
   const transcript = renderTranscript({
     messages,
     locale,
     loading,
     extras: whatsapp && showStyles ? styles.html : '',
+    keepOnLoad: whatsapp,
   });
   const composerDisabled = loading || output?.state === 'unavailable';
   const composer = renderComposer({
@@ -80,10 +97,10 @@ export function renderConversation({
     disabled: loading || reconnectInvalidates,
     reconnectInvalidates,
     variant,
-    greetingTurn: whatsapp ? greetingTurn : false,
+    greetingTurn: whatsapp ? greetingTurn || loading : false,
     showStyles: whatsapp ? showStyles : false,
     hasBrief: whatsapp ? showBrief : hasBrief,
-    lastGuestText: lastGuest?.text || '',
+    lastGuestText: guestSaid,
     flags: output?.flags,
   });
   const limits = renderObservationLimits({ observations: output?.observations, locale });
@@ -100,6 +117,7 @@ export function renderConversation({
       draft: output?.brief_draft,
       locale,
       approving: briefApproving,
+      variant,
     })
     : { html: '', meta: { shown: false } };
   const err = error || (output && output.state !== 'ok' ? output.error : null);
@@ -107,7 +125,7 @@ export function renderConversation({
   const result = renderActionResult({ actionResult, locale });
   const flags = Array.isArray(output?.flags) ? output.flags : [];
 
-  const welcomeQuick = whatsapp && quickReplies
+  const welcomeQuick = whatsapp && quickReplies && !loading
     ? el('div', { class: 'wa-quick', 'data-quick-replies': 'true' }, [
       el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_fade') }, t(locale, 'quick_fade')),
       el('button', { type: 'button', 'data-quick-text': t(locale, 'quick_combo') }, t(locale, 'quick_combo')),
@@ -139,9 +157,9 @@ export function renderConversation({
     whatsapp ? '' : (flags.length ? el('p', { class: 'wk-note', 'data-flags': flags.join(',') }, `${t(locale, 'flags')}: ${escapeHtml(flags.join(', '))}`) : ''),
     whatsapp ? '' : styles.html,
     whatsapp ? '' : limits.html,
-    photo.html,
-    briefDraft.html,
-    actions.html,
+    loading && whatsapp ? '' : photo.html,
+    loading && whatsapp ? '' : briefDraft.html,
+    loading && whatsapp ? '' : actions.html,
     result.html,
     errorBlock.html,
     quick,
