@@ -1,6 +1,6 @@
 {
   "pack_version": "marsiya.v1",
-  "pack_revision": 3,
+  "pack_revision": 5,
   "branch_id": "br_marsiya",
   "storefront_branch_id": "3a1ca9a9-12bd-36bb-7b56-f4b957522fbe",
   "built_from": [
@@ -31,8 +31,8 @@
       "kind": "faq",
       "branch_id": "br_marsiya",
       "ref": "https://theweekendhairstyling.com/book",
-      "text_ar": "الحجز يتم من صفحة الحجز الرسمية: https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe — يختار العميل الخدمة والحلاق والوقت بنفسه، والتأكيد يصير من الموقع بعد الدفع. خالد ما يحجز ولا يغيّر الحجز بنفسه في هذه المرحلة.",
-      "text_en": "Booking happens on the official page https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe; the customer picks service, barber and time; confirmation comes from the site after payment. Khalid does not create or change bookings in this phase.",
+      "text_ar": "الحجز يتم من صفحة الحجز الرسمية: https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe — يختار العميل الخدمة والحلاق والوقت بنفسه، والتأكيد يصير من صفحة الحجز الرسمية. خالد ما يحجز ولا يغيّر الحجز بنفسه في هذه المرحلة.",
+      "text_en": "Booking happens on the official page https://theweekendhairstyling.com/book?branchId=3a1ca9a9-12bd-36bb-7b56-f4b957522fbe; the customer picks service, barber and time; confirmation comes from the official booking page. Khalid does not create or change bookings in this phase.",
       "source": "OWNER-ANSWERS-2026-09-14",
       "source_hash": "db70953b0cfa1850f556b58a318fbe50059cbbcf3f1c22282ad59707f96c085a",
       "status": "merchant_approved",
