@@ -1,5 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import { AppError, CLIENT_KEY_RETENTION_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
 import { hmacClientKey, signSession } from '../../src/server/ids.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
@@ -471,5 +475,47 @@ test('idle sweep nulls client_key after expiry plus one UTC day', () => {
   );
   const dump = JSON.stringify(app.store.all('SELECT * FROM sessions'));
   assert.equal(dump.includes(ip), false);
+  app.close();
+});
+
+test('migrate backfills guest_settled_minor from existing guest_cost_minor', async () => {
+  const now = '2026-09-18T12:00:00.000Z';
+  const today = now.slice(0, 10);
+  const dbPath = join(mkdtempSync(join(tmpdir(), 'weekend-settled-backfill-')), 'app.sqlite');
+  const raw = new DatabaseSync(dbPath);
+  raw.exec(`
+    CREATE TABLE daily_spend (
+      day TEXT PRIMARY KEY,
+      calls INTEGER NOT NULL,
+      cost_minor INTEGER NOT NULL,
+      guest_cost_minor INTEGER NOT NULL DEFAULT 0,
+      guest_alert_80 INTEGER NOT NULL DEFAULT 0,
+      guest_alert_100 INTEGER NOT NULL DEFAULT 0
+    );
+    INSERT INTO daily_spend (day, calls, cost_minor, guest_cost_minor, guest_alert_80, guest_alert_100)
+    VALUES ('${today}', 1, 300, 300, 0, 0);
+  `);
+  raw.close();
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+    WEEKEND_DB_PATH: dbPath,
+  }, {
+    clock: () => now,
+    adapter: adapterWithCost(50),
+    costCeilingMinor: 200,
+    log() {},
+  });
+  const spent = app.store.get('SELECT * FROM daily_spend WHERE day = ?', [today]);
+  assert.equal(spent.guest_settled_minor, 300);
+  assert.equal(spent.guest_cost_minor, 300);
+  const guest = app.createSession('customer', '', { clientKey: '203.0.113.84' });
+  await assert.rejects(
+    () => app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555671')),
+    err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
+      && err.shape.message_key === 'model.budget_exceeded',
+  );
   app.close();
 });

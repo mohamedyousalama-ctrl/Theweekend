@@ -83,6 +83,7 @@ function migrate(db) {
   }
   if (!spendCols.some((c) => c.name === 'guest_settled_minor')) {
     db.exec('ALTER TABLE daily_spend ADD COLUMN guest_settled_minor INTEGER NOT NULL DEFAULT 0');
+    db.exec('UPDATE daily_spend SET guest_settled_minor = guest_cost_minor');
   }
   db.exec(`CREATE TABLE IF NOT EXISTS guest_upload_quota (
     day TEXT NOT NULL,
