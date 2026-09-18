@@ -1,5 +1,7 @@
 /** Honest M1 copy. No synthetic names, prices, waits, ratings, or face-recognition claims. */
 
+import { escapeHtml } from './html.js';
+
 export const COPY = {
   ar: {
     skip: 'تخطّ إلى المحتوى',
@@ -374,7 +376,7 @@ export function capabilityLabel(name, value, locale = 'ar') {
       titleKey = name;
   }
   const title = t(locale, titleKey);
-  return `${title}: ${labels[value] ?? value}`;
+  return `${title}: ${labels[value] ?? escapeHtml(value)}`;
 }
 
 export function receiptKindLabel(kind, locale = 'ar') {

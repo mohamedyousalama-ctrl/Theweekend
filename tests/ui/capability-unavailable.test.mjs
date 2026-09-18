@@ -5,6 +5,7 @@ import { renderCapabilityCopy } from '../../src/ui/capability/capability-copy.js
 import { renderHealthBanner } from '../../src/ui/capability/health-banner.js';
 import { renderAppHeader } from '../../src/ui/chrome/app-header.js';
 import { M2_SURFACES, navForContext } from '../../src/ui/policy.js';
+import { capabilityLabel } from '../../src/ui/copy.js';
 
 const context = readJson('valid/trusted-context.json');
 const health = readJson('valid/health-state.json');
@@ -57,4 +58,13 @@ test('nav never includes M2 surfaces', () => {
     capabilities: { ...context.capabilities, staff_inbox: 'enabled', preferences: 'enabled' },
   }, { ...health, staff_inbox: 'ok' });
   assert.equal(items.some((i) => M2_SURFACES.includes(i.id)), false);
+});
+
+test('capabilityLabel escapes unknown fallback values', () => {
+  const html = capabilityLabel('model', '<script>alert(1)</script>', 'en');
+  assert.match(html, /&lt;script&gt;/);
+  assert.equal(html.includes('<script>'), false);
+  const known = capabilityLabel('photo', 'enabled', 'en');
+  assert.match(known, /enabled/);
+  assert.equal(known.includes('&lt;'), false);
 });
