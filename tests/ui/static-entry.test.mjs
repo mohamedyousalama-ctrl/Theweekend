@@ -42,3 +42,11 @@ test('index.html is RTL, mobile-first, keyboard skip link present in source', ()
   assert.match(app, /skip-link/);
   assert.match(app, /wk-composer-text|composer/);
 });
+
+test('states.css copies stay identical and restore .wk-lead', () => {
+  const a = readFileSync(join(ROOT, 'styles/states.css'), 'utf8');
+  const b = readFileSync(join(ROOT, 'src/ui/styles/states.css'), 'utf8');
+  assert.equal(a, b);
+  assert.match(a, /\.wk-lead\s*\{/);
+  assert.match(a, /max-width:\s*56ch/);
+});

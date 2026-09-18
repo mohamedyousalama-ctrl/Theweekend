@@ -81,6 +81,13 @@
   text-wrap: balance;
 }
 
+.wk-lead {
+  margin: 0 0 24px;
+  max-width: 56ch;
+  font-size: 17px;
+  line-height: 1.85;
+}
+
 .wk-consent {
   background: var(--wk-card-2);
   border: 1px solid rgba(225, 29, 46, 0.45);
