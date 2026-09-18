@@ -70,6 +70,8 @@ test('hosting doc unblocks Railway after C2 and the UI handback', () => {
   const baseline = readFileSync(join(ROOT, 'docs/16-C-BASELINE.md'), 'utf8');
   assert.match(baseline, new RegExp(pin));
   assert.match(hosting, new RegExp(pin.slice(0, 7)));
+  const handover = readFileSync(join(ROOT, 'docs/18-HANDOVER-INTEGRATOR.md'), 'utf8');
+  assert.match(handover, new RegExp('`main` = `' + pin.slice(0, 7) + '`'), 'docs/18 §2 names the same main pin');
 });
 
 test('railway and nixpacks pin npm start, /health, and Node 22', () => {
