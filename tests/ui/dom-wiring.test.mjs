@@ -241,6 +241,70 @@ test('brief approve posts /briefs then share-actions and renders executable shar
   assert.match(root.innerHTML, /مشاركة ملاحظات الصورة/);
 });
 
+test('share-actions 500 surfaces the error instead of an empty action list', async () => {
+  const calls = [];
+  const serverErr = {
+    contract_version: '0.1.0',
+    code: 'CAPABILITY_UNAVAILABLE',
+    message_key: 'store.unavailable',
+    retryable: true,
+    details: {},
+  };
+  let shareHits = 0;
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    calls.push({ path, method: opts.method || 'GET', json });
+    if (path === '/briefs' && opts.method === 'POST') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ...brief,
+          status: 'approved',
+          requested_look: { ...brief.requested_look, text_ar: json.text_ar },
+        }),
+      };
+    }
+    if (path === `/briefs/${brief.brief_id}/share-actions`) {
+      shareHits += 1;
+      if (shareHits === 1) {
+        return { ok: false, status: 500, json: async () => serverErr };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          contract_version: '0.1.0',
+          allowed_actions: [
+            action('share_brief_text', 'act_syn_share_after_retry', { requires_receipt_kind: 'staff_sharing_text' }),
+          ],
+        }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.state.output = { ...output, brief_draft: { ...brief, status: 'draft' } };
+  app.paint();
+  root.querySelector('[data-action="approve-brief"]').click();
+  for (let i = 0; i < 30; i += 1) await Promise.resolve();
+  assert.equal(app.state.surface, 'approved_brief');
+  assert.equal(app.state.shareActions.length, 0);
+  assert.equal(app.state.error?.code, 'CAPABILITY_UNAVAILABLE');
+  assert.match(root.innerHTML, /data-error-code="CAPABILITY_UNAVAILABLE"/);
+  const retry = root.querySelector('[data-retry="true"]');
+  assert.ok(retry);
+  retry.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === `/briefs/${brief.brief_id}/share-actions`).length, 2);
+  assert.equal(app.state.error, null);
+  assert.ok(root.querySelector('[data-action-id="act_syn_share_after_retry"]'));
+});
+
 test('direct preference save posts /preferences when no save_preference action exists', async () => {
   const calls = [];
   const fetchImpl = async (path, opts = {}) => {

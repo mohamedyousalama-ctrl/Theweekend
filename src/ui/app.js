@@ -231,6 +231,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
   }
 
   function bind() {
+    if (state.error && !root.querySelector('[data-error-code]')) {
+      const extra = renderError({ error: state.error, locale: locale(), keepDraft: Boolean(state.draft) });
+      root.querySelector('#wk-main')?.insertAdjacentHTML('afterbegin', extra.html);
+    }
     root.querySelectorAll('[data-surface].wk-pill').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.surface = btn.getAttribute('data-surface');
@@ -371,10 +375,6 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         state.pendingRetry = null;
         paint();
       });
-    }
-    if (state.error && !root.querySelector('[data-error-code]')) {
-      const extra = renderError({ error: state.error, locale: locale(), keepDraft: Boolean(state.draft) });
-      root.querySelector('#wk-main')?.insertAdjacentHTML('afterbegin', extra.html);
     }
   }
 
@@ -634,6 +634,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
           return;
         }
         state.shareActions = [];
+        state.error = shareErr;
+        state.pendingRetry = { type: 'share_actions' };
       }
       state.surface = 'approved_brief';
     } catch (err) {
@@ -715,12 +717,16 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         fetchImpl,
       });
       state.shareActions = Array.isArray(out.allowed_actions) ? out.allowed_actions : [];
+      state.error = null;
+      state.pendingRetry = null;
     } catch (err) {
       if (isConsentRequired(err)) {
         beginConsent(err, { type: 'share_actions' });
         return;
       }
       state.shareActions = [];
+      state.error = err;
+      state.pendingRetry = { type: 'share_actions' };
     }
     paint();
   }
