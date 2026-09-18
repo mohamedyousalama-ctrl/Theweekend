@@ -1,5 +1,6 @@
 .try-body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background: var(--wk-ground);
   color: #111b21;
@@ -16,6 +17,14 @@
   line-height: 1.55;
   text-align: center;
   border-bottom: 1px solid var(--wk-hairline);
+  flex-shrink: 0;
+}
+
+.try-body #rakan-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .try-site-chat-notice [lang="en"] {
@@ -27,7 +36,8 @@
 
 .wa-stage {
   width: min(420px, 100%);
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   margin: 0 auto;
   display: flex;
   flex-direction: column;

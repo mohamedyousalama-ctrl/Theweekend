@@ -75,16 +75,22 @@ test('pending and external_handoff are not confirmed bookings', () => {
   assert.equal(handoff.meta.handoff, true);
   assert.equal(handoff.meta.showSuccess, false);
   assert.equal(handoff.meta.bookingConfirmed, false);
-  assert.match(handoff.html, /صفحة الحجز الرسمية — الموعد يتأكد هناك بعد الدفع/);
+  assert.match(handoff.html, /صفحة الحجز الرسمية — التأكيد يصير هناك، والدفع وحده ما يأكّد الحجز/);
   assert.match(handoff.html, /data-booking="unconfirmed"/);
   assert.match(handoff.html, /data-success="false"/);
   const handoffEn = renderActionResult({
     locale: 'en',
     actionResult: readJson('valid/action-result.json'),
   });
-  assert.match(handoffEn.html, /Official booking page — the appointment is confirmed there after payment/);
-  assert.match(COPY.ar.booking_unconfirmed, /صفحة الحجز الرسمية — الموعد يتأكد هناك بعد الدفع/);
-  assert.match(COPY.en.booking_unconfirmed, /Official booking page — the appointment is confirmed there after payment/);
+  assert.match(handoffEn.html, /Official booking page — confirmation happens there; payment alone does not confirm the booking/);
+  assert.equal(COPY.ar.handoff, COPY.ar.booking_unconfirmed);
+  assert.equal(COPY.en.handoff, COPY.en.booking_unconfirmed);
+  assert.match(COPY.ar.booking_unconfirmed, /صفحة الحجز الرسمية — التأكيد يصير هناك، والدفع وحده ما يأكّد الحجز/);
+  assert.match(COPY.en.booking_unconfirmed, /Official booking page — confirmation happens there; payment alone does not confirm the booking/);
+  for (const locale of ['ar', 'en']) {
+    assert.doesNotMatch(COPY[locale].handoff, /بعد الدفع|after payment/i);
+    assert.doesNotMatch(COPY[locale].booking_unconfirmed, /بعد الدفع|after payment/i);
+  }
   assert.match(COPY.ar.cap_pending_req, /ليست نتيجة ناجحة/);
   assert.match(COPY.en.cap_pending_req, /not a successful result/);
 });
