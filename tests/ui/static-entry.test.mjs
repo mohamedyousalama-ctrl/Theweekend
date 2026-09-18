@@ -47,6 +47,14 @@ test('states.css copies stay identical and restore .wk-lead', () => {
   const a = readFileSync(join(ROOT, 'styles/states.css'), 'utf8');
   const b = readFileSync(join(ROOT, 'src/ui/styles/states.css'), 'utf8');
   assert.equal(a, b);
-  assert.match(a, /\.wk-lead\s*\{/);
-  assert.match(a, /max-width:\s*56ch/);
+  const original = [
+    '.wk-lead {',
+    '  margin: 0 0 24px;',
+    '  max-width: 56ch;',
+    '  font-size: 17px;',
+    '  line-height: 1.85;',
+    '  color: var(--wk-muted-2);',
+    '}',
+  ].join('\n');
+  assert.equal(a.includes(original), true);
 });

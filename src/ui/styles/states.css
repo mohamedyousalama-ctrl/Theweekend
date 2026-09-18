@@ -86,6 +86,7 @@
   max-width: 56ch;
   font-size: 17px;
   line-height: 1.85;
+  color: var(--wk-muted-2);
 }
 
 .wk-consent {
