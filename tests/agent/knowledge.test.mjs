@@ -27,6 +27,10 @@ test('the branch pack carries the owner decisions of 2026-09-14', () => {
   assert.equal(pack.storefront_branch_id, STOREFRONT_BRANCH_ID);
   assert.match(byId.get('kno_mrs_vat').text_ar, /شاملة ضريبة القيمة المضافة/);
   assert.match(byId.get('kno_mrs_booking_url').text_ar, /theweekendhairstyling\.com\/book\?branchId=/);
+  assert.match(byId.get('kno_mrs_booking_url').text_ar, /والتأكيد يصير من صفحة الحجز الرسمية، والدفع وحده ما يأكّد الحجز/);
+  assert.match(byId.get('kno_mrs_booking_url').text_en, /confirmation comes only from the official booking page; payment alone does not confirm the booking/);
+  assert.doesNotMatch(byId.get('kno_mrs_booking_url').text_ar, /بعد الدفع/);
+  assert.doesNotMatch(byId.get('kno_mrs_booking_url').text_en, /after payment/i);
   assert.equal(pack.records.filter((r) => r.kind === 'staff' && r.ref !== 'team').length, 7);
   assert.match(byId.get('kno_mrs_staff_list').text_ar, /صلاح/);
   assert.match(byId.get('kno_mrs_price_haircut').text_ar, /30 ريال/);
@@ -44,7 +48,7 @@ test('the branch pack carries the owner decisions of 2026-09-14', () => {
 
 test('post-merge review: product availability, treatment claims, annual expiry and citable arithmetic', () => {
   const byId = new Map(pack.records.map((r) => [r.knowledge_id, r]));
-  assert.equal(pack.pack_revision, 3);
+  assert.equal(pack.pack_revision, 4);
   assert.equal(pack.records.length, 47);
   const perfume = byId.get('kno_mrs_product_the_weekend_oud_perfume');
   assert.match(perfume.text_ar, /يُباع في الفرع/, 'a product the storefront lists for the branch');
