@@ -25,7 +25,7 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 | Package C2 (Cursor, issue #7) | **merged** (PR #24). |
 | UI third handback (issue #6, PR #25) plus follow-up **PR #29** | **merged**. Consent/brief/prefs/upload, then dedicated `handoff.queued` copy, staff photo notes (text only), staff accept/release UI. |
 | Prompt | `rakan.system.v0.9` on `main` (PR #42 B6, payment is not confirmation). Previous was v0.8 (PR #37). |
-| #8 owner walkthrough | Railway live; `/health` 200. Partial record in `docs/20-OWNER-WALKTHROUGH-2026-09-18.md` (unauthenticated probes + static hash; authenticated turns skipped). Text eval in `docs/19`. Vision **NOT RUN**. Khalid phone walkthrough not done. |
+| #8 owner walkthrough | Railway live; `/health` 200. Partial record in `docs/20-OWNER-WALKTHROUGH-2026-09-18.md` (unauthenticated probes + static hash; authenticated turns skipped). Text eval in `docs/19`. Vision **NOT RUN**. Khalid phone walkthrough not done. The 2026-09-15/09-18 text evals ran with `staff_inbox: 'unavailable'` hardcoded in `eval.mjs`'s synthetic context, so they could not exercise a customer-facing `talk_to_staff` handoff; undiagnosed until C6. |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
 | Hosting | Railway **project live for owner-review**. **Not released.** Passcodes live in Railway Variables. |
 | Open owner questions | MISSING-FACTS rows 18–19; photo share: observations only (D14) or the real photo later |

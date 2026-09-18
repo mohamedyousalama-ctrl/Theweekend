@@ -18,6 +18,8 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 | `consents` | PermissionReceipt[] (active only) | |
 | `issued_at` | timestamp | |
 
+`staff_inbox` reflects whether the staff-inbox store is available, not the session's role — a customer session reports `enabled` whenever staff can receive a handoff; `talk_to_staff`/`share_brief_text`/`share_photo_ref` are gated on it (see `actionAllowed`).
+
 ## 2. ChatTurnInput (B → C → A)
 
 `session_id`, `turn_id` (client-generated uuid, idempotent), `text` (string, 1–2000 chars, may be empty only when `client_action_id` or `image_ref` present), `image_ref` (id \| null; a C-issued scoped upload id, never a URL), `client_action_id` (id \| null; an `AllowedAction.action_id` the user clicked), `locale_hint` (`ar` \| `en` \| `auto`).
@@ -74,7 +76,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 
 ## 12. Failure shapes every consumer must handle
 
-Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, timeout, consent missing for photo, stale action, upload rejected, conflict on preference version, store unavailable. Fixtures for each are part of the #3 implementation.
+Unavailable model (`state: unavailable` + `MODEL_UNAVAILABLE`), budget reached, timeout, consent missing for photo, stale action, upload rejected, conflict on preference version, store unavailable, staff inbox unavailable (`CAPABILITY_UNAVAILABLE` / `staff_inbox.unavailable`). Fixtures for each are part of the #3 implementation.
 
 ## 13. HTTP surfaces (C)
 
@@ -86,7 +88,7 @@ Every response — JSON (including `/health` and 404), and the static UI (`/`, `
 
 `POST /uploads` — public-guest photo uploads are limited per client address to `WEEKEND_GUEST_UPLOADS_PER_DAY` (default 3) per UTC day, counted from a durable per-day counter (`guest_upload_quota`, keyed by the client digest) that consent withdrawal does not reset. Further uploads are `400 UPLOAD_REJECTED` (`upload.rejected`, `details.limit` is the daily count). Size/type/content rejections stay the same key with `details.limit` equal to `WEEKEND_UPLOAD_MAX_BYTES`. Consent (`POST /consents`) is still required for `photo_analysis` before an upload; granting consent is not a vision call and is not a substitute for the upload quota.
 
-`POST /briefs/:brief_id/share-actions` — customer or owner session only. Issues bound share controls for that owned brief. The body must be a JSON object (`{}` is allowed). A non-object body (`null`, array, scalar) is `400 VALIDATION_ERROR` (`http.invalid_json`). Staff receive `401 UNAUTHORIZED` (`brief.role`) without learning whether the brief exists. Another subject's brief is `404 NOT_FOUND` (`brief.not_found`). Success `200` envelope: `{ contract_version: "0.1.0", allowed_actions: AllowedAction[] }`. The list always includes `share_brief_text` bound to that `brief_id` and version; `share_photo_ref` is included only when the photo capability is enabled and this session already has an image. Displayed action IDs do not authorize execution.
+`POST /briefs/:brief_id/share-actions` — customer or owner session only. Issues bound share controls for that owned brief. The body must be a JSON object (`{}` is allowed). A non-object body (`null`, array, scalar) is `400 VALIDATION_ERROR` (`http.invalid_json`). Staff receive `401 UNAUTHORIZED` (`brief.role`) without learning whether the brief exists. Another subject's brief is `404 NOT_FOUND` (`brief.not_found`). If the staff-inbox store is down the call is `403 CAPABILITY_UNAVAILABLE` (`staff_inbox.unavailable`) rather than omitting `share_brief_text`. Success `200` envelope: `{ contract_version: "0.1.0", allowed_actions: AllowedAction[] }`. The list always includes `share_brief_text` bound to that `brief_id` and version; `share_photo_ref` is included only when the photo capability is enabled and this session already has an image. Displayed action IDs do not authorize execution.
 
 `GET /staff/briefs` — staff or owner session. Each item is a delivered or acknowledged `BarberBrief` for the configured branch plus `observations`: the stored `CosmeticObservations` for that brief's photo reference, or `null`. Never image bytes or URLs. `withdrawn` briefs are omitted. Observations older than the 24 h `ret_photo_v1` window are omitted. The 24-hour figure is a deadline: on-request photo/staff/turn sweeps still run immediately, and the same 10-minute idle timer deletes expired observation and image rows, so deletion is by that deadline plus at most one sweep interval.
 

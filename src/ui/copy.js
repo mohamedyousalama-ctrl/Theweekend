@@ -343,6 +343,10 @@ const MESSAGE_KEYS = {
   'brief.share_consent': { ar: COPY.ar.notice_staff_sharing_text, en: COPY.en.notice_staff_sharing_text },
   'brief.photo_consent': { ar: COPY.ar.notice_staff_sharing_photo, en: COPY.en.notice_staff_sharing_photo },
   'store.unavailable': { ar: 'التخزين غير متاح.', en: 'The store is unavailable.' },
+  'staff_inbox.unavailable': {
+    ar: 'خدمة الفريق غير متاحة الآن. جرّب بعد شوي.',
+    en: 'The team can’t be reached right now. Try again shortly.',
+  },
   'upload.rejected': { ar: 'رُفض الرفع. المسار النصي ما زال متاحاً.', en: 'Upload rejected. The text path remains.' },
   'input.invalid': { ar: COPY.ar.validation, en: COPY.en.validation },
   'session.invalid': { ar: 'الجلسة غير صالحة.', en: 'The session is not valid.' },

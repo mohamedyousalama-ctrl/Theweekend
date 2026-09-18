@@ -50,7 +50,7 @@ Each capability is a separate configured state, surfaced to the UI in the truste
 | `model` | `real` · `mock` · `unavailable` | `mock` only when `WEEKEND_ENV=local`; in `owner-review` a missing/failed model is `unavailable`, never silently mocked. |
 | `photo` | `enabled` · `disabled` | `enabled` only after permitted subjects, upload gateway limits and retention configuration exist (#7) **and** the customer's own permission receipt for the session. Text help never depends on it. |
 | `booking_handoff` | `official_link` · `pending_request` · `unavailable` | `official_link` = allowlisted existing URL from config, recorded as `EXTERNAL_HANDOFF`. `pending_request` only with a real operator watching the inbox. Integrated booking is **not** an M1 state (deferred, #10). |
-| `staff_inbox` | `enabled` · `unavailable` | requires authenticated staff session and the one configured branch. |
+| `staff_inbox` | `enabled` · `unavailable` | `enabled` whenever the staff-inbox store is up, for any role — not staff/owner-only; gates `talk_to_staff` / `share_brief_text` / `share_photo_ref`. |
 | `preferences` | `enabled` · `unavailable` | text-only, opt-in, revocable. |
 
 Combinations are legal in any mix (e.g. `model=real, photo=disabled, booking_handoff=official_link` is the expected first owner-review build).
