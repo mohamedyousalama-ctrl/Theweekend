@@ -18,6 +18,8 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 | `consents` | PermissionReceipt[] (active only) | |
 | `issued_at` | timestamp | |
 
+`staff_inbox` reflects whether the staff-inbox store is available, not the session's role — a customer session reports `enabled` whenever staff can receive a handoff; `talk_to_staff`/`share_brief_text`/`share_photo_ref` are gated on it (see `actionAllowed`).
+
 ## 2. ChatTurnInput (B → C → A)
 
 `session_id`, `turn_id` (client-generated uuid, idempotent), `text` (string, 1–2000 chars, may be empty only when `client_action_id` or `image_ref` present), `image_ref` (id \| null; a C-issued scoped upload id, never a URL), `client_action_id` (id \| null; an `AllowedAction.action_id` the user clicked), `locale_hint` (`ar` \| `en` \| `auto`).
