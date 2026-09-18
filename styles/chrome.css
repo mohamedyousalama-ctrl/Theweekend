@@ -30,6 +30,26 @@
   color: var(--wk-red);
 }
 
+.wk-identity {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.wk-identity strong {
+  color: var(--wk-white);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.wk-identity span {
+  color: var(--wk-muted-3);
+  font-size: 11.5px;
+  line-height: 1.2;
+}
+
 .wk-header-rule {
   width: 1px;
   height: 20px;

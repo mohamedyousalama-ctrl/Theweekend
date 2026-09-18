@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { ROOT } from './helpers.mjs';
 import { COPY } from '../../src/ui/copy.js';
 import { renderWaHeader } from '../../src/ui/try/wa-header.js';
+import { renderAppHeader } from '../../src/ui/chrome/app-header.js';
 import { renderConversation } from '../../src/ui/conversation/view.js';
 import { renderComposer } from '../../src/ui/conversation/composer.js';
 import { createHttpServer } from '../../src/server/http.mjs';
@@ -36,6 +37,16 @@ test('WhatsApp-looking header never claims a live WhatsApp account', () => {
   const down = renderWaHeader({ locale: 'ar', health: { model: 'unavailable' } });
   assert.equal(down.html.includes('عادةً يرد خلال لحظات'), false);
   assert.equal(down.html.includes('متصل الآن'), false);
+});
+
+test('customer and app chrome persist Khalid with the digital subtitle', () => {
+  const header = renderAppHeader({ locale: 'ar' });
+  assert.match(header.html, /data-identity-chrome="true"/);
+  assert.match(header.html, /خالد/);
+  assert.match(header.html, /مساعد رقمي · ذا ويكند/);
+  const en = renderAppHeader({ locale: 'en' });
+  assert.match(en.html, /Khalid/);
+  assert.match(en.html, /Digital assistant · The Weekend/);
 });
 
 test('try conversation shows welcome replies and does not confirm a booking', () => {

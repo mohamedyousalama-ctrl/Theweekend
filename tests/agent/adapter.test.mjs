@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, isComplaintAsk, stripIdentityDump } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, isComplaintAsk, stripIdentityDump, dynamicContext, shellHasIdentityChrome } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -49,6 +49,7 @@ test('grounded price reply → valid contract output, actions kept, usage costed
   assert.equal(req.system[0].cache_control.type, 'ephemeral');
   assert.match(req.system[1].text, /kno_mrs_price_haircut/);
   assert.match(req.system[2].text, /booking_handoff: official_link/);
+  assert.match(req.system[2].text, /identity_already_shown: yes/);
   assert.equal(req.messages.length, 1);
   await adapter({ context: context(), input: input('وش الإضافات؟'), now, image_bytes: null });
   assert.equal(client.calls[1].messages.length, 3, 'second turn carries the first exchange as history');
@@ -429,6 +430,44 @@ test('complaints and follow-up questions are not booking turns', () => {
   assert.equal(typesOut.messages.length, 2, 'a follow-up question keeps the model\'s full answer');
   assert.match(typesOut.messages[0].text, /عالي/);
   assert.match(typesOut.messages[1].text, /واطي/);
+});
+
+test('identity_already_shown follows whether the shell renders identity chrome', () => {
+  const now = '2026-09-14T06:00:00Z';
+  const ctx = context();
+  assert.equal(shellHasIdentityChrome('try'), true);
+  assert.equal(shellHasIdentityChrome('customer'), true);
+  assert.equal(shellHasIdentityChrome('app'), true);
+  assert.equal(shellHasIdentityChrome('staff'), true);
+  assert.equal(shellHasIdentityChrome('web'), true);
+  assert.equal(shellHasIdentityChrome('whatsapp'), false);
+  assert.equal(shellHasIdentityChrome(''), false);
+  const tryCtx = dynamicContext(ctx, now, false, 'try');
+  assert.match(tryCtx, /ui_shell: try/);
+  assert.match(tryCtx, /identity_already_shown: yes/);
+  const customerCtx = dynamicContext(ctx, now, false, 'customer');
+  assert.match(customerCtx, /ui_shell: customer/);
+  assert.match(customerCtx, /identity_already_shown: yes/);
+  const channel = dynamicContext(ctx, now, false, 'whatsapp');
+  assert.match(channel, /ui_shell: whatsapp/);
+  assert.match(channel, /identity_already_shown: no/);
+});
+
+test('adapter injects identity_already_shown from the shell', async () => {
+  const { adapter, client } = adapterWith([response(modelJson())]);
+  await adapter({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.match(client.calls[0].system[2].text, /ui_shell: web/);
+  assert.match(client.calls[0].system[2].text, /identity_already_shown: yes/);
+  const channel = fakeClient([response(modelJson())]);
+  const adapter2 = createRakanAdapter(realConfig(), {
+    client: channel,
+    knowledge,
+    clock: () => 1_000,
+    uiShell: 'whatsapp',
+  });
+  await adapter2({ context: context(), input: input(), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.match(channel.calls[0].system[2].text, /ui_shell: whatsapp/);
+  assert.match(channel.calls[0].system[2].text, /identity_already_shown: no/);
 });
 
 test('an emptied identity strip falls back to the pre-strip text, never filler', () => {

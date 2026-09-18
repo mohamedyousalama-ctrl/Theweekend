@@ -213,10 +213,18 @@ function riyadhClock(nowIso) {
   }
 }
 
-export function dynamicContext(context, now, hasImage) {
+export const IDENTITY_CHROME_SHELLS = Object.freeze(['try', 'customer', 'app', 'staff', 'web']);
+
+/** True only for shells that persist خالد + digital subtitle in chrome. */
+export function shellHasIdentityChrome(shell) {
+  return IDENTITY_CHROME_SHELLS.includes(String(shell || ''));
+}
+
+export function dynamicContext(context, now, hasImage, shell = 'web') {
   const caps = context.capabilities;
   const consents = (context.consents || []).filter((c) => !c.revoked_at).map((c) => c.kind);
   const allowed = ACTION_KINDS.filter((k) => actionAllowed(k, caps, hasImage));
+  const identityShown = shellHasIdentityChrome(shell);
   return [
     '# Current session (trusted, from the server)',
     `now_riyadh: ${riyadhClock(now)}`,
@@ -225,7 +233,8 @@ export function dynamicContext(context, now, hasImage) {
     `photo_capability: ${caps.photo}; photo_in_this_turn: ${hasImage ? 'yes' : 'no'}; active_permissions: ${consents.join(',') || 'none'}`,
     `booking_handoff: ${caps.booking_handoff}; staff_inbox: ${caps.staff_inbox}; preferences: ${caps.preferences}`,
     `action_kinds_allowed_now: ${allowed.join(',')}`,
-    'identity_already_shown: yes',
+    `ui_shell: ${String(shell || 'unknown')}`,
+    `identity_already_shown: ${identityShown ? 'yes' : 'no'}`,
     'pacing: greeting-only → one short reply, empty styles; named-service → price + booking only, no identity dump, no photo skip, empty styles',
   ].join('\n');
 }
@@ -775,6 +784,7 @@ export function createRakanAdapter(config, deps = {}) {
   const promptText = deps.prompt || loadPrompt(deps.promptPath);
   const kText = knowledgeText(knowledge.enabled);
   const clock = deps.clock || (() => Date.now());
+  const uiShell = deps.uiShell || 'web';
   // One retry, both attempts inside the server's own timeout window so no request outlives the turn.
   const serverTimeout = config.WEEKEND_REQUEST_TIMEOUT_MS || 30000;
   const client = deps.client || new Anthropic({
@@ -814,7 +824,7 @@ export function createRakanAdapter(config, deps = {}) {
     const system = [
       { type: 'text', text: promptText, cache_control: { type: 'ephemeral' } },
       { type: 'text', text: kText, cache_control: { type: 'ephemeral' } },
-      { type: 'text', text: dynamicContext(context, now, hasImage) },
+      { type: 'text', text: dynamicContext(context, now, hasImage, uiShell) },
     ];
     if (correction) system.push({ type: 'text', text: correction });
     const messages = [...history(context.session_id).messages, { role: 'user', content }];
