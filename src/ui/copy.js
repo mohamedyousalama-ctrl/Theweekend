@@ -404,3 +404,49 @@ export function notInferredLabel(token, locale = 'ar') {
   };
   return locale === 'en' ? (en[token] ?? token) : (ar[token] ?? token);
 }
+
+export function observationValueLabel(token, locale = 'ar') {
+  const ar = {
+    short: 'قصير',
+    medium: 'متوسط',
+    long: 'طويل',
+    uncertain: 'غير مؤكد',
+    straight: 'أملس',
+    wavy: 'مموج',
+    curly: 'مجعد',
+    coily: 'ملفوف',
+    none: 'بدون',
+    stubble: 'ذقن خفيفة',
+    full: 'كامل',
+    thinning_visible: 'يظهر خفيفاً',
+    partial: 'جزئي',
+    covered: 'مغطى',
+    low: 'منخفضة',
+    high: 'عالية',
+    lighting: 'الإضاءة',
+    angle: 'الزاوية',
+    blur: 'الضبابية',
+  };
+  const en = {
+    short: 'short',
+    medium: 'medium',
+    long: 'long',
+    uncertain: 'uncertain',
+    straight: 'straight',
+    wavy: 'wavy',
+    curly: 'curly',
+    coily: 'coily',
+    none: 'none',
+    stubble: 'light stubble',
+    full: 'full',
+    thinning_visible: 'thinning visible',
+    partial: 'partial',
+    covered: 'covered',
+    low: 'low',
+    high: 'high',
+    lighting: 'lighting',
+    angle: 'angle',
+    blur: 'blur',
+  };
+  return locale === 'en' ? (en[token] ?? token) : (ar[token] ?? token);
+}

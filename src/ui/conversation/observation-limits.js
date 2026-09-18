@@ -1,5 +1,5 @@
 import { el, escapeHtml } from '../html.js';
-import { notInferredLabel, t } from '../copy.js';
+import { notInferredLabel, observationValueLabel, t } from '../copy.js';
 import { NOT_INFERRED } from '../policy.js';
 
 export function renderObservationLimits({ observations = null, locale = 'ar' } = {}) {
@@ -20,7 +20,7 @@ export function renderObservationLimits({ observations = null, locale = 'ar' } =
     limits.length
       ? el('div', {}, [
         el('div', { class: 'wk-brief-label' }, t(locale, 'limitations')),
-        el('p', {}, escapeHtml(limits.join(' · '))),
+        el('p', {}, escapeHtml(limits.map((token) => observationValueLabel(token, locale)).join(' · '))),
       ])
       : '',
   ]);

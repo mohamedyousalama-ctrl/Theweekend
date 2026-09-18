@@ -1,5 +1,5 @@
 import { el, escapeHtml } from '../html.js';
-import { t } from '../copy.js';
+import { observationValueLabel, t } from '../copy.js';
 import { renderObservationLimits } from '../conversation/observation-limits.js';
 
 const OBSERVED_KEYS = ['hair_length', 'hair_texture', 'beard', 'top_density_visible', 'face_visible'];
@@ -24,10 +24,10 @@ export function renderPhotoNotes({ observations = null, locale = 'ar' } = {}) {
     el('p', { class: 'wk-note' }, t(locale, 'photo_notes_not_image')),
     ...rows.map(([key, value]) => el('div', { class: 'wk-brief-row', 'data-observed': key }, [
       el('div', { class: 'wk-brief-label' }, t(locale, `obs_${key}`)),
-      el('div', { class: 'wk-brief-value' }, escapeHtml(value)),
+      el('div', { class: 'wk-brief-value' }, escapeHtml(observationValueLabel(value, locale))),
     ])),
     observations.confidence
-      ? el('p', { class: 'wk-note' }, `${t(locale, 'obs_confidence')}: ${escapeHtml(observations.confidence)}`)
+      ? el('p', { class: 'wk-note' }, `${t(locale, 'obs_confidence')}: ${escapeHtml(observationValueLabel(observations.confidence, locale))}`)
       : '',
     limits.html,
   ]);
