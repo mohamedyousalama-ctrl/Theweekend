@@ -63,6 +63,9 @@ export function renderInboxList({
     el('span', { class: 'wk-status-dot', 'aria-hidden': 'true' }, ''),
     el('div', {}, escapeHtml(brief.requested_look?.text_ar || brief.brief_id)),
     el('div', { class: 'wk-note' }, escapeHtml(brief.status)),
+    brief.observations
+      ? el('div', { class: 'wk-note', 'data-photo-notes': 'true', 'data-photo-bytes': 'false' }, t(locale, 'photo_notes'))
+      : '',
   ]));
 
   const html = el('section', {
