@@ -8,6 +8,7 @@
     "start": "node src/server/index.mjs",
     "build:knowledge": "node knowledge/build.mjs",
     "eval:agent": "node src/agent/eval.mjs",
+    "eval:agent:text-only": "node src/agent/eval.mjs --text-only",
     "chat:agent": "node src/agent/chat.mjs"
   },
   "engines": {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -63,8 +63,23 @@ test('ungrounded price → one corrective retry, then a closed error state', asy
   assert.match(client.calls[1].system.at(-1).text, /not in any knowledge record/);
   assert.equal(output.state, 'error');
   assert.equal(output.error.message_key, 'agent.ungrounded_price');
+  assert.equal(output.messages[0].lang, 'ar');
   assert.ok(!/40/.test(output.messages[0].text), 'the wrong price never reaches the customer');
   assert.equal(usage.outcome, 'error');
+  assert.ok(validateContract('ChatTurnOutput', output).ok);
+});
+
+test('grounding failure for an English customer uses English reply[].lang', async () => {
+  const bad = modelJson({ reply: [{ text: 'A haircut is 40 SAR', lang: 'en' }], knowledge_refs: [] });
+  const { adapter } = adapterWith([response(bad), response(bad)]);
+  const { output } = await adapter({ context: context(), input: input('How much is a haircut?'), now: '2026-09-14T06:00:00Z', image_bytes: null });
+  assert.equal(customerLang('How much is a haircut?'), 'en');
+  assert.equal(output.state, 'error');
+  assert.equal(output.error.message_key, 'agent.ungrounded_price');
+  assert.equal(output.messages.length, 1);
+  assert.equal(output.messages[0].lang, 'en');
+  assert.equal(output.messages[0].text, errorText('agent.ungrounded_price', 'en'));
+  assert.ok(!/40/.test(output.messages[0].text), 'the wrong price never reaches the customer');
   assert.ok(validateContract('ChatTurnOutput', output).ok);
 });
 

@@ -399,7 +399,6 @@ export function groundingProblems(draft, knowledge) {
   if (prices.length) {
     problems.push({
       messageKey: 'agent.ungrounded_price',
-      text: 'خلني أتأكد من السعر قبل أقوله لك. تقدر تشوف الأسعار كاملة في صفحة الحجز.',
       correction: `You quoted amounts (${prices.join(', ')}) that are not in any knowledge record you cited. Quote only prices that appear in the records and list their ids in knowledge_refs; otherwise say the price is on the booking page.`,
     });
   }
@@ -407,7 +406,6 @@ export function groundingProblems(draft, knowledge) {
   if (facts.length) {
     problems.push({
       messageKey: 'agent.ungrounded_fact',
-      text: 'خلني أتأكد من التفاصيل قبل أقولها لك. التفاصيل كاملة في صفحة الحجز.',
       correction: `You stated figures (${facts.map((f) => f.replace(':', ' ')).join(', ')}) that are not in any knowledge record you cited. State durations, days, visit counts and percentages only as the cited records give them, or leave them out.`,
     });
   }
@@ -416,7 +414,6 @@ export function groundingProblems(draft, knowledge) {
   if (links.length) {
     problems.push({
       messageKey: 'agent.ungrounded_link',
-      text: 'ما عندي رابط مؤكد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
       correction: `You included links (${links.join(', ')}) that are not in a knowledge record you cited. Send only links that appear in a record and list that record's id in knowledge_refs, or send none.`,
     });
   }
@@ -451,12 +448,74 @@ export function usageRecord({ sessionId, turnId, provider, modelId, promptVersio
   };
 }
 
-function errorOutput({ turnId, usageId, code, messageKey, retryable, text, lang = 'ar', state = 'unavailable', flags = [] }) {
+/** Language of the customer's last message (script count, not session locale). */
+export function customerLang(text) {
+  const t = String(text ?? '');
+  const ar = (t.match(/\p{Script=Arabic}/gu) || []).length;
+  const en = (t.match(/[A-Za-z]/g) || []).length;
+  return en > ar ? 'en' : 'ar';
+}
+
+const ERROR_COPY = {
+  'model.unavailable': {
+    ar: 'المحادثة بالنموذج غير متاحة في هذا الإعداد.',
+    en: 'The model conversation is not available in this setup.',
+  },
+  'photo.consent_required': {
+    ar: 'أحتاج موافقتك على تحليل الصورة أول، أو نكمل بالنص.',
+    en: 'I need your consent to analyse the photo first, or we can continue in text.',
+  },
+  'model.timeout': {
+    ar: 'تأخرت عليك، أعد رسالتك لو سمحت.',
+    en: 'That took too long. Please send your message again.',
+  },
+  'model.temporarily_unavailable': {
+    ar: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.',
+    en: 'Rakan is not available right now. Try again in a bit, or use the booking page.',
+  },
+  'model.misconfigured': {
+    ar: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.',
+    en: 'Rakan is not available right now. Try again in a bit, or use the booking page.',
+  },
+  'agent.refused': {
+    ar: 'ما أقدر أساعد بهذا الطلب. لو تبي، نكمل بشي ثاني.',
+    en: "I can't help with that request. If you like, we can continue with something else.",
+  },
+  'agent.ungrounded_price': {
+    ar: 'خلني أتأكد من السعر قبل أقوله لك. تقدر تشوف الأسعار كاملة في صفحة الحجز.',
+    en: 'Let me check the price before I quote it. You can see the full prices on the booking page.',
+  },
+  'agent.ungrounded_fact': {
+    ar: 'خلني أتأكد من التفاصيل قبل أقولها لك. التفاصيل كاملة في صفحة الحجز.',
+    en: 'Let me check the details before I state them. The full details are on the booking page.',
+  },
+  'agent.ungrounded_link': {
+    ar: 'ما عندي رابط مؤكد لهذا. تقدر تكمل من صفحة الحجز الرسمية.',
+    en: "I don't have a confirmed link for that. You can continue from the official booking page.",
+  },
+  'agent.invalid_output': {
+    ar: 'صار خلل بسيط عندي. أعد رسالتك لو سمحت.',
+    en: 'Something went wrong on my side. Please send your message again.',
+  },
+  'agent.contract_invalid': {
+    ar: 'صار خلل بسيط عندي. أعد رسالتك لو سمحت.',
+    en: 'Something went wrong on my side. Please send your message again.',
+  },
+};
+
+export function errorText(messageKey, lang) {
+  const l = lang === 'en' ? 'en' : 'ar';
+  const copy = ERROR_COPY[messageKey] || ERROR_COPY['agent.invalid_output'];
+  return copy[l];
+}
+
+function errorOutput({ turnId, usageId, code, messageKey, retryable, lang = 'ar', state = 'unavailable', flags = [] }) {
+  const l = lang === 'en' ? 'en' : 'ar';
   return {
     contract_version: '0.1.0',
     turn_id: turnId,
     state,
-    messages: [{ text, lang }],
+    messages: [{ text: errorText(messageKey, l), lang: l }],
     observations: null,
     style_options: [],
     proposed_actions: [],
@@ -667,17 +726,19 @@ export function createRakanAdapter(config, deps = {}) {
   const turn = async function adapter({ context, input, now, image_bytes, signal }) {
     const started = clock();
     const deadline = started + serverTimeout - 400;
+    const lang = customerLang(input.text);
     const base = { sessionId: context.session_id, turnId: input.turn_id, provider: 'anthropic', modelId, promptVersion: PROMPT_VERSION, now };
+    const closed = (fields) => errorOutput({ turnId: input.turn_id, lang, ...fields });
 
     if (context.capabilities.model !== 'real') {
       const usage = usageRecord({ ...base, provider: 'none', modelId: 'unavailable', promptVersion: 'none', usage: null, latencyMs: 0, outcome: 'error' });
-      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: 'model.unavailable', retryable: true, text: 'المحادثة بالنموذج غير متاحة في هذا الإعداد.' }) };
+      return { usage, output: closed({ usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: 'model.unavailable', retryable: true }) };
     }
 
     const hasImage = Boolean(image_bytes);
     if (hasImage && !(context.consents || []).some((c) => c.kind === 'photo_analysis' && !c.revoked_at)) {
       const usage = usageRecord({ ...base, usage: null, latencyMs: 0, outcome: 'error' });
-      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'CONSENT_REQUIRED', messageKey: 'photo.consent_required', retryable: false, text: 'أحتاج موافقتك على تحليل الصورة أول، أو نكمل بالنص.', state: 'error' }) };
+      return { usage, output: closed({ usageId: usage.usage_id, code: 'CONSENT_REQUIRED', messageKey: 'photo.consent_required', retryable: false, state: 'error' }) };
     }
 
     // Every provider attempt is charged, so tokens are summed across attempts (a corrective retry is not free).
@@ -691,7 +752,7 @@ export function createRakanAdapter(config, deps = {}) {
     const aborted = () => Boolean(signal?.aborted);
     const timedOut = () => ({
       usage: usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: 'timeout' }),
-      output: errorOutput({ turnId: input.turn_id, usageId: 'use_pending', code: 'MODEL_UNAVAILABLE', messageKey: 'model.timeout', retryable: true, text: 'تأخرت عليك، أعد رسالتك لو سمحت.' }),
+      output: closed({ usageId: 'use_pending', code: 'MODEL_UNAVAILABLE', messageKey: 'model.timeout', retryable: true }),
     });
 
     let response;
@@ -708,12 +769,12 @@ export function createRakanAdapter(config, deps = {}) {
         const latency = clock() - started;
         const retryable = !(err instanceof Anthropic.BadRequestError || err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError || err instanceof Anthropic.NotFoundError);
         const usage = usageRecord({ ...base, usage: spent(), latencyMs: latency, outcome: 'error' });
-        return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: retryable ? 'model.temporarily_unavailable' : 'model.misconfigured', retryable, text: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.' }) };
+        return { usage, output: closed({ usageId: usage.usage_id, code: 'MODEL_UNAVAILABLE', messageKey: retryable ? 'model.temporarily_unavailable' : 'model.misconfigured', retryable }) };
       }
       tally(response.usage);
       if (response.stop_reason === 'refusal') {
         const usage = usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: 'ok' });
-        return { usage, output: { ...errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.refused', retryable: false, text: 'ما أقدر أساعد بهذا الطلب. لو تبي، نكمل بشي ثاني.', state: 'ok' }), error: null, flags: ['refusal_model'] } };
+        return { usage, output: { ...closed({ usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.refused', retryable: false, state: 'ok' }), error: null, flags: ['refusal_model'] } };
       }
       raw = extractJson(response);
       if (!raw) {
@@ -736,16 +797,16 @@ export function createRakanAdapter(config, deps = {}) {
     }
     const usage = usageRecord({ ...base, usage: spent(), latencyMs: clock() - started, outcome: raw ? 'ok' : 'error' });
     if (!raw && grounding) {
-      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: grounding.messageKey, retryable: true, text: grounding.text, state: 'error', flags: ['unknown_fact'] }) };
+      return { usage, output: closed({ usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: grounding.messageKey, retryable: true, state: 'error', flags: ['unknown_fact'] }) };
     }
     if (!raw) {
-      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.invalid_output', retryable: true, text: 'صار خلل بسيط عندي. أعد رسالتك لو سمحت.', state: 'error' }) };
+      return { usage, output: closed({ usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.invalid_output', retryable: true, state: 'error' }) };
     }
     const output = mapModelOutput(raw, { context, input, usageId: usage.usage_id, hasImage, byId: knowledge.byId, now });
     const check = validateContract('ChatTurnOutput', output);
     if (!check.ok) {
       usage.outcome = 'error';
-      return { usage, output: errorOutput({ turnId: input.turn_id, usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.contract_invalid', retryable: true, text: 'صار خلل بسيط عندي. أعد رسالتك لو سمحت.', state: 'error' }) };
+      return { usage, output: closed({ usageId: usage.usage_id, code: 'VALIDATION_ERROR', messageKey: 'agent.contract_invalid', retryable: true, state: 'error' }) };
     }
     remember(context.session_id, input.text || '(صورة)', output.messages.map((m) => m.text).join('\n'));
     return { usage, output };
