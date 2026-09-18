@@ -730,9 +730,20 @@ export function createApp(config, deps = {}) {
     const settledSoFar = row?.guest_settled_minor ?? 0;
     const charged = Math.max(0, Math.min(actual, guestCap - settledSoFar));
     const overage = actual - charged;
+    // cost_minor only ever carries the guest side's contribution up to the share (MIN(share, guest_cost_minor)),
+    // measured before and after this settle. guest_cost_minor keeps tracking the raw settled + still-outstanding
+    // total unchanged, since admission still gates new guest reservations on it. A guest actual that pushes the raw
+    // guest ledger above the share while another guest reservation is still in flight cannot eat the owner/staff reserve.
     store.run(
-      `UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?), guest_cost_minor = MAX(0, guest_cost_minor - ? + ?), guest_settled_minor = guest_settled_minor + ? WHERE day = ?`,
-      [reservedMinor, charged, reservedMinor, charged, charged, day],
+      `UPDATE daily_spend SET
+         cost_minor = MAX(0, cost_minor
+           - MIN(?, guest_cost_minor)
+           + MIN(?, MAX(0, guest_cost_minor - ? + ?))
+         ),
+         guest_cost_minor = MAX(0, guest_cost_minor - ? + ?),
+         guest_settled_minor = guest_settled_minor + ?
+       WHERE day = ?`,
+      [guestCap, guestCap, reservedMinor, charged, reservedMinor, charged, charged, day],
     );
     if (overage > 0) {
       log({
@@ -787,18 +798,18 @@ export function createApp(config, deps = {}) {
     let guest = false;
     if (role === 'customer') {
       const code = typeof passcode === 'string' ? passcode : '';
-      const publicOk = config.WEEKEND_PUBLIC_GUEST === true && code.length === 0;
-      const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
-      const localOk = config.WEEKEND_ENV === 'local'
-        && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
-        && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
-      if (!publicOk && !ownerOk && !localOk) {
-        if (code.length === 0) {
-          fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
-        }
-        rejectPasscode(clientKey);
+      if (code.length === 0) {
+        // Empty passcode: a public-guest create when the switch is on, otherwise a try-page probe.
+        // Never a guessed credential (passcode hashes are required non-empty at start): no scrypt, no recordFailure.
+        if (config.WEEKEND_PUBLIC_GUEST !== true) fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+        guest = true;
+      } else {
+        const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
+        const localOk = config.WEEKEND_ENV === 'local'
+          && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
+          && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
+        if (!ownerOk && !localOk) rejectPasscode(clientKey);
       }
-      guest = publicOk && !ownerOk && !localOk;
     }
     if (guest && !guestSessionLimiter.tryRecord(clientKey)) {
       fail('UNAUTHORIZED', 'session.throttled', true, {}, 401);

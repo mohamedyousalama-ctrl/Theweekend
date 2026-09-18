@@ -236,6 +236,128 @@ test('guest settlement clamps against settled spend, not in-flight reservations'
   app.close();
 });
 
+test('owner reserve stays available while a second guest turn is still in flight', async () => {
+  const logs = [];
+  const turnA = '11111111-2222-4333-8444-555555555681';
+  const turnB = '11111111-2222-4333-8444-555555555682';
+  const costs = { [turnA]: 300, [turnB]: 0 };
+  const gates = new Map();
+  const entered = [];
+  for (const id of [turnA, turnB]) {
+    let release;
+    gates.set(id, { opened: new Promise((resolve) => { release = resolve; }), release: () => release() });
+  }
+  const { app, config } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+    WEEKEND_GUEST_TURNS_PER_MIN: '8',
+  }, {
+    adapter: async ({ context, input, now }) => {
+      entered.push(input.turn_id);
+      await gates.get(input.turn_id).opened;
+      const result = runModelTurn({ context, input, now });
+      result.usage.cost_estimate_minor = costs[input.turn_id];
+      return result;
+    },
+    costCeilingMinor: 200,
+    log: (record) => logs.push(record),
+  });
+  const guestA = app.createSession('customer', '', { clientKey: '203.0.113.91' });
+  const guestB = app.createSession('customer', '', { clientKey: '203.0.113.92' });
+  const promiseA = app.submitTurn(guestA.token, turn(guestA.context.session_id, turnA));
+  const promiseB = app.submitTurn(guestB.token, turn(guestB.context.session_id, turnB));
+  for (let i = 0; i < 50 && entered.length < 2; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(entered.length, 2);
+  gates.get(turnA).release();
+  const outA = await promiseA;
+  assert.equal(outA.output.state, 'ok');
+  const afterA = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(afterA.cost_minor, 400, 'in-flight guest overage must not fill the shared cap');
+  assert.notEqual(afterA.cost_minor, 500);
+  const ownerApp = createApp(config, {
+    store: app.store,
+    adapter: adapterWithCost(100),
+    costCeilingMinor: 100,
+    log: (record) => logs.push(record),
+  });
+  try {
+    const owner = ownerApp.createSession('owner', OWNER_PASS, { clientKey: '203.0.113.93' });
+    const ownerOut = await ownerApp.submitTurn(
+      owner.token,
+      turn(owner.context.session_id, '11111111-2222-4333-8444-555555555683'),
+    );
+    assert.equal(ownerOut.output.state, 'ok', 'owner reserve stays available while the second guest is in flight');
+  } finally {
+    gates.get(turnB).release();
+    const outB = await promiseB;
+    assert.equal(outB.output.state, 'ok');
+    try { ownerApp.close(); } catch { /* store closed with the guest app below */ }
+    try { app.close(); } catch { /* already closed by ownerApp */ }
+  }
+});
+
+test('guest ceiling violation with the share fully exhausted logs one overage and refuses further guest turns', async () => {
+  const logs = [];
+  const turnA = '11111111-2222-4333-8444-555555555691';
+  const turnB = '11111111-2222-4333-8444-555555555692';
+  const costs = { [turnA]: 300, [turnB]: 200 };
+  const gates = new Map();
+  const entered = [];
+  for (const id of [turnA, turnB]) {
+    let release;
+    gates.set(id, { opened: new Promise((resolve) => { release = resolve; }), release: () => release() });
+  }
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+    WEEKEND_GUEST_TURNS_PER_MIN: '8',
+  }, {
+    adapter: async ({ context, input, now }) => {
+      entered.push(input.turn_id);
+      await gates.get(input.turn_id).opened;
+      const result = runModelTurn({ context, input, now });
+      result.usage.cost_estimate_minor = costs[input.turn_id];
+      return result;
+    },
+    costCeilingMinor: 200,
+    log: (record) => logs.push(record),
+  });
+  const guestA = app.createSession('customer', '', { clientKey: '203.0.113.94' });
+  const guestB = app.createSession('customer', '', { clientKey: '203.0.113.95' });
+  const promiseA = app.submitTurn(guestA.token, turn(guestA.context.session_id, turnA));
+  const promiseB = app.submitTurn(guestB.token, turn(guestB.context.session_id, turnB));
+  for (let i = 0; i < 50 && entered.length < 2; i += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  assert.equal(entered.length, 2);
+  gates.get(turnA).release();
+  const outA = await promiseA;
+  assert.equal(outA.output.state, 'ok');
+  gates.get(turnB).release();
+  const outB = await promiseB;
+  assert.equal(outB.output.state, 'ok');
+  const spent = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spent.guest_settled_minor, 400);
+  assert.equal(spent.guest_cost_minor, 400);
+  assert.equal(spent.cost_minor, 400);
+  const overages = logs.filter((row) => row.kind === 'guest_spend' && row.ceiling_violation === true);
+  assert.equal(overages.length, 1);
+  assert.equal(overages[0].overage_minor, 100);
+  const guestC = app.createSession('customer', '', { clientKey: '203.0.113.96' });
+  await assert.rejects(
+    () => app.submitTurn(guestC.token, turn(guestC.context.session_id, '11111111-2222-4333-8444-555555555693')),
+    err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
+      && err.shape.message_key === 'model.budget_exceeded',
+  );
+  app.close();
+});
+
 test('a failed spend reservation does not burn the guest turn slot', async () => {
   const turnA = '11111111-2222-4333-8444-555555555661';
   let releaseA;
