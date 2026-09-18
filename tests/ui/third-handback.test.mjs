@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readJson } from './helpers.mjs';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { ROOT, readJson } from './helpers.mjs';
 import { renderConsentStep } from '../../src/ui/consent/consent-step.js';
 import { renderBriefDraft } from '../../src/ui/brief/brief-draft.js';
 import { renderOptionalImage } from '../../src/ui/conversation/optional-image.js';
@@ -54,6 +56,19 @@ test('receipt kind is taken from the error or requires_receipt_kind fallback', (
     message_key: 'action.consent_required',
     details: { action_id: 'act_syn_x' },
   }, 'staff_sharing_photo'), 'staff_sharing_photo');
+});
+
+test('action.consent_required uses the default fallback, not a duplicate case', () => {
+  assert.equal(receiptKindFromConsentError({
+    code: 'CONSENT_REQUIRED',
+    message_key: 'action.consent_required',
+  }, 'text_preferences'), 'text_preferences');
+  assert.equal(receiptKindFromConsentError({
+    code: 'CONSENT_REQUIRED',
+    message_key: 'action.consent_required',
+  }), null);
+  const src = readFileSync(join(ROOT, 'src/ui/policy.js'), 'utf8');
+  assert.equal((src.match(/case 'action\.consent_required'/g) || []).length, 0);
 });
 
 test('brief draft approve control is not an invented AllowedAction kind', () => {
