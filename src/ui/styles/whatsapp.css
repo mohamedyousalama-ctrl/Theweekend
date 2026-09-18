@@ -121,9 +121,10 @@
   display: none;
 }
 
+/* Physical sides: guest (outgoing) always right, Khalid always left. RTL only flips the text. */
 .wa-stage .wk-message[data-from="guest"] {
-  margin-inline-start: auto;
-  margin-inline-end: 0;
+  margin-left: auto;
+  margin-right: 0;
   background: #d9fdd3;
   color: #111b21;
   border-radius: 8px 8px 8px 2px;
@@ -131,8 +132,8 @@
 
 .wa-stage .wk-message[data-from="khalid"],
 .wa-stage .wk-message[data-from="rakan"] {
-  margin-inline-start: 0;
-  margin-inline-end: auto;
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .wa-stage .wk-empty,
@@ -156,8 +157,8 @@
 }
 
 .wa-stage .wk-style-card {
-  margin-inline-end: auto;
-  margin-inline-start: 0;
+  margin-left: 0;
+  margin-right: auto;
   background: #fff;
   color: #111b21;
   border: 0;
@@ -182,8 +183,8 @@
 .wa-stage [data-action-kind="open_official_booking"] {
   display: block;
   max-width: 82%;
-  margin-inline-end: auto;
-  margin-inline-start: 0;
+  margin-left: 0;
+  margin-right: auto;
   text-align: center;
   background: #fff;
   color: #027a5a;
@@ -191,8 +192,8 @@
 
 .wa-stage [data-component="brief-draft"] {
   max-width: 82%;
-  margin-inline-end: auto;
-  margin-inline-start: 0;
+  margin-left: 0;
+  margin-right: auto;
   background: #fff;
   border: 0;
   border-radius: 8px;
@@ -245,6 +246,7 @@
   flex-wrap: wrap;
   overflow: visible;
   padding: 4px 0 8px;
+  justify-content: flex-end;
 }
 
 .wa-stage .wk-pill {
@@ -271,17 +273,31 @@
   clip: rect(0 0 0 0);
 }
 
+.wa-stage .wa-input-shell {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 42px;
+  max-height: 120px;
+  border-radius: 22px;
+  background: #fff;
+  overflow: hidden;
+  position: relative;
+}
+
 .wa-stage .wk-composer textarea {
   width: auto;
   flex: 1 1 auto;
   min-width: 0;
   min-height: 42px;
   max-height: 120px;
-  border-radius: 22px;
-  background: #fff;
+  border-radius: 0;
+  background: transparent;
   color: #111b21;
   border: 0;
-  padding: 10px 14px;
+  padding: 10px 12px;
   resize: none;
 }
 
@@ -296,31 +312,23 @@
   flex-shrink: 0;
 }
 
-.wa-stage .wk-photo-upload {
+.wa-stage .wa-attach {
   position: relative;
-  flex-shrink: 0;
-  width: 42px;
-  height: 42px;
-}
-
-.wa-stage .wk-photo-upload .wa-attach {
-  position: absolute;
-  inset: 0;
-  width: 42px;
-  height: 42px;
+  flex: 0 0 36px;
+  width: 36px;
+  height: 36px;
   overflow: hidden;
   font-size: 0;
   color: transparent;
   cursor: pointer;
   border-radius: 50%;
-  background: #fff;
 }
 
 .wa-stage .wa-attach::before {
   content: "";
   position: absolute;
-  top: 11px;
-  inset-inline-end: 18px;
+  top: 10px;
+  left: 14px;
   width: 7px;
   height: 16px;
   border: 2px solid #54656f;
@@ -328,23 +336,28 @@
   transform: rotate(-35deg);
 }
 
-.wa-stage .wk-photo-upload input[type="file"] {
+.wa-stage .wa-file,
+.wa-stage input[type="file"].wa-file {
   position: absolute;
-  inset: 0;
-  opacity: 0;
-  width: 42px;
-  height: 42px;
-  margin: 0;
+  width: 1px;
+  height: 1px;
   padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
   border: 0;
+  white-space: nowrap;
+  opacity: 0;
   color: transparent;
   font-size: 0;
-  cursor: pointer;
   appearance: none;
 }
 
-.wa-stage .wk-photo-upload input[type="file"]::file-selector-button,
-.wa-stage .wk-photo-upload input[type="file"]::-webkit-file-upload-button {
+.wa-stage .wa-file::file-selector-button,
+.wa-stage .wa-file::-webkit-file-upload-button,
+.wa-stage input[type="file"]::file-selector-button,
+.wa-stage input[type="file"]::-webkit-file-upload-button {
   display: none;
   width: 0;
   height: 0;
@@ -371,7 +384,7 @@
   gap: 6px;
   flex-wrap: wrap;
   padding: 0 4px 8px;
-  justify-content: flex-start;
+  justify-content: flex-end;
 }
 
 .wa-typing {
@@ -379,8 +392,8 @@
   align-items: center;
   gap: 4px;
   max-width: 64px;
-  margin-inline-end: auto;
-  margin-inline-start: 0;
+  margin-left: 0;
+  margin-right: auto;
   background: #fff;
   border-radius: 8px;
   padding: 10px 12px;

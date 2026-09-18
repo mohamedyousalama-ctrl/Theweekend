@@ -54,10 +54,14 @@ test('try conversation shows welcome replies and does not confirm a booking', ()
 
 test('WhatsApp composer uses a paperclip control, not a native file caption', () => {
   const composer = renderComposer({ locale: 'ar', variant: 'whatsapp', photoEnabled: true });
+  assert.match(composer.html, /wa-input-shell/);
   assert.match(composer.html, /wa-attach/);
+  assert.match(composer.html, /class="wa-file"/);
   assert.match(composer.html, /data-photo-input="true"/);
   assert.match(composer.html, /accept="image\/jpeg,image\/png,image\/webp"/);
   assert.match(composer.html, /placeholder="رسالة"/);
+  assert.doesNotMatch(composer.html, /class="wk-photo-upload"/);
+  assert.doesNotMatch(composer.html, /Choose File/);
 });
 
 const PIXEL = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
@@ -114,13 +118,56 @@ test('WhatsApp greeting does not dump styles, brief, save, or booking', () => {
   assert.doesNotMatch(view.html, /يناسب شعرك/);
 });
 
-test('WhatsApp shows Khalid style suggestions inside the transcript after a look request', () => {
+test('WhatsApp named service asks to book — no styles, no photo skip', () => {
   const view = renderConversation({
     locale: 'ar',
     variant: 'whatsapp',
     thread: [
       { from: 'khalid', text: COPY.ar.wa_welcome, lang: 'ar' },
       { from: 'guest', text: 'أبغى فيد', lang: 'ar' },
+      { from: 'khalid', text: 'أبشر، الفيد قصّة شعر بـ30 ريال شامل الضريبة، المدة 35 دقيقة. أفتح لك صفحة الحجز؟', lang: 'ar' },
+    ],
+    output: {
+      state: 'ok',
+      messages: [{ text: 'أبشر، الفيد قصّة شعر بـ30 ريال شامل الضريبة، المدة 35 دقيقة. أفتح لك صفحة الحجز؟', lang: 'ar' }],
+      style_options: [
+        { option_id: 'opt_1', name_ar: 'فيد', name_en: 'fade', why_ar: 'يناسب شعرك', upkeep_ar: 'x', feasible_in_person: 'unknown' },
+        { option_id: 'opt_2', name_ar: 'كلاسيك', name_en: 'classic', why_ar: 'أهدى', upkeep_ar: 'x', feasible_in_person: 'unknown' },
+      ],
+      flags: [],
+    },
+    allowedActions: [
+      {
+        action_id: 'act_syn_book_link_a',
+        kind: 'open_official_booking',
+        label_ar: 'صفحة الحجز الرسمية',
+        label_en: 'Official booking page',
+        url: 'https://example.invalid/book',
+      },
+      {
+        action_id: 'act_syn_nophoto',
+        kind: 'continue_without_photo',
+        label_ar: 'بدون صورة',
+        label_en: 'No photo',
+      },
+    ],
+  });
+  assert.equal(view.meta.greetingTurn, false);
+  assert.equal(view.meta.styleCount, 0);
+  assert.match(view.html, /أفتح صفحة الحجز/);
+  assert.doesNotMatch(view.html, /بدون صورة/);
+  assert.doesNotMatch(view.html, /يناسب شعرك/);
+  assert.doesNotMatch(view.html, /data-style-replies/);
+  assert.doesNotMatch(view.html, /data-component="brief-draft"/);
+});
+
+test('WhatsApp shows Khalid style suggestions inside the transcript after a look request', () => {
+  const view = renderConversation({
+    locale: 'ar',
+    variant: 'whatsapp',
+    thread: [
+      { from: 'khalid', text: COPY.ar.wa_welcome, lang: 'ar' },
+      { from: 'guest', text: 'أبغى شكل يناسبني', lang: 'ar' },
       { from: 'khalid', text: 'تمام، عندي خيارين', lang: 'ar' },
     ],
     output: {
@@ -145,6 +192,7 @@ test('WhatsApp shows Khalid style suggestions inside the transcript after a look
   assert.match(view.html, /wk-transcript[\s\S]*يناسب شعرك/);
   assert.match(view.html, /data-style-replies="true"/);
   assert.doesNotMatch(view.html, /صفحة الحجز الرسمية/);
+  assert.doesNotMatch(view.html, /أفتح صفحة الحجز/);
   assert.doesNotMatch(view.html, /data-component="brief-draft"/);
 });
 
@@ -264,7 +312,10 @@ test('try skin and hub pages do not ship WhatsApp trademarks or demo shame copy'
     assert.doesNotMatch(src, /This is not a real reservation|owner review|ديمو/i);
   }
   assert.match(tryCss, /\.wa-attach::before/);
+  assert.match(tryCss, /\.wa-input-shell/);
+  assert.match(tryCss, /clip-path:\s*inset\(50%\)/);
   assert.match(tryCss, /opacity:\s*0/);
   assert.match(tryCss, /::file-selector-button/);
   assert.match(tryCss, /\.wa-typing/);
+  assert.match(tryCss, /margin-left:\s*auto/);
 });

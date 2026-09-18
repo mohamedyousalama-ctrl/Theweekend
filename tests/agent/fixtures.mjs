@@ -36,7 +36,7 @@ export function photoConsent() {
   };
 }
 
-export function input(text = 'كم سعر الحلاقة؟', overrides = {}) {
+export function input(text = 'تمام', overrides = {}) {
   return {
     contract_version: '0.1.0',
     session_id: 'ses_test_a',

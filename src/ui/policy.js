@@ -173,6 +173,15 @@ export function isPacingHold(text, hasImage = false) {
   return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
 }
 
+/** Named service with no look/photo ask — book, do not consult. */
+export function isDirectServiceAsk(text) {
+  const raw = String(text || '').trim();
+  if (!raw || isGreetingOnly(raw)) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/صور|photo|شكل|استشارة|look|style|خيارين/i.test(t)) return false;
+  return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
+}
+
 export function photoPreviewPermitted(context) {
   if (!context || typeof context !== 'object') return false;
   return context.capabilities?.photo === 'enabled'

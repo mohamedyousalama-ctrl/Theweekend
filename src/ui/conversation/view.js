@@ -9,7 +9,7 @@ import { renderOptionalImage } from './optional-image.js';
 import { renderBriefDraft } from '../brief/brief-draft.js';
 import { renderError } from '../states/error.js';
 import { renderActionResult } from '../states/action-result.js';
-import { isGreetingOnly } from '../policy.js';
+import { isDirectServiceAsk, isGreetingOnly } from '../policy.js';
 
 function lastGuestText(messages) {
   const lastGuest = [...messages].reverse().find((msg) => msg.from === 'guest');
@@ -43,6 +43,7 @@ export function renderConversation({
   const greetingTurn = !guestSaid && !guestSentPhoto
     ? true
     : (!guestSentPhoto && isGreetingOnly(guestSaid));
+  const directService = !guestSentPhoto && isDirectServiceAsk(guestSaid);
   const pickedStyle = Boolean(guestSaid && /^(الأول|الثاني|بدون هالخيارات|The first|The second|Skip these options)$/u.test(guestSaid));
   const hasAttachedPhoto = messages.some((msg) => Boolean(msg.imageUrl));
   const khalidLines = messages.filter((msg) => msg.from !== 'guest' && String(msg.text || '').trim());
@@ -60,14 +61,15 @@ export function renderConversation({
   const hasBrief = output?.brief_draft?.status === 'draft' && Boolean(output?.brief_draft?.requested_look?.text_ar);
   const whatsapp = variant === 'whatsapp';
   const showStyles = whatsapp
-    ? styleCount > 0 && !greetingTurn && !lastFromGuest && !loading && !hasBrief && !pickedStyle
+    ? styleCount > 0 && !greetingTurn && !directService && !lastFromGuest && !loading && !hasBrief && !pickedStyle
     : styleCount > 0;
   const showBrief = whatsapp
-    ? hasBrief && !showStyles && !greetingTurn && !lastFromGuest && !loading
+    ? hasBrief && !showStyles && !greetingTurn && !directService && !lastFromGuest && !loading
     : true;
   const whatsappContinue = whatsapp
     && !quickReplies
     && !greetingTurn
+    && !directService
     && !hasAttachedPhoto
     && !showStyles
     && photoOffered;
@@ -99,6 +101,7 @@ export function renderConversation({
     variant,
     greetingTurn: whatsapp ? greetingTurn || loading : false,
     showStyles: whatsapp ? showStyles : false,
+    directService: whatsapp ? directService : false,
     hasBrief: whatsapp ? showBrief : hasBrief,
     lastGuestText: guestSaid,
     flags: output?.flags,

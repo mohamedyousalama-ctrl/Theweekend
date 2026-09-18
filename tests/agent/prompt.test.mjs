@@ -35,6 +35,7 @@ test('the model-facing prompt carries the non-negotiable rules', () => {
     'No scarcity',
     'The web chat UI already shows your digital identity',
     'greeting-only',
+    'named service',
     'Hospitality pacing',
     'never a biography',
     'knowledge_refs',

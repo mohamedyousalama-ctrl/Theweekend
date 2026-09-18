@@ -20,22 +20,25 @@ export function renderComposer({
     ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, escapeHtml(fieldCopy))
     : '';
   const attach = whatsapp && photoEnabled
-    ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
-      el('label', {
-        for: 'wk-photo-upload',
-        class: 'wa-attach',
-        title: t(locale, 'photo_upload'),
-      }, t(locale, 'photo_upload')),
-      el('input', {
-        id: 'wk-photo-upload',
-        name: 'photo',
-        type: 'file',
-        accept: 'image/jpeg,image/png,image/webp',
-        disabled,
-        'data-photo-input': 'true',
-        'aria-label': t(locale, 'photo_upload'),
-      }, ''),
-    ])
+    ? el('label', {
+      for: 'wk-photo-upload',
+      class: 'wa-attach',
+      title: t(locale, 'photo_upload'),
+    }, t(locale, 'photo_upload'))
+    : '';
+  const fileInput = whatsapp && photoEnabled
+    ? el('input', {
+      id: 'wk-photo-upload',
+      class: 'wa-file',
+      name: 'photo',
+      type: 'file',
+      accept: 'image/jpeg,image/png,image/webp',
+      disabled,
+      tabindex: '-1',
+      'aria-hidden': 'true',
+      'data-photo-input': 'true',
+      'aria-label': t(locale, 'photo_upload'),
+    }, '')
     : '';
   const textarea = el('textarea', {
     id: 'wk-composer-text',
@@ -53,24 +56,19 @@ export function renderComposer({
     disabled,
     'data-send': 'true',
   }, whatsapp ? '➤' : t(locale, 'send'));
+  const inputShell = whatsapp
+    ? el('div', { class: 'wa-input-shell' }, [attach, fileInput, textarea].filter(Boolean))
+    : textarea;
   const html = el('form', {
     class: 'wk-composer',
     'data-component': 'composer',
     'aria-disabled': String(disabled),
-  }, whatsapp
-    ? [
-      el('label', { for: 'wk-composer-text' }, t(locale, 'composer_label')),
-      attach,
-      textarea,
-      fieldError,
-      send,
-    ]
-    : [
-      el('label', { for: 'wk-composer-text' }, t(locale, 'composer_label')),
-      textarea,
-      fieldError,
-      send,
-    ]);
+  }, [
+    el('label', { for: 'wk-composer-text' }, t(locale, 'composer_label')),
+    inputShell,
+    fieldError,
+    send,
+  ]);
   return {
     html,
     meta: {

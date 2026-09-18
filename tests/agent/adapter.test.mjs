@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, stripIdentityDump } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -216,6 +216,9 @@ test('greeting-only turns drop dumped styles, brief and extra actions', () => {
   assert.equal(isGreetingOnly('هلا والله'), true);
   assert.equal(isGreetingOnly('أبغى فيد'), false);
   assert.equal(isGreetingOnly('كم سعر الحلاقة؟'), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد'), true);
+  assert.equal(isDirectServiceAsk('كم سعر الحلاقة؟'), true);
+  assert.equal(isDirectServiceAsk('أبغى شكل يناسبني'), false);
   const raw = modelJson({
     reply: [{ text: 'هلا والله. تبي حلاقة؟', lang: 'ar' }],
     style_options: [
@@ -248,8 +251,20 @@ test('greeting-only turns drop dumped styles, brief and extra actions', () => {
     byId: knowledge.byId,
     now: '2026-09-14T06:00:00Z',
   });
-  assert.equal(priced.style_options.length, 2);
-  assert.equal(priced.proposed_actions.some((a) => a.kind === 'open_official_booking'), true);
+  assert.equal(priced.style_options.length, 0);
+  assert.equal(priced.brief_draft, null);
+  assert.equal(priced.proposed_actions.length, 1);
+  assert.equal(priced.proposed_actions[0].kind, 'open_official_booking');
+  const lookAsk = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى شكل يناسبني'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(lookAsk.style_options.length, 2);
+  assert.equal(lookAsk.proposed_actions.some((a) => a.kind === 'open_official_booking'), true);
   const photoAsk = mapModelOutput(raw, {
     context: context(),
     input: input('صورتي'),
@@ -261,6 +276,37 @@ test('greeting-only turns drop dumped styles, brief and extra actions', () => {
   assert.equal(photoAsk.style_options.length, 0);
   assert.equal(photoAsk.brief_draft, null);
   assert.equal(photoAsk.proposed_actions.length, 0);
+});
+
+test('named-service turns strip identity dumps and keep booking only', () => {
+  assert.match(stripIdentityDump('هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد قص شعر.'), /الفيد قص شعر/);
+  assert.equal(/معك خالد/.test(stripIdentityDump('هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد قص شعر.')), false);
+  const raw = modelJson({
+    reply: [{ text: 'هلا والله، معك خالد مساعد ذا ويكند الرقمي. الفيد هو قص شعر.', lang: 'ar' }],
+    style_options: [
+      { name_ar: 'فيد', name_en: 'fade', why_ar: 'x', upkeep_ar: 'y', feasible_in_person: 'unknown' },
+    ],
+    brief_draft: { present: true, barber_preference: '', requested_look_ar: 'فيد', do_not: [] },
+    proposed_actions: [
+      { kind: 'continue_without_photo', label_ar: 'بدون', label_en: 'skip', payload: { preference_kind: 'none', value_text: '' } },
+      { kind: 'save_preference', label_ar: 'حفظ', label_en: 'save', payload: { preference_kind: 'style', value_text: 'فيد' } },
+    ],
+  });
+  const out = mapModelOutput(raw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(out.messages.length, 1);
+  assert.equal(/معك خالد|مساعد ذا ويكند الرقمي/.test(out.messages[0].text), false);
+  assert.match(out.messages[0].text, /الفيد/);
+  assert.equal(out.style_options.length, 0);
+  assert.equal(out.brief_draft, null);
+  assert.equal(out.proposed_actions.length, 1);
+  assert.equal(out.proposed_actions[0].kind, 'open_official_booking');
 });
 
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {

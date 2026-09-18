@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.7';
+export const PROMPT_VERSION = 'rakan.system.v0.8';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -226,7 +226,7 @@ export function dynamicContext(context, now, hasImage) {
     `booking_handoff: ${caps.booking_handoff}; staff_inbox: ${caps.staff_inbox}; preferences: ${caps.preferences}`,
     `action_kinds_allowed_now: ${allowed.join(',')}`,
     'identity_already_shown: yes',
-    'pacing: greeting-only → one short reply, empty style_options, no brief, no save_preference',
+    'pacing: greeting-only → one short reply, empty styles; named-service → price + booking only, no identity dump, no photo skip, empty styles',
   ].join('\n');
 }
 
@@ -247,6 +247,38 @@ export function isPacingHold(text, hasImage = false) {
   if (isGreetingOnly(raw)) return true;
   const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
   return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
+}
+
+/** Named service with no look/photo ask — book, do not consult. */
+export function isDirectServiceAsk(text) {
+  const raw = String(text || '').trim();
+  if (!raw || isGreetingOnly(raw)) return false;
+  const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
+  if (/صور|photo|شكل|استشارة|look|style|خيارين/i.test(t)) return false;
+  return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
+}
+
+/** Customer is asking who Khalid is — keep the identity sentence. */
+export function isIdentityQuestion(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  return /من أنت|من انت|انت بوت|أنت بوت|انت انسان|أنت إنسان|هل أنت|are you (a )?(bot|human|person)|who are you|روبوت|بشري/i.test(t);
+}
+
+/**
+ * Application-side strip of the identity dump the model repeats after the UI already introduced Khalid.
+ * Does not authorize anything; presentation only.
+ */
+export function stripIdentityDump(text, { dropLeadGreeting = false } = {}) {
+  let t = String(text || '').trim();
+  if (!t) return '';
+  t = t.replace(/(?:معك خالد(?:،)?(?:\s*مساعد ذا ويكند الرقمي)?|I'm Khalid[^.]*digital assistant|this is Khalid[^.]*digital assistant)[.،!]?\s*/giu, '');
+  t = t.replace(/مساعد ذا ويكند الرقمي[.،!]?\s*/giu, '');
+  t = t.replace(/The Weekend'?s digital assistant[.!]?\s*/giu, '');
+  if (dropLeadGreeting) {
+    t = t.replace(/^(هلا(?: والله)?|وعليكم السلام|hi|hello|hey)[،,]?\s*/iu, '');
+  }
+  return t.replace(/\s{2,}/g, ' ').replace(/^[،,.!\s]+/, '').trim();
 }
 
 export function actionAllowed(kind, caps, hasImage) {
@@ -646,15 +678,41 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   for (const n of notes) if (!flags.includes(n)) flags.push(n);
 
   const greetingOnly = isPacingHold(input?.text, hasImage);
-  const pacedStyles = greetingOnly ? [] : styleOptions;
-  const pacedBrief = greetingOnly ? null : briefDraft;
-  const pacedActions = greetingOnly ? [] : proposedActions;
+  const directService = !hasImage && isDirectServiceAsk(input?.text);
+  const identityQuestion = isIdentityQuestion(input?.text);
+  const cleanedMessages = messages
+    .map((m) => ({
+      ...m,
+      text: identityQuestion ? m.text : stripIdentityDump(m.text, { dropLeadGreeting: directService }),
+    }))
+    .filter((m) => m.text);
+  const fallbackLang = customerLang(input?.text);
+  const fallbackText = directService
+    ? (fallbackLang === 'en' ? 'Sure. Want me to open the booking page?' : 'أبشر. أفتح لك صفحة الحجز؟')
+    : (fallbackLang === 'en' ? 'What can I help with?' : 'وش أقدر أساعدك فيه؟');
+  const pacedMessages = (cleanedMessages.length ? cleanedMessages : [{ text: fallbackText, lang: fallbackLang }])
+    .slice(0, greetingOnly || directService ? 1 : 3);
+  const pacedStyles = greetingOnly || directService ? [] : styleOptions;
+  const pacedBrief = greetingOnly || directService ? null : briefDraft;
+  let pacedActions = greetingOnly
+    ? []
+    : (directService
+      ? proposedActions.filter((a) => a.kind === 'open_official_booking' || a.kind === 'request_pending_booking')
+      : proposedActions);
+  if (directService && pacedActions.length === 0 && actionAllowed('open_official_booking', caps, hasImage)) {
+    pacedActions = [{
+      kind: 'open_official_booking',
+      label_ar: 'أفتح صفحة الحجز',
+      label_en: 'Open the booking page',
+      payload: {},
+    }];
+  }
 
   return {
     contract_version: '0.1.0',
     turn_id: input.turn_id,
     state: 'ok',
-    messages: messages.length ? messages : [{ text: 'وش أقدر أساعدك فيه؟', lang: 'ar' }],
+    messages: pacedMessages,
     observations,
     style_options: pacedStyles,
     proposed_actions: pacedActions,
