@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -83,4 +85,21 @@ test('missing talk_to_staff records not_run and a non-zero exit', () => {
   assert.match(script, /not_run\.push\(skippedHandoff\.not_run\)/);
   assert.match(script, /blockers\.push\(skippedHandoff\.blocker\)/);
   assert.match(script, /process\.exit\(walkthroughExitCode\(report\)\)/);
+});
+
+test('walkthrough main still runs when the script is invoked through a symlink', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'wk-walkthrough-'));
+  const link = join(dir, 'symlink.mjs');
+  const env = { ...process.env };
+  delete env.WEEKEND_WALKTHROUGH_URL;
+  delete env.WEEKEND_OWNER_PASSCODE;
+  delete env.WEEKEND_STAFF_PASSCODE;
+  try {
+    symlinkSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), link);
+    const result = spawnSync(process.execPath, [link], { env, encoding: 'utf8' });
+    assert.equal(result.status, 2);
+    assert.match(result.stderr, /WEEKEND_WALKTHROUGH_URL is required/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });

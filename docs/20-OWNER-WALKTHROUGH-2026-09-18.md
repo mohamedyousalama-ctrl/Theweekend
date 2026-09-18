@@ -8,7 +8,7 @@ This is M1 owner-review evidence, not permission for unrestricted customers.
 
 Method for the first live fetch: `node scripts/owner-walkthrough.mjs` with `WEEKEND_WALKTHROUGH_URL` supplied only in the runner environment (HTTPS origin; value not recorded here). Started 2026-09-18 ~12:26 UTC. No customer photographs. No passcodes, tokens or API keys in this file.
 
-The runner’s wrong-staff-passcode probe is **off by default** (C5). Set `WEEKEND_WALKTHROUGH_NEGATIVE=1` to run it **after** authenticated owner/staff logins. A failed probe still counts against five failures per client address for 15 minutes and is not cleared on success; repeating it before login locked later valid sessions. The unauthenticated table below is the 2026-09-18 observation, when that probe still ran on every pass.
+The runner’s wrong-staff-passcode probe is **off by default** (C5). Set `WEEKEND_WALKTHROUGH_NEGATIVE=1` to run it **after** authenticated owner/staff logins. A failed probe still counts against five failures per client address for 15 minutes and is not cleared on success; repeating it before login locked later valid sessions. The wrong-passcode row in the Security-probes table below is the 2026-09-18 observation, when that probe still ran on every pass.
 
 A style request that is not HTTP 200 with `output.state=ok` is a blocker. Steps 4–5 must not skip that turn and still exit 0.
 
