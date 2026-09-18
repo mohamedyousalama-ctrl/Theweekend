@@ -386,6 +386,11 @@ test('try-page CSS keeps composer in first viewport (DOM shim cannot measure lay
   for (const rule of waStageRules) {
     assert.doesNotMatch(rule, /min-height:\s*100vh/);
   }
+  assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*display:\s*flex/);
   assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*flex:\s*1/);
-  assert.match(tryCss, /\.wa-stage\s*\{[^}]*min-height:\s*100%/);
+  assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*min-height:\s*0/);
+  const waStageBase = waStageRules[0]; // first .wa-stage rule in source order = the base rule
+  assert.match(waStageBase, /flex:\s*1/);
+  assert.match(waStageBase, /min-height:\s*0/);
+  for (const rule of waStageRules) assert.doesNotMatch(rule, /min-height:\s*100%/);
 });

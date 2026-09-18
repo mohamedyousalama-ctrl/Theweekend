@@ -21,6 +21,8 @@
 }
 
 .try-body #rakan-root {
+  display: flex;
+  flex-direction: column;
   flex: 1;
   min-height: 0;
 }
@@ -34,7 +36,8 @@
 
 .wa-stage {
   width: min(420px, 100%);
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
