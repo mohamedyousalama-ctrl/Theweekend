@@ -57,7 +57,12 @@ test('hosting doc unblocks Railway after C2 and the UI handback', () => {
   const hosting = readFileSync(join(ROOT, 'docs/17-HOSTING.md'), 'utf8');
   assert.match(hosting, /unblocked 2026-09-15/);
   assert.match(hosting, /2050d45/);
-  assert.match(hosting, /rakan-production-7ae6\.up\.railway\.app/);
+  // Privacy guard (AGENTS.md: public repository — no private contacts, no review-domain leak).
+  for (const file of ['docs/17-HOSTING.md', 'docs/18-HANDOVER-INTEGRATOR.md', 'CONTINUE.md']) {
+    const text = readFileSync(join(ROOT, file), 'utf8');
+    assert.doesNotMatch(text, /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/, `${file} contains an e-mail address`);
+    assert.doesNotMatch(text, /up\.railway\.app/, `${file} contains the Railway review domain`);
+  }
   assert.match(hosting, /WEEKEND_MODEL_API_KEY/);
   const baseline = readFileSync(join(ROOT, 'docs/16-C-BASELINE.md'), 'utf8');
   assert.match(baseline, /2050d452aab515f807de7a83d88eb470648eba0e/);
