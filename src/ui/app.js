@@ -283,9 +283,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       btn.addEventListener('click', () => {
         state.error = null;
         const pending = state.pendingRetry;
-        const draft = state.draft;
-        if (pending?.type === 'turn' || (draft && state.output?.error?.retryable)) {
-          void runPending(pending || { type: 'turn', text: draft });
+        if (pending) {
+          void runPending(pending);
           return;
         }
         paint();
@@ -578,6 +577,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       });
       if (out && typeof out.image_ref === 'string') state.imageRef = out.image_ref;
       state.error = null;
+      state.pendingRetry = null;
     } catch (err) {
       if (isConsentRequired(err)) {
         beginConsent(err, {
@@ -589,6 +589,11 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       }
       state.error = err;
       if (err.code === 'UPLOAD_REJECTED') state.imageRef = null;
+      state.pendingRetry = {
+        type: 'upload',
+        bytes: packed.bytes,
+        contentType: packed.contentType,
+      };
     }
     paint();
   }

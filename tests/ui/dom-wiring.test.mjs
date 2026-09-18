@@ -427,3 +427,69 @@ test('retryable MODEL_UNAVAILABLE keeps the draft and retry posts /turns again',
   assert.equal(app.state.draft, '');
   assert.equal(calls.filter((c) => c.path === '/turns').length, 2);
 });
+
+test('retry after a retryable turn then a retryable upload posts /uploads once and no /turns', async () => {
+  const calls = [];
+  const down = failure('unavailable-model').instance;
+  const uploadErr = {
+    contract_version: '0.1.0',
+    code: 'TIMEOUT',
+    message_key: 'model.timeout',
+    retryable: true,
+    details: { capability: 'photo' },
+  };
+  const photoContext = {
+    ...context,
+    capabilities: { ...context.capabilities, photo: 'enabled' },
+  };
+  let uploads = 0;
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/turns') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ output: down, allowed_actions: [], action_result: null, context: photoContext }),
+      };
+    }
+    if (path === '/uploads') {
+      uploads += 1;
+      if (uploads === 1) {
+        return { ok: false, status: 504, json: async () => uploadErr };
+      }
+      return { ok: true, status: 200, json: async () => ({ image_ref: 'img_syn_retry_up' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = photoContext;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'سلام';
+  composer.fire('submit');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 1);
+  const input = root.querySelector('#wk-photo-upload');
+  assert.ok(input);
+  input.files = [{
+    type: 'image/jpeg',
+    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+  }];
+  input.fire('change');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/uploads' && c.method === 'POST').length, 1);
+  const retry = root.querySelector('[data-retry="true"]');
+  assert.ok(retry, 'retry control shown for retryable upload failure');
+  const before = calls.length;
+  retry.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  const after = calls.slice(before);
+  assert.equal(after.filter((c) => c.path === '/uploads' && c.method === 'POST').length, 1);
+  assert.equal(after.filter((c) => c.path === '/turns').length, 0);
+  assert.equal(calls.filter((c) => c.path === '/turns').length, 1);
+  assert.equal(app.state.imageRef, 'img_syn_retry_up');
+});
