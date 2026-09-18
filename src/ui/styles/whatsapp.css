@@ -1,8 +1,28 @@
 .try-body {
   min-height: 100vh;
   margin: 0;
-  background: #0b141a;
+  background: var(--wk-ground);
   color: #111b21;
+  display: flex;
+  flex-direction: column;
+}
+
+.try-site-chat-notice {
+  margin: 0;
+  padding: 8px 14px;
+  background: var(--wk-ground);
+  color: var(--wk-ink);
+  font-size: 12.5px;
+  line-height: 1.55;
+  text-align: center;
+  border-bottom: 1px solid var(--wk-hairline);
+}
+
+.try-site-chat-notice [lang="en"] {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--wk-muted);
 }
 
 .wa-stage {
@@ -11,7 +31,7 @@
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  background-color: #efeae2;
+  background-color: #e8ebf0;
   background-image:
     radial-gradient(rgba(0, 0, 0, 0.04) 0.6px, transparent 0.6px);
   background-size: 18px 18px;
@@ -20,9 +40,13 @@
 
 @media (min-width: 720px) {
   .try-body {
-    display: flex;
-    justify-content: center;
-    padding: 32px 16px;
+    align-items: center;
+    padding: 0 16px 32px;
+  }
+
+  .try-site-chat-notice {
+    width: 100%;
+    margin: 0 -16px 16px;
   }
 
   .wa-stage {
@@ -39,7 +63,7 @@
   align-items: center;
   gap: 10px;
   padding: 10px 12px;
-  background: #075e54;
+  background: #243044;
   color: #fff;
   flex-shrink: 0;
 }
@@ -126,7 +150,7 @@
 .wa-stage .wk-message[data-from="guest"] {
   margin-left: auto;
   margin-right: 0;
-  background: #d9fdd3;
+  background: #d4dced;
   color: #111b21;
   border-radius: 8px 8px 8px 2px;
 }
@@ -305,7 +329,7 @@
 }
 
 .wa-stage .wk-composer [data-send="true"] {
-  background: #25d366;
+  background: #3d5a80;
   color: #fff;
   border: 0;
   border-radius: 50%;
