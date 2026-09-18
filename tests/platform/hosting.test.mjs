@@ -9,6 +9,7 @@ import { openStore } from '../../src/server/store.mjs';
 import { testApp, testEnv } from './helpers.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 
 function listen(server) {
   return new Promise((resolve, reject) => {
@@ -86,6 +87,43 @@ test('static UI is served with clickjacking and sniffing protections', async () 
     assert.equal(res.headers.get('x-frame-options'), 'DENY');
     assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
     assert.equal(res.headers.get('cache-control'), 'no-store');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+    app.close();
+  }
+});
+
+test('Content-Security-Policy is on JSON, 404, static UI and /health; index.html has no inline script', async () => {
+  const html = readFileSync(join(ROOT, 'src/ui/index.html'), 'utf8');
+  assert.equal(/<script\b(?![^>]*\bsrc=)/i.test(html), false);
+  assert.match(html, /<script type="module" src="\.\/app\.js"><\/script>/);
+
+  const { app, config } = testApp();
+  const server = createHttpServer(app, config);
+  const port = await listen(server);
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const health = await fetch(`${base}/health`);
+    assert.equal(health.status, 200);
+    assert.equal(health.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
+
+    const json = await fetch(`${base}/session`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ role: 'customer', passcode: 'nope' }),
+    });
+    assert.equal(json.status, 401);
+    assert.match(json.headers.get('content-type') || '', /^application\/json/);
+    assert.equal(json.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
+
+    const missing = await fetch(`${base}/no-such-route`);
+    assert.equal(missing.status, 404);
+    assert.equal(missing.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
+
+    const ui = await fetch(`${base}/`);
+    assert.equal(ui.status, 200);
+    assert.match(ui.headers.get('content-type') || '', /^text\/html/);
+    assert.equal(ui.headers.get('content-security-policy'), CONTENT_SECURITY_POLICY);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     app.close();

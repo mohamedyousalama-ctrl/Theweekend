@@ -7,6 +7,7 @@ import { newId } from './ids.mjs';
 
 const JSON_TYPE = 'application/json; charset=utf-8';
 const UI_ROOT = resolve(join(fileURLToPath(new URL('../ui', import.meta.url))));
+const CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
@@ -22,6 +23,7 @@ function securityHeaders(extra = {}) {
     'x-frame-options': 'DENY',
     'referrer-policy': 'no-referrer',
     'cache-control': 'no-store',
+    'content-security-policy': CONTENT_SECURITY_POLICY,
     ...extra,
   };
 }
