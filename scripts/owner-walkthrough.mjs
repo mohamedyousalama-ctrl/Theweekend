@@ -39,6 +39,14 @@ export function isNegativeProbeEnabled(env = process.env) {
 export const NEGATIVE_PROBE_DEFAULT_SKIP =
   'wrong-passcode probe (WEEKEND_WALKTHROUGH_NEGATIVE unset; default off to avoid self-lockout)';
 
+export const TEXT_ONLY_TURN_BLOCKER =
+  'step 4-5: text-only style turn was not HTTP 200 with output.state=ok';
+
+export function textOnlyTurnBlocker(style) {
+  if (style?.status === 200 && style?.json?.output?.state === 'ok') return null;
+  return TEXT_ONLY_TURN_BLOCKER;
+}
+
 function failUsage(message) {
   process.stderr.write(`${message}\n`);
   process.exit(2);
@@ -374,6 +382,8 @@ async function main() {
     allowed_action_kinds: actionKinds(styleActions),
     photo_path: 'text_only_no_upload',
   };
+  const styleBlocker = textOnlyTurnBlocker(style);
+  if (styleBlocker) report.blockers.push(styleBlocker);
 
   const continueWithout = findAction(styleActions, 'continue_without_photo');
   const decline = findAction(styleActions, 'decline');

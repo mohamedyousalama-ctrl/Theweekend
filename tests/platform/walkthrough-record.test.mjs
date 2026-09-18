@@ -6,6 +6,8 @@ import { fileURLToPath } from 'node:url';
 import {
   isNegativeProbeEnabled,
   NEGATIVE_PROBE_DEFAULT_SKIP,
+  textOnlyTurnBlocker,
+  TEXT_ONLY_TURN_BLOCKER,
 } from '../../scripts/owner-walkthrough.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -50,4 +52,16 @@ test('wrong-passcode probe is opt-in and follows authenticated logins', () => {
   assert.ok(probe > staffLogin, 'wrong-passcode probe must follow the staff login');
   assert.match(script, /isNegativeProbeEnabled\(\)/);
   assert.doesNotMatch(script, /WEEKEND_STAFF_PASSCODE=/);
+});
+
+test('a failed or non-ok style turn records a text-only blocker', () => {
+  assert.equal(textOnlyTurnBlocker({ status: 200, json: { output: { state: 'ok' } } }), null);
+  assert.equal(textOnlyTurnBlocker({ status: 500, json: { output: { state: 'ok' } } }), TEXT_ONLY_TURN_BLOCKER);
+  assert.equal(textOnlyTurnBlocker({ status: 200, json: { output: { state: 'error' } } }), TEXT_ONLY_TURN_BLOCKER);
+  assert.equal(textOnlyTurnBlocker({ status: 200, json: { output: {} } }), TEXT_ONLY_TURN_BLOCKER);
+  assert.equal(textOnlyTurnBlocker({ status: 200, json: {} }), TEXT_ONLY_TURN_BLOCKER);
+  assert.equal(textOnlyTurnBlocker({ status: 0, json: null }), TEXT_ONLY_TURN_BLOCKER);
+
+  const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
+  assert.match(script, /textOnlyTurnBlocker\(style\)/);
 });
