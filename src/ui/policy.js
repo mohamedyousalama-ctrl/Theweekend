@@ -173,12 +173,19 @@ export function isPacingHold(text, hasImage = false) {
   return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
 }
 
-/** Named service with no look/photo ask — book, do not consult. */
-export function isDirectServiceAsk(text) {
+/** Named service with no look/photo/complaint/follow-up — book, do not consult. */
+export function isDirectServiceAsk(text, flags = []) {
   const raw = String(text || '').trim();
   if (!raw || isGreetingOnly(raw)) return false;
+  const flagList = Array.isArray(flags) ? flags : [];
+  if (flagList.includes('complaint') || flagList.includes('no_offer_after_decline') || flagList.includes('refusal_medical')) {
+    return false;
+  }
   const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
-  if (/صور|photo|شكل|استشارة|look|style|خيارين/i.test(t)) return false;
+  if (/صور|photo|شكل|استشارة|look|style|خيارين|فرق|الأنواع|انواع/i.test(t)) return false;
+  if (/خرب|مو متساوي|ما عجب|سيء|زفت|شكوى|مشكلة|اشتكي|ليش صار|طلع مو|complain|uneven|ruined|messed up/i.test(t)) {
+    return false;
+  }
   return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
 }
 

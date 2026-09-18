@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, stripIdentityDump } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION, isGreetingOnly, isDirectServiceAsk, isComplaintAsk, stripIdentityDump } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -307,6 +307,128 @@ test('named-service turns strip identity dumps and keep booking only', () => {
   assert.equal(out.brief_draft, null);
   assert.equal(out.proposed_actions.length, 1);
   assert.equal(out.proposed_actions[0].kind, 'open_official_booking');
+});
+
+test('complaints and follow-up questions are not booking turns', () => {
+  const ruined = 'الحلاقة اللي سويتها لي خربت، ليش صار كذا؟';
+  const uneven = 'قصيت شعري طلع مو متساوي';
+  const typesAsk = 'أبي فيد، أول مرة، هل فيه فرق بين الأنواع؟';
+  assert.equal(isComplaintAsk(ruined), true);
+  assert.equal(isComplaintAsk(uneven), true);
+  assert.equal(isDirectServiceAsk(ruined), false);
+  assert.equal(isDirectServiceAsk(uneven), false);
+  assert.equal(isDirectServiceAsk(typesAsk), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد', ['complaint']), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد', ['no_offer_after_decline']), false);
+  assert.equal(isDirectServiceAsk('أبغى فيد'), true);
+
+  const staffAction = {
+    kind: 'talk_to_staff',
+    label_ar: 'كلام مع الفريق',
+    label_en: 'Talk to staff',
+    payload: { preference_kind: 'none', value_text: '' },
+  };
+  const bookAction = {
+    kind: 'open_official_booking',
+    label_ar: 'حجز',
+    label_en: 'book',
+    payload: { preference_kind: 'none', value_text: '' },
+  };
+  const complaintRaw = modelJson({
+    reply: [
+      { text: 'آسف على اللي صار.', lang: 'ar' },
+      { text: 'أوصلك لأحد من الفريق؟', lang: 'ar' },
+    ],
+    proposed_actions: [staffAction, bookAction],
+    flags: ['complaint'],
+    knowledge_refs: [],
+  });
+  const ruinedOut = mapModelOutput(complaintRaw, {
+    context: context(),
+    input: input(ruined),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(ruinedOut.messages.length, 2, 'complaint keeps the model\'s two-message reply');
+  assert.deepEqual(ruinedOut.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+  assert.equal(ruinedOut.proposed_actions.some((a) => a.kind === 'open_official_booking'), false);
+  assert.ok(validateContract('ChatTurnOutput', ruinedOut).ok);
+
+  const noFlagRaw = modelJson({
+    reply: [
+      { text: 'آسف، القصة طلعت مو متوقعة.', lang: 'ar' },
+      { text: 'تبي أحد من الفريق يتابع معك؟', lang: 'ar' },
+    ],
+    proposed_actions: [staffAction],
+    flags: [],
+    knowledge_refs: [],
+  });
+  const unevenOut = mapModelOutput(noFlagRaw, {
+    context: context(),
+    input: input(uneven),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(unevenOut.messages.length, 2);
+  assert.deepEqual(unevenOut.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+  assert.equal(unevenOut.proposed_actions.some((a) => a.kind === 'open_official_booking'), false, 'no synthesized booking on a complaint');
+
+  const flagOnFade = mapModelOutput(complaintRaw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(flagOnFade.messages.length, 2, 'complaint flag gates pacing even when the text is a named service');
+  assert.deepEqual(flagOnFade.proposed_actions.map((a) => a.kind), ['talk_to_staff']);
+
+  const declineRaw = modelJson({
+    reply: [{ text: 'تمام، ما راح أعرض عليك شي ثاني.', lang: 'ar' }],
+    proposed_actions: [{
+      kind: 'decline',
+      label_ar: 'لا شكراً',
+      label_en: 'No thanks',
+      payload: { preference_kind: 'none', value_text: '' },
+    }],
+    flags: ['no_offer_after_decline'],
+    knowledge_refs: [],
+  });
+  const declined = mapModelOutput(declineRaw, {
+    context: context(),
+    input: input('أبغى فيد'),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.ok(declined.proposed_actions.some((a) => a.kind === 'decline'));
+  assert.equal(declined.proposed_actions.some((a) => a.kind === 'open_official_booking'), false);
+
+  const typesRaw = modelJson({
+    reply: [
+      { text: 'الفيد فيه عالي ووسط وواطي.', lang: 'ar' },
+      { text: 'العالي أوضح، والواطي أهدى. تبي نمشي على واحد؟', lang: 'ar' },
+    ],
+    proposed_actions: [bookAction],
+    knowledge_refs: [],
+  });
+  const typesOut = mapModelOutput(typesRaw, {
+    context: context(),
+    input: input(typesAsk),
+    usageId: 'use_x',
+    hasImage: false,
+    byId: knowledge.byId,
+    now: '2026-09-14T06:00:00Z',
+  });
+  assert.equal(typesOut.messages.length, 2, 'a follow-up question keeps the model\'s full answer');
+  assert.match(typesOut.messages[0].text, /عالي/);
+  assert.match(typesOut.messages[1].text, /واطي/);
 });
 
 test('audit fixes: Arabic-Indic digits, number formats, delete_preference, unknown model id, NotFoundError, history cap', async () => {

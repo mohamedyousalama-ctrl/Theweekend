@@ -43,7 +43,7 @@ export function renderConversation({
   const greetingTurn = !guestSaid && !guestSentPhoto
     ? true
     : (!guestSentPhoto && isGreetingOnly(guestSaid));
-  const directService = !guestSentPhoto && isDirectServiceAsk(guestSaid);
+  const directService = !guestSentPhoto && isDirectServiceAsk(guestSaid, output?.flags);
   const pickedStyle = Boolean(guestSaid && /^(الأول|الثاني|بدون هالخيارات|The first|The second|Skip these options)$/u.test(guestSaid));
   const hasAttachedPhoto = messages.some((msg) => Boolean(msg.imageUrl));
   const khalidLines = messages.filter((msg) => msg.from !== 'guest' && String(msg.text || '').trim());

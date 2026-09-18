@@ -249,12 +249,29 @@ export function isPacingHold(text, hasImage = false) {
   return /^(صورتي|صورة|ارفق صورة|أرفق صورة|my photo|a photo)$/iu.test(t);
 }
 
-/** Named service with no look/photo ask — book, do not consult. */
-export function isDirectServiceAsk(text) {
+const SELLING_HOLD_FLAGS = new Set(['complaint', 'no_offer_after_decline', 'refusal_medical']);
+
+/** Complaints and concerning symptoms suspend selling — never a booking turn. */
+export function isComplaintAsk(text) {
+  const t = String(text || '').trim();
+  if (!t) return false;
+  return /خرب|مو متساوي|ما عجب|سيء|زفت|شكوى|مشكلة|اشتكي|ليش صار|طلع مو|complain|uneven|ruined|messed up/i.test(t);
+}
+
+/** Model-declared hold (contract flags) or a proposed decline — do not sell. */
+export function hasSellingHold(flags = [], proposedActions = []) {
+  const list = Array.isArray(flags) ? flags : [];
+  if (list.some((f) => SELLING_HOLD_FLAGS.has(f))) return true;
+  return (Array.isArray(proposedActions) ? proposedActions : []).some((a) => a && a.kind === 'decline');
+}
+
+/** Named service with no look/photo/complaint/follow-up — book, do not consult. */
+export function isDirectServiceAsk(text, flags = []) {
   const raw = String(text || '').trim();
   if (!raw || isGreetingOnly(raw)) return false;
+  if (hasSellingHold(flags) || isComplaintAsk(raw)) return false;
   const t = raw.replace(/[.!?؟،,~…]+/g, ' ').replace(/\s+/g, ' ').trim();
-  if (/صور|photo|شكل|استشارة|look|style|خيارين/i.test(t)) return false;
+  if (/صور|photo|شكل|استشارة|look|style|خيارين|فرق|الأنواع|انواع/i.test(t)) return false;
   return /فيد|حلاقة|قص|لحية|ذقن|fade|haircut|beard|combo/i.test(t);
 }
 
@@ -678,7 +695,8 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
   for (const n of notes) if (!flags.includes(n)) flags.push(n);
 
   const greetingOnly = isPacingHold(input?.text, hasImage);
-  const directService = !hasImage && isDirectServiceAsk(input?.text);
+  const sellingHold = hasSellingHold(flags, proposedActions) || isComplaintAsk(input?.text);
+  const directService = !hasImage && !sellingHold && isDirectServiceAsk(input?.text, flags);
   const identityQuestion = isIdentityQuestion(input?.text);
   const cleanedMessages = messages
     .map((m) => ({
@@ -694,18 +712,25 @@ export function mapModelOutput(raw, { context, input, usageId, hasImage, byId, n
     .slice(0, greetingOnly || directService ? 1 : 3);
   const pacedStyles = greetingOnly || directService ? [] : styleOptions;
   const pacedBrief = greetingOnly || directService ? null : briefDraft;
-  let pacedActions = greetingOnly
-    ? []
-    : (directService
-      ? proposedActions.filter((a) => a.kind === 'open_official_booking' || a.kind === 'request_pending_booking')
-      : proposedActions);
-  if (directService && pacedActions.length === 0 && actionAllowed('open_official_booking', caps, hasImage)) {
-    pacedActions = [{
-      kind: 'open_official_booking',
-      label_ar: 'أفتح صفحة الحجز',
-      label_en: 'Open the booking page',
-      payload: {},
-    }];
+  const isBookingKind = (a) => a.kind === 'open_official_booking' || a.kind === 'request_pending_booking';
+  const keepOnNamedService = (a) => isBookingKind(a) || a.kind === 'talk_to_staff' || a.kind === 'decline';
+  let pacedActions;
+  if (greetingOnly) {
+    pacedActions = [];
+  } else if (sellingHold) {
+    pacedActions = proposedActions.filter((a) => !isBookingKind(a));
+  } else if (directService) {
+    pacedActions = proposedActions.filter(keepOnNamedService);
+    if (!pacedActions.some(isBookingKind) && actionAllowed('open_official_booking', caps, hasImage)) {
+      pacedActions = [...pacedActions, {
+        kind: 'open_official_booking',
+        label_ar: 'أفتح صفحة الحجز',
+        label_en: 'Open the booking page',
+        payload: {},
+      }].slice(0, 3);
+    }
+  } else {
+    pacedActions = proposedActions;
   }
 
   return {

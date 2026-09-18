@@ -161,6 +161,46 @@ test('WhatsApp named service asks to book — no styles, no photo skip', () => {
   assert.doesNotMatch(view.html, /data-component="brief-draft"/);
 });
 
+test('WhatsApp complaint keeps staff handoff and does not offer booking', () => {
+  const view = renderConversation({
+    locale: 'ar',
+    variant: 'whatsapp',
+    thread: [
+      { from: 'khalid', text: COPY.ar.wa_welcome, lang: 'ar' },
+      { from: 'guest', text: 'الحلاقة اللي سويتها لي خربت، ليش صار كذا؟', lang: 'ar' },
+      { from: 'khalid', text: 'آسف على اللي صار.', lang: 'ar' },
+      { from: 'khalid', text: 'أوصلك لأحد من الفريق؟', lang: 'ar' },
+    ],
+    output: {
+      state: 'ok',
+      messages: [
+        { text: 'آسف على اللي صار.', lang: 'ar' },
+        { text: 'أوصلك لأحد من الفريق؟', lang: 'ar' },
+      ],
+      flags: ['complaint'],
+    },
+    allowedActions: [
+      {
+        action_id: 'act_syn_book_link_a',
+        kind: 'open_official_booking',
+        label_ar: 'صفحة الحجز الرسمية',
+        label_en: 'Official booking page',
+        url: 'https://example.invalid/book',
+      },
+      {
+        action_id: 'act_syn_staff_a',
+        kind: 'talk_to_staff',
+        label_ar: 'كلام مع الفريق',
+        label_en: 'Talk to staff',
+      },
+    ],
+  });
+  assert.equal(view.meta.greetingTurn, false);
+  assert.match(view.html, /كلام مع الفريق/);
+  assert.doesNotMatch(view.html, /أفتح صفحة الحجز/);
+  assert.doesNotMatch(view.html, /صفحة الحجز الرسمية/);
+});
+
 test('WhatsApp shows Khalid style suggestions inside the transcript after a look request', () => {
   const view = renderConversation({
     locale: 'ar',

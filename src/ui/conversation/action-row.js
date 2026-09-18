@@ -31,7 +31,10 @@ export function filterWhatsappActions(allowedActions, {
         return !greetingTurn && !showStyles && !directService && asked(guest, /احفظ|ذكرني|save|remember/i);
       case 'open_official_booking':
       case 'request_pending_booking':
-        return !greetingTurn && !showStyles;
+        return !greetingTurn && !showStyles
+          && !flagSet.has('complaint')
+          && !flagSet.has('no_offer_after_decline')
+          && !flagSet.has('refusal_medical');
       case 'share_brief_text':
       case 'share_photo_ref':
         return hasBrief && !showStyles && !greetingTurn && !directService;
