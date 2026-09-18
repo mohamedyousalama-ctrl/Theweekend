@@ -81,6 +81,12 @@ function migrate(db) {
   if (!spendCols.some((c) => c.name === 'guest_alert_100')) {
     db.exec('ALTER TABLE daily_spend ADD COLUMN guest_alert_100 INTEGER NOT NULL DEFAULT 0');
   }
+  db.exec(`CREATE TABLE IF NOT EXISTS guest_upload_quota (
+    day TEXT NOT NULL,
+    client_key TEXT NOT NULL,
+    n INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (day, client_key)
+  )`);
 }
 
 export function openStore(dbPath) {

@@ -88,6 +88,7 @@ Retention on the Railway volume (deadline plus at most one 10-minute idle sweep)
 | Cosmetic observations | SQLite `photo_observations` | 24 hours (`ret_photo_v1`) |
 | Text preferences | SQLite `preferences` | 90 days after last activity (`ret_text_prefs_v1`) |
 | Client address | HMAC-SHA256 digest in `sessions.client_key` (never the raw IP) | nulled after session expiry + 24 h (rolling, not a UTC-midnight boundary) |
+| Guest upload counter | SQLite `guest_upload_quota` (client digest, day, count) | rows for past UTC days deleted by the idle sweep |
 
 Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied. `WEEKEND_PUBLIC_GUEST` (PR #36) switches the passcode gate off for customer sessions (the `/try` chat); since 2026-09-18 it defaults to `false` in every environment and is set to `true` only on purpose, in the Railway Variables, after the guest limits (package C4 on #7) are on `main`. Those guest limits key on the client address, so `WEEKEND_TRUST_PROXY=1` (variables table above) must stay set on Railway; without it every guest shares the proxy's address and one bucket. The domain, the project id and the account e-mail are therefore not written in this repository (it is public). They were published in this file between 2026-09-15 and 2026-09-18 and remain in Git history: the owner should regenerate the domain in Railway (Settings → Networking) and share the new one privately.
 

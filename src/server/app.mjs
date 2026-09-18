@@ -709,7 +709,6 @@ export function createApp(config, deps = {}) {
          WHERE day = ? AND cost_minor < ? AND cost_minor + ? <= ?`,
         [add, day, cap, add, cap],
       );
-    if (result.changes === 1 && guest) noteGuestSpendAlerts(day);
     return result.changes === 1;
   }
 
@@ -746,12 +745,19 @@ export function createApp(config, deps = {}) {
   }
 
   function guestUploadsToday(clientKeyDigest, now) {
-    const dayStart = `${now.slice(0, 10)}T00:00:00.000Z`;
-    return store.get(
-      `SELECT COUNT(*) AS n FROM images i JOIN sessions s ON s.session_id = i.session_id
-       WHERE s.client_key = ? AND i.created_at >= ?`,
-      [clientKeyDigest, dayStart],
-    ).n;
+    const row = store.get(
+      'SELECT n FROM guest_upload_quota WHERE day = ? AND client_key = ?',
+      [now.slice(0, 10), clientKeyDigest],
+    );
+    return row?.n ?? 0;
+  }
+
+  function recordGuestUpload(clientKeyDigest, now) {
+    store.run(
+      `INSERT INTO guest_upload_quota (day, client_key, n) VALUES (?, ?, 1)
+       ON CONFLICT(day, client_key) DO UPDATE SET n = n + 1`,
+      [now.slice(0, 10), clientKeyDigest],
+    );
   }
 
   function rejectPasscode(clientKey) {
@@ -1124,6 +1130,7 @@ export function createApp(config, deps = {}) {
          VALUES (?, ?, ?, ?, ?, ?)`,
         [imageRef, session.subject_id, session.session_id, byteLength, contentType, now],
       );
+      if (isGuestSession(session)) recordGuestUpload(session.client_key, now);
     });
     if (bytes instanceof Uint8Array) {
       photoBytes.set(imageRef, Buffer.from(bytes));
@@ -1688,6 +1695,7 @@ export function createApp(config, deps = {}) {
     sweepPreferenceRetention();
     sweepPhotoRetention();
     sweepClientKeyRetentionAt(store, clock);
+    store.run('DELETE FROM guest_upload_quota WHERE day < ?', [iso(clock).slice(0, 10)]);
     limiter.sweep();
     guestSessionLimiter.sweep();
     guestTurnLimiter.sweep();

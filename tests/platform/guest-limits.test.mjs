@@ -139,6 +139,39 @@ test('a guest actual above the ceiling is clamped to the guest share', async () 
   }
 });
 
+test('guest spend alerts fire on settled cost, not the reservation', async () => {
+  const logs = [];
+  const costs = [0, 320];
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+  }, {
+    adapter: (args) => {
+      const result = runModelTurn(args);
+      result.usage.cost_estimate_minor = costs.shift();
+      return result;
+    },
+    costCeilingMinor: 400,
+    log: (record) => logs.push(record),
+  });
+  const guest = app.createSession('customer', '', { clientKey: '203.0.113.54' });
+  const first = await app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555641'));
+  assert.equal(first.output.state, 'ok');
+  const afterReserve = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(afterReserve.guest_cost_minor, 0);
+  assert.equal(afterReserve.guest_alert_80, 0);
+  assert.equal(afterReserve.guest_alert_100, 0);
+  assert.equal(logs.filter((row) => row.kind === 'guest_spend').length, 0);
+  const second = await app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555642'));
+  assert.equal(second.output.state, 'ok');
+  const shareLogs = logs.filter((row) => row.kind === 'guest_spend');
+  assert.equal(shareLogs.length, 1);
+  assert.equal(shareLogs[0].share_reached, 80);
+  app.close();
+});
+
 test('public-guest paid turns are limited per client per minute', async () => {
   const { app } = testApp({
     WEEKEND_PUBLIC_GUEST: 'true',
@@ -217,6 +250,31 @@ test('guest upload quota survives a process restart on the same sqlite file', ()
   } finally {
     restarted.close();
   }
+});
+
+test('guest upload quota survives photo_analysis withdrawal', () => {
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_PHOTO_ENABLED: 'true',
+    WEEKEND_GUEST_UPLOADS_PER_DAY: '3',
+  });
+  const clientKey = '203.0.113.73';
+  const guest = app.createSession('customer', '', { clientKey });
+  const receipt = app.grantConsent(guest.token, 'photo_analysis', 'customer_ui');
+  for (let i = 0; i < 3; i += 1) {
+    const up = app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' });
+    assert.match(up.image_ref, /^img_/);
+  }
+  app.revokeConsent(guest.token, receipt.receipt_id);
+  assert.equal(app.store.get('SELECT COUNT(*) AS n FROM images').n, 0, 'photo rows are still purged');
+  assert.equal(app.store.get('SELECT n FROM guest_upload_quota').n, 3);
+  app.grantConsent(guest.token, 'photo_analysis', 'customer_ui');
+  assert.throws(
+    () => app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' }),
+    err => err instanceof AppError && err.status === 400 && err.shape.code === 'UPLOAD_REJECTED'
+      && err.shape.message_key === 'upload.rejected' && err.shape.details.limit === 3,
+  );
+  app.close();
 });
 
 test('guest vision turns count inside the guest spend share', async () => {
