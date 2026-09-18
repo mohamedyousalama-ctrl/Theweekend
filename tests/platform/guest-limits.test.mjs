@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { AppError, CLIENT_KEY_RETENTION_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
-import { hmacClientKey } from '../../src/server/ids.mjs';
+import { hmacClientKey, signSession } from '../../src/server/ids.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp } from './helpers.mjs';
 
@@ -194,6 +194,11 @@ test('sessions store an HMAC of the client address, never the raw IP', () => {
   const owner = app.createSession('owner', OWNER_PASS, { clientKey: '198.51.100.7' });
   const ownerRow = app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [owner.context.session_id]);
   assert.equal(ownerRow.client_key, hmacClientKey('198.51.100.7', config.WEEKEND_SESSION_SECRET));
+  assert.notEqual(
+    hmacClientKey(ip, config.WEEKEND_SESSION_SECRET),
+    signSession(ip, config.WEEKEND_SESSION_SECRET).split('.')[1],
+    'a client-key digest must not equal a session-token signature for the same input',
+  );
   app.close();
 });
 
