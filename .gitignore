@@ -10,3 +10,4 @@ coverage/
 private/
 uploads/
 customer-data/
+.railway/

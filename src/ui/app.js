@@ -282,6 +282,12 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     root.querySelectorAll('[data-retry="true"]').forEach((btn) => {
       btn.addEventListener('click', () => {
         state.error = null;
+        const pending = state.pendingRetry;
+        const draft = state.draft;
+        if (pending?.type === 'turn' || (draft && state.output?.error?.retryable)) {
+          void runPending(pending || { type: 'turn', text: draft });
+          return;
+        }
         paint();
       });
     });
@@ -484,7 +490,12 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       state.allowedActions = out.allowed_actions || [];
       state.actionResult = out.action_result;
       state.context = out.context || state.context;
-      state.draft = '';
+      if (out.output?.state === 'ok') {
+        state.draft = '';
+        state.pendingRetry = null;
+      } else if (out.output?.error?.retryable) {
+        state.pendingRetry = { type: 'turn', text };
+      }
     } catch (err) {
       if (isConsentRequired(err)) {
         state.loadingTurn = false;
@@ -492,6 +503,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         return;
       }
       state.error = err;
+      if (err?.retryable) state.pendingRetry = { type: 'turn', text };
     } finally {
       state.loadingTurn = false;
       if (!state.consent) paint();

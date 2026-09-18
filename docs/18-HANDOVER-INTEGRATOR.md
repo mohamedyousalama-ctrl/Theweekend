@@ -16,17 +16,16 @@ Truth order: (1) latest comments on issue #2 and on open PRs, (2) this file, (3)
 
 Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, the review posture (nobody approves their own code; one adversarial review per PR — if the integrator cannot spawn a second agent, it does one explicit adversarial pass itself and says so), no merge without D17's checks, no force pushes, no secrets in Git or chat.
 
-## 2. State snapshot (2026-09-14, ~20:40 UTC) — verify against #2 before trusting
+## 2. State snapshot (2026-09-15, ~09:10 UTC) — verify against #2 before trusting
 
 | Item | State |
 |---|---|
-| `main` = `6658d71` | PR #21 (Grok UI + integrator fixes), PR #20 (Cursor platform + pre-call reservations), PR #22 (A hardening: exact grounding, cost/retry accounting, abort-aware turns, pack revision 2, prompt v0.4) merged by the integrator on the owner's instruction (order #21 → #20 → #22); 259 tests on `main` |
-| PR #23 (integrator, C config + this file) | open when this snapshot was written: `tests/ui/*.test.mjs` under `npm test`, smoke file removed, this file refreshed; 297 tests; the Codex bot checked the first commit and found no problems; two review rounds (auditor + reviewer) done on the doc refresh; the integrator merges it under D17 after the final checks, and the merge shows on the PR and on #2 |
-| Package C2 (Cursor, issue #7) | READY from `main`: 14 items left of the original 15 (item 15, the `npm test` file list, shipped as PR #23) — order: share-actions endpoint, consent-gated staff inbox, photo share = observations, server-side brief binding, abort signal, then preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape, logging) |
-| Next UI handback (Grok, issue #6) | READY from `main`: consent step (`POST /consents`), brief approval (`POST /briefs`) + share via `POST /briefs/:brief_id/share-actions`, direct preference save, hide M2 ids, photo upload path |
-| #8 owner walkthrough | after C2 item 14 + the consent/brief UI, the first Railway deploy and one `npm run eval:agent` run with the owner's key (results to #5) |
+| `main` = `4bfe6b5` | **PR #24** (C2 platform) merged `de6da6b`, then **PR #25** (UI third handback) merged `4bfe6b5`. Combined `npm test` on that tree: 357 pass / 0 fail (Node v22.14.0). Owner instructed Cursor to merge #24 and continue; Cursor also merged #25 after a fidelity pass and a clean merge onto C2 `main`. This is not a two-agent D17 review of #25 by Claude Code + Codex on the final UI head. |
+| Package C2 (Cursor, issue #7) | **merged** (PR #24). Share-actions, inbox gating, photo observations, retention, idempotency, staff accept/release of `talk_to_staff`. |
+| UI third handback (issue #6, PR #25) | **merged**. Consent step, brief approve/share, preference save, polish, optional upload. Follow-ups: dedicated `handoff.queued` copy; staff inbox `observations`; staff accept/release UI. |
+| #8 owner walkthrough | product code on `main`; Railway `Theweekend` / `rakan` at `https://rakan-production-7ae6.up.railway.app`; `GET /health` HTTP 200 (2026-09-15 17:08 UTC). Next: `npm run eval:agent` then #8 |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
-| Hosting | Railway decided (`docs/17-HOSTING.md`); owner signed up; project not created yet; `WEEKEND_TRUST_PROXY=1`; the dedicated Claude key goes into Railway as `WEEKEND_MODEL_API_KEY` only |
+| Hosting | Railway **project live for owner-review** (`docs/17-HOSTING.md`): `Theweekend` / `rakan`, volume `/data`, GitHub auto-deploy from `main`, `/health` 200. **Not released.** Passcodes live in Railway Variables. |
 | Open owner questions | MISSING-FACTS rows 18 (may Rakan name «باي باي قشرة»? owner + qualified reviewer) and 19 (annual visits carry-over; branch channel for «تتأكد من الفرع»); photo share: observations only (D14) or the real photo later |
 | Bot reviews | current roster and state in §8 (Qodo paused since 2026-09-14); a finding is a bug report — verify, fix in a small PR, or say why not on the PR |
 | Idle agents | if Cursor or Grok stay idle, the integrator may do small, in-scope required fixes on their branches after an adversarial audit (done on #20 and #21 on 2026-09-14); larger packages stay theirs |
@@ -80,18 +79,18 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 
 ## 5. Stream C next steps (Cursor)
 
-1. **Package C2** (issue #7: items in the comment of 2026-09-14 11:30 UTC, endpoint shape 16:25 UTC, start order 21:15 UTC) from `main`, new branch, one topic per commit, a test per item, in this order: 14 `POST /briefs/:brief_id/share-actions` → 2 staff inbox only after an executed share → 3 photo share = stored observations, never bytes (D14) → 4 server-side brief binding → 13 `AbortController` → adapter `signal`, persist the adapter's timeout usage → 1, 5, 6, 7, 8, 9, 10, 11, 12 (preference drafts, photo retention, URL host allowlist, idempotent consents, atomic action claim, `turn_id` idempotency, bytes consumed before the call, body shape → 400, error logging). Item 15 (the `npm test` file list) is PR #23. Reviewer: the integrator; report in the PR body (base → head, files, `npm test` counts, not run, blockers).
-2. **Railway**: first deploy from `main` after C2 item 14 and the consent/brief UI; health check green; the owner enters the variables (`docs/17-HOSTING.md`).
+1. **Package C2 — done** (PR #24 on `main`).
+2. **Railway**: project `Theweekend` / service `rakan` created; GitHub auto-deploys `main`; volume `/data`; domain `https://rakan-production-7ae6.up.railway.app`. `GET /health` HTTP 200 (2026-09-15). Next: `npm run eval:agent` on a host that has the owner's key (results to #5), then the #8 walkthrough.
 3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10): quote → approve → create, cancel of test reservations, hosted payment link.
 
 ## 6. Stream B next steps (Grok)
 
-Next handback (issue #6, comment of 2026-09-14 21:15 UTC) from `main`, required before the owner walkthrough #8: consent step (`POST /consents`, withdrawal via `POST /consents/:receipt_id/revoke`, shown on `403 CONSENT_REQUIRED`, then the click is retried); brief approval (`POST /briefs`) and sharing via `POST /briefs/:brief_id/share-actions` (photo sharing = observations, copy «مشاركة ملاحظات الصورة»); direct preference save (`POST /preferences`); polish (hide M2 ids on the customer screen, translate raw labels, keep focus after re-render); photo upload path (`POST /uploads` behind the photo consent, only when `capabilities.photo === "enabled"`). No framework; tests in `tests/ui/`; `design/reference/**` SHA unchanged. Cross-review per `CONTINUE.md` §3: ChatGPT or Cursor (fidelity) and the integrator (contract consumption).
+Third handback **merged** (PR #25). Remaining UI follow-ups, not a new package unless the owner asks: dedicated copy for `handoff.queued` (generic pending today); render `observations` on the staff inbox; wire staff accept/release of `talk_to_staff` (`GET /staff/handoffs`, `POST .../accept`, `POST .../release`). No framework; tests in `tests/ui/`; `design/reference/**` SHA unchanged.
 
 ## 7. Owner pending tasks (as of this file)
 
-1. Trigger Grok: «continue The Weekend project, next handback on #6». Cursor: the integrator starts package C2 itself with an `@cursor` comment on #7 (D17); if Cursor does not react within a day, the owner starts it: «continue The Weekend project, package C2 on #7».
-2. Wait for the integrator to say "deploy" (once C2 item 14 and the consent/brief UI are on `main`). Then the Railway steps (`docs/17-HOSTING.md` steps 2–5): create the project from the repo, add the volume `/data`, set the variables from `.env.example` plus `WEEKEND_TRUST_PROXY=1`, put the dedicated Claude key only in `WEEKEND_MODEL_API_KEY` (never in chat or Git), generate the domain.
+1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
+2. One `npm run eval:agent` with that key (results to #5), then the #8 owner walkthrough. Owner/staff passcodes are already in Railway Variables (`WEEKEND_OWNER_PASSCODE`, `WEEKEND_STAFF_PASSCODE`). URL: `https://rakan-production-7ae6.up.railway.app`.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 
