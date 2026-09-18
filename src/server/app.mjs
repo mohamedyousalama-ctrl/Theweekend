@@ -143,12 +143,12 @@ function modelCapability(config, realAdapter = false) {
   return 'unavailable';
 }
 
-function capabilitiesFor(config, role, realAdapter = false) {
+export function capabilitiesFor(config, role, realAdapter = false, staffInboxAvailable = false) {
   return {
     model: modelCapability(config, realAdapter),
     photo: config.WEEKEND_PHOTO_ENABLED ? 'enabled' : 'disabled',
     booking_handoff: config.WEEKEND_BOOKING_HANDOFF_MODE,
-    staff_inbox: role === 'staff' || role === 'owner' ? 'enabled' : 'unavailable',
+    staff_inbox: (role === 'staff' || role === 'owner' || staffInboxAvailable) ? 'enabled' : 'unavailable',
     preferences: 'enabled',
   };
 }
@@ -411,6 +411,15 @@ export function createApp(config, deps = {}) {
     return session;
   }
 
+  // Same store-up signal HealthState uses: probe the dedicated Weekend store, never the session role.
+  function staffInboxStoreUp() {
+    try {
+      return store.probe();
+    } catch {
+      return false;
+    }
+  }
+
   function contextOf(session) {
     const consents = store.all(
       `SELECT * FROM permission_receipts WHERE subject_id = ? AND revoked_at IS NULL`,
@@ -424,7 +433,7 @@ export function createApp(config, deps = {}) {
       verified: true,
       branch_id: config.WEEKEND_BRANCH_ID,
       locale: 'ar',
-      capabilities: capabilitiesFor(config, session.role, realAdapter),
+      capabilities: capabilitiesFor(config, session.role, realAdapter, staffInboxStoreUp()),
       consents,
       issued_at: iso(clock),
     };
@@ -1501,7 +1510,7 @@ export function createApp(config, deps = {}) {
         payload: { brief_id: brief.brief_id },
       }),
     ];
-    const caps = capabilitiesFor(config, session.role, realAdapter);
+    const caps = capabilitiesFor(config, session.role, realAdapter, staffInboxStoreUp());
     if (caps.photo === 'enabled') {
       const image = latestSessionImage(session);
       if (image) {
@@ -1552,13 +1561,7 @@ export function createApp(config, deps = {}) {
   return {
     store,
     health() {
-      let storeUp = false;
-      try {
-        storeUp = store.probe();
-      } catch {
-        storeUp = false;
-      }
-      const state = { ...healthOf(config, storeUp, realAdapter), checked_at: iso(clock) };
+      const state = { ...healthOf(config, staffInboxStoreUp(), realAdapter), checked_at: iso(clock) };
       assertContract('HealthState', state);
       return state;
     },
