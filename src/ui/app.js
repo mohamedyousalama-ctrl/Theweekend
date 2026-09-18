@@ -611,11 +611,13 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       }
       state.error = err;
       if (err.code === 'UPLOAD_REJECTED') state.imageRef = null;
-      state.pendingRetry = {
-        type: 'upload',
-        bytes: packed.bytes,
-        contentType: packed.contentType,
-      };
+      if (err.retryable) {
+        state.pendingRetry = {
+          type: 'upload',
+          bytes: packed.bytes,
+          contentType: packed.contentType,
+        };
+      }
     }
     paint();
   }

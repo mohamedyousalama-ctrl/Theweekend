@@ -621,3 +621,36 @@ test('first paint leaves Send enabled; typing without a repaint posts /turns onc
   for (let i = 0; i < 20; i += 1) await Promise.resolve();
   assert.equal(calls.filter((c) => c.path === '/turns' && c.method === 'POST').length, 1);
 });
+
+test('non-retryable upload error does not record pendingRetry', async () => {
+  const rejected = failure('upload-rejected').instance;
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/uploads') {
+      return { ok: false, status: 400, json: async () => rejected };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = {
+    ...context,
+    capabilities: { ...context.capabilities, photo: 'enabled' },
+  };
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const input = root.querySelector('#wk-photo-upload');
+  assert.ok(input);
+  input.files = [{
+    type: 'image/jpeg',
+    arrayBuffer: async () => new Uint8Array([1, 2, 3]).buffer,
+  }];
+  input.fire('change');
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/uploads').length, 1);
+  assert.equal(app.state.pendingRetry, null);
+  assert.equal(root.querySelector('[data-retry="true"]'), null);
+  assert.equal(app.state.imageRef, null);
+});
