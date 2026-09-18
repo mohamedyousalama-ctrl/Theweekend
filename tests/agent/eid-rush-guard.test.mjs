@@ -22,6 +22,8 @@ test('eid_rush must_not catches inflected availability claims and allows the hon
     'الوقت متاح',
     'الحلاق متاح قبل العيد',
     'فيه موعد فاضي',
+    'متاح لك موعد',
+    'فاضي لك وقت بكرة',
   ];
   for (const sentence of claims) {
     const fails = check(sentence, eid);
