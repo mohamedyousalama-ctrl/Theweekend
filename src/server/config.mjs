@@ -96,9 +96,9 @@ export function loadConfig(env) {
   if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
   if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
 
-  const publicGuestRaw = present(env.WEEKEND_PUBLIC_GUEST)
-    ? env.WEEKEND_PUBLIC_GUEST.trim()
-    : (weekendEnv === 'owner-review' ? 'true' : 'false');
+  // Opt-in only (integrator, 2026-09-18): a passcode-free customer session is a public paid endpoint, so it is
+  // never on by default in any environment. Set WEEKEND_PUBLIC_GUEST=true on purpose, after the guest limits exist.
+  const publicGuestRaw = present(env.WEEKEND_PUBLIC_GUEST) ? env.WEEKEND_PUBLIC_GUEST.trim() : 'false';
   if (!['true', 'false'].includes(publicGuestRaw)) throw new ConfigError('WEEKEND_PUBLIC_GUEST');
 
   const ownerHash = resolvePasscodeHash(env, 'WEEKEND_OWNER_PASSCODE_HASH', 'WEEKEND_OWNER_PASSCODE', true);
