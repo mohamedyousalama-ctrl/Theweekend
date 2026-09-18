@@ -50,7 +50,7 @@ rl.on('line', async (line) => {
   const input = { contract_version: '0.1.0', session_id: sessionId, turn_id: randomUUID(), text, image_ref: pendingPhoto ? `img_chat_${randomUUID().slice(0, 8)}` : null, client_action_id: null, locale_hint: 'auto' };
   const { output, usage } = await adapter({ context: context(), input, now: new Date().toISOString(), image_bytes: pendingPhoto });
   pendingPhoto = null;
-  for (const m of output.messages) process.stdout.write(`راكان> ${m.text}\n`);
+  for (const m of output.messages) process.stdout.write(`weekend> ${m.text}\n`);
   if (output.state !== 'ok') process.stdout.write(`   [state=${output.state} ${output.error?.code} ${output.error?.message_key}]\n`);
   if (output.observations) process.stdout.write(`   [observations] ${JSON.stringify(output.observations.observed)} limits=${output.observations.limitations.join(',')}\n`);
   for (const s of output.style_options) process.stdout.write(`   [style] ${s.name_ar} — ${s.why_ar} (${s.upkeep_ar})\n`);
