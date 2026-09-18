@@ -7,13 +7,15 @@
  * Optional (session steps skipped if either is missing):
  *   WEEKEND_OWNER_PASSCODE
  *   WEEKEND_STAFF_PASSCODE
+ * Optional (default off — a wrong passcode still counts toward five failures / 15 min):
+ *   WEEKEND_WALKTHROUGH_NEGATIVE=1  run the staff wrong-passcode probe after authenticated logins
  *
  * Prints JSON with ids, counts, hashes and truncated reply previews.
  * Never prints passcodes, tokens, Authorization headers or image bytes.
  */
 import { createHash, randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -29,6 +31,13 @@ const SECRET_KEYS = new Set([
   'WEEKEND_STAFF_PASSCODE',
   'WEEKEND_SESSION_SECRET',
 ]);
+
+export function isNegativeProbeEnabled(env = process.env) {
+  return env.WEEKEND_WALKTHROUGH_NEGATIVE === '1';
+}
+
+export const NEGATIVE_PROBE_DEFAULT_SKIP =
+  'wrong-passcode probe (WEEKEND_WALKTHROUGH_NEGATIVE unset; default off to avoid self-lockout)';
 
 function failUsage(message) {
   process.stderr.write(`${message}\n`);
@@ -238,18 +247,6 @@ async function main() {
     }
   }
 
-  const badSession = await http(base, '/session', {
-    method: 'POST',
-    body: { role: 'staff', passcode: 'nope' },
-  });
-  report.steps.wrong_passcode = {
-    status: badSession.status,
-    code: badSession.json?.code,
-    message_key: badSession.json?.message_key,
-    retryable: badSession.json?.retryable,
-  };
-  if (badSession.status !== 401) report.blockers.push('wrong staff passcode was not 401');
-
   const forged = await http(base, '/actions/act_forged', {
     method: 'POST',
     token: 'forged',
@@ -276,6 +273,11 @@ async function main() {
 
   if (!report.authenticated_steps) {
     report.not_run.push('authenticated session turns (WEEKEND_OWNER_PASSCODE / WEEKEND_STAFF_PASSCODE unset)');
+    report.not_run.push(
+      isNegativeProbeEnabled()
+        ? 'wrong-passcode probe (WEEKEND_WALKTHROUGH_NEGATIVE=1 but authenticated logins were skipped)'
+        : NEGATIVE_PROBE_DEFAULT_SKIP,
+    );
     report.finished_at = new Date().toISOString();
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     process.exit(report.blockers.length ? 1 : 0);
@@ -309,6 +311,22 @@ async function main() {
   const staffToken = staff.json.token;
   const otherToken = other.json.token;
   const sessionId = customer.json.context.session_id;
+
+  if (isNegativeProbeEnabled()) {
+    const badSession = await http(base, '/session', {
+      method: 'POST',
+      body: { role: 'staff', passcode: 'nope' },
+    });
+    report.steps.wrong_passcode = {
+      status: badSession.status,
+      code: badSession.json?.code,
+      message_key: badSession.json?.message_key,
+      retryable: badSession.json?.retryable,
+    };
+    if (badSession.status !== 401) report.blockers.push('wrong staff passcode was not 401');
+  } else {
+    report.not_run.push(NEGATIVE_PROBE_DEFAULT_SKIP);
+  }
 
   const greet = await http(base, '/turns', {
     method: 'POST',
@@ -503,7 +521,9 @@ async function main() {
   process.exit(report.blockers.length ? 1 : 0);
 }
 
-main().catch((err) => {
-  process.stderr.write(`${err?.stack || String(err)}\n`);
-  process.exit(1);
-});
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((err) => {
+    process.stderr.write(`${err?.stack || String(err)}\n`);
+    process.exit(1);
+  });
+}

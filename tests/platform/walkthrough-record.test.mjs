@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  isNegativeProbeEnabled,
+  NEGATIVE_PROBE_DEFAULT_SKIP,
+} from '../../scripts/owner-walkthrough.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
 
@@ -27,4 +31,23 @@ test('issue #8 walkthrough runner and record exist without secrets or the review
   const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
   assert.match(script, /WEEKEND_WALKTHROUGH_URL/);
   assert.match(script, /never prints passcodes/i);
+});
+
+test('wrong-passcode probe is opt-in and follows authenticated logins', () => {
+  assert.equal(isNegativeProbeEnabled({}), false);
+  assert.equal(isNegativeProbeEnabled({ WEEKEND_WALKTHROUGH_NEGATIVE: '' }), false);
+  assert.equal(isNegativeProbeEnabled({ WEEKEND_WALKTHROUGH_NEGATIVE: '0' }), false);
+  assert.equal(isNegativeProbeEnabled({ WEEKEND_WALKTHROUGH_NEGATIVE: 'true' }), false);
+  assert.equal(isNegativeProbeEnabled({ WEEKEND_WALKTHROUGH_NEGATIVE: '1' }), true);
+  assert.match(NEGATIVE_PROBE_DEFAULT_SKIP, /default off/);
+
+  const script = readFileSync(join(ROOT, 'scripts/owner-walkthrough.mjs'), 'utf8');
+  const ownerLogin = script.indexOf("role: 'customer', passcode: ownerPass");
+  const staffLogin = script.indexOf("role: 'staff', passcode: staffPass");
+  const probe = script.indexOf("role: 'staff', passcode: 'nope'");
+  assert.ok(ownerLogin !== -1 && staffLogin !== -1 && probe !== -1);
+  assert.ok(probe > ownerLogin, 'wrong-passcode probe must follow the owner login');
+  assert.ok(probe > staffLogin, 'wrong-passcode probe must follow the staff login');
+  assert.match(script, /isNegativeProbeEnabled\(\)/);
+  assert.doesNotMatch(script, /WEEKEND_STAFF_PASSCODE=/);
 });
