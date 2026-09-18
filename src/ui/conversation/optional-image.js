@@ -7,6 +7,7 @@ export function renderOptionalImage({
   imageRef = null,
   locale = 'ar',
   allowedActions = [],
+  variant = 'weekend',
 } = {}) {
   const permitted = photoPreviewPermitted(context);
   const offerContinue = shouldOfferContinueWithoutPhoto({
@@ -37,15 +38,15 @@ export function renderOptionalImage({
   const continueBtn = offerContinue
     ? el('button', {
       type: 'button',
-      class: 'wk-pill is-ghost',
+      class: variant === 'whatsapp' ? 'wa-quick-btn' : 'wk-pill is-ghost',
       'data-action-kind': 'continue_without_photo',
       'data-action-id': continueAction?.action_id || '',
       'data-text-path': 'true',
       disabled: !continueAction,
-    }, t(locale, 'continue_without_photo'))
+    }, t(locale, variant === 'whatsapp' ? 'quick_no_photo' : 'continue_without_photo'))
     : '';
 
-  const uploadEnabled = context?.capabilities?.photo === 'enabled';
+  const uploadEnabled = variant !== 'whatsapp' && context?.capabilities?.photo === 'enabled';
   const upload = uploadEnabled
     ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
       el('label', { for: 'wk-photo-upload' }, t(locale, 'photo_upload')),
@@ -58,6 +59,21 @@ export function renderOptionalImage({
       }, ''),
     ])
     : '';
+
+  if (variant === 'whatsapp') {
+    return {
+      html: el('section', { 'data-component': 'optional-image', 'data-variant': 'whatsapp' }, [
+        continueBtn,
+      ]),
+      meta: {
+        previewShown: false,
+        photoOptional: true,
+        continueOffered: offerContinue,
+        continueExecutable: Boolean(continueAction),
+        uploadShown: false,
+      },
+    };
+  }
 
   return {
     html: el('section', { 'data-component': 'optional-image' }, [

@@ -21,6 +21,7 @@ import { renderCapabilityCopy } from './capability/capability-copy.js';
 import { renderConsentStep } from './consent/consent-step.js';
 import { renderError } from './states/error.js';
 import { galleryIndex } from './gallery-states.js';
+import { renderWaHeader } from './try/wa-header.js';
 
 async function api(path, { method = 'GET', token, body, fetchImpl, raw = false, contentType } = {}) {
   const doFetch = fetchImpl || fetch;
@@ -57,10 +58,12 @@ function uploadBytes(source) {
   return null;
 }
 
-export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
+export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
+  const resolvedShell = shell || root?.getAttribute('data-shell') || 'app';
   const state = {
     locale: 'ar',
-    surface: initialSurface || 'capability',
+    surface: initialSurface || (resolvedShell === 'try' ? 'conversation' : 'capability'),
+    shell: resolvedShell,
     token: '',
     context: null,
     health: null,
@@ -87,15 +90,24 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     consent: null,
     pendingRetry: null,
     briefApproving: false,
+    thread: [],
   };
 
   function locale() {
     return state.context?.locale || state.locale;
   }
 
+  function welcomeThread() {
+    return [{ from: 'khalid', text: t('ar', 'wa_welcome'), lang: 'ar' }];
+  }
+
   function paint() {
     const loc = locale();
     const focusKey = captureFocusKey(root);
+    if (state.shell === 'try') {
+      paintTry(loc, focusKey);
+      return;
+    }
     const header = renderAppHeader({
       context: state.context,
       health: state.health,
@@ -125,18 +137,58 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     restoreFocus(root, focusKey);
   }
 
+  function paintTry(loc, focusKey) {
+    const header = renderWaHeader({ locale: loc, health: state.health });
+    const main = renderConversation({
+      context: state.context,
+      output: state.output,
+      allowedActions: state.allowedActions,
+      locale: loc,
+      loading: state.loadingTurn,
+      draft: state.draft,
+      imageRef: state.imageRef,
+      actionResult: state.actionResult,
+      error: state.consent ? null : state.error,
+      reconnectInvalidates: state.reconnectInvalidates,
+      briefApproving: state.briefApproving,
+      variant: 'whatsapp',
+      thread: state.thread.length ? state.thread : welcomeThread(),
+      quickReplies: (state.thread.length ? state.thread : welcomeThread()).length <= 1 && !state.loadingTurn,
+    });
+    const consent = state.consent?.kind
+      ? renderConsentStep({
+        kind: state.consent.kind,
+        locale: loc,
+        receipts: state.context?.consents,
+      }).html
+      : '';
+    root.innerHTML = [
+      el('a', { class: 'skip-link', href: '#wk-main' }, t(loc, 'skip')),
+      el('div', { class: 'wa-stage', id: 'wk-main', tabindex: '-1' }, [
+        header.html,
+        consent,
+        main.html,
+      ]),
+    ].join('');
+    bind();
+    restoreFocus(root, focusKey);
+  }
+
   function renderSession(loc) {
     if (state.context) {
       return el('p', { class: 'wk-note' }, `${t(loc, 'session')} ${state.context.session_id} · ${state.context.role}`);
     }
-    return el('form', { id: 'wk-session', class: 'wk-editor' }, [
-      el('label', { for: 'wk-role' }, t(loc, 'role')),
-      el('select', { id: 'wk-role', name: 'role' }, [
+    const roleOptions = state.shell === 'staff'
+      ? [el('option', { value: 'staff' }, t(loc, 'staff_shell'))]
+      : [
         el('option', { value: 'customer' }, t(loc, 'customer_shell')),
         el('option', { value: 'staff' }, t(loc, 'staff_shell')),
         el('option', { value: 'owner' }, 'owner'),
-      ]),
-      el('label', { for: 'wk-pass' }, t(loc, 'passcode')),
+      ];
+    return el('form', { id: 'wk-session', class: 'wk-editor' }, [
+      el('label', { for: 'wk-role' }, t(loc, 'role')),
+      el('select', { id: 'wk-role', name: 'role' }, roleOptions),
+      el('label', { for: 'wk-pass' }, t(loc, state.shell === 'staff' ? 'team_pass' : 'passcode')),
       el('input', { id: 'wk-pass', name: 'passcode', type: 'password', autocomplete: 'current-password' }, ''),
       el('button', { type: 'submit', class: 'wk-pill' }, t(loc, 'enter')),
     ]);
@@ -387,6 +439,13 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
         paint();
       });
     }
+    root.querySelectorAll('[data-quick-text]').forEach((btn) => {
+      btn.addEventListener('click', () => void submitTurn(btn.getAttribute('data-quick-text')));
+    });
+    const quickBook = root.querySelector('[data-quick-book="true"]');
+    if (quickBook) {
+      quickBook.addEventListener('click', () => void openOfficialBooking());
+    }
   }
 
   function attachReceipt(receipt) {
@@ -496,6 +555,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     }
     state.draft = text;
     if (!state.context) return;
+    if (state.shell === 'try') {
+      if (!state.thread.length) state.thread = welcomeThread();
+      state.thread = [...state.thread, { from: 'guest', text, lang: locale() === 'en' ? 'en' : 'ar' }];
+    }
     state.loadingTurn = true;
     state.error = null;
     paint();
@@ -514,6 +577,12 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
       if (out.output?.state === 'ok') {
         state.draft = '';
         state.pendingRetry = null;
+        if (state.shell === 'try' && Array.isArray(out.output.messages)) {
+          state.thread = [
+            ...state.thread,
+            ...out.output.messages.map((msg) => ({ from: 'khalid', text: msg.text, lang: msg.lang })),
+          ];
+        }
       } else if (out.output?.error?.retryable) {
         state.pendingRetry = { type: 'turn', text };
       }
@@ -755,6 +824,32 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     paint();
   }
 
+  async function openOfficialBooking() {
+    if (!state.token) return;
+    try {
+      const issued = await api('/booking/handoff', { token: state.token, fetchImpl });
+      if (issued?.action_id) await clickAction(issued.action_id);
+    } catch (err) {
+      state.error = err;
+      paint();
+    }
+  }
+
+  async function startPublicGuest() {
+    state.surface = 'conversation';
+    state.thread = welcomeThread();
+    paint();
+    try {
+      const out = await api('/session', { method: 'POST', body: { role: 'customer' }, fetchImpl });
+      state.token = out.token;
+      state.context = out.context;
+      state.error = null;
+    } catch (err) {
+      state.error = err;
+    }
+    await refreshHealth();
+  }
+
   async function refreshHealth() {
     try {
       const health = await api('/health', { fetchImpl });
@@ -772,6 +867,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface } = {}) {
     state,
     paint,
     refreshHealth,
+    startPublicGuest,
     setGallery(on) {
       state.gallery = on;
       paint();
@@ -788,6 +884,8 @@ export function boot(root) {
   return ui;
 }
 
-if (typeof document !== 'undefined' && document.getElementById('rakan-root')) {
-  boot(document.getElementById('rakan-root'));
+if (typeof document !== 'undefined') {
+  const root = document.getElementById('rakan-root');
+  const shell = root?.getAttribute('data-shell') || 'app';
+  if (root && shell === 'app') boot(root);
 }

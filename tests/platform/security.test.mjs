@@ -33,6 +33,32 @@ test('local customer passcode is env-named, not a literal', () => {
   app.close();
 });
 
+test('public guest may open a customer session with an empty passcode', () => {
+  const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'true' });
+  const out = app.createSession('customer', '');
+  assert.equal(out.context.role, 'customer');
+  const implied = app.createSession('customer');
+  assert.equal(implied.context.role, 'customer');
+  assert.throws(
+    () => app.createSession('customer', 'wrong'),
+    err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
+  );
+  assert.throws(
+    () => app.createSession('staff', ''),
+    err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
+  );
+  app.close();
+});
+
+test('empty customer passcode is rejected when public guest is off', () => {
+  const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'false' });
+  assert.throws(
+    () => app.createSession('customer', ''),
+    err => err instanceof AppError && err.shape.code === 'UNAUTHORIZED',
+  );
+  app.close();
+});
+
 test('plain owner and staff passcodes hash at start', () => {
   const env = testEnv();
   delete env.WEEKEND_OWNER_PASSCODE_HASH;

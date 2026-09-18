@@ -39,7 +39,7 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 - No customer photographs, phone lists, booking exports, review author identifiers, tokens, keys or merchant exports in Git. `.env` is ignored; `.env.example` holds names only. Values come from the owner privately.
 - No medical diagnosis, treatment claims, attractiveness scores, ethnicity/religion/personality inference, age guessing or face recognition. Cosmetic observations only, with permission.
 - No fake bookings, slots, waits, stock or "saved" confirmations. An outbound link is `EXTERNAL_HANDOFF`, never `CONFIRMED`.
-- Working name: **Rakan**. Do not rename without an owner decision recorded in #2.
+- Working name: **خالد**, always with digital subtitle **مساعد رقمي · ذا ويكند** (D18). Internal code identifiers may still say Rakan. Do not drop the digital subtitle.
 - Distinguish `proposal` / `public observation` / `merchant approved` / `implemented` / `tested` / `released` in everything you write.
 
 ## 5. Where things are

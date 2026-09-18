@@ -15,9 +15,9 @@ export function renderTranscript({ messages = [], locale = 'ar', loading = false
   }
   const list = messagesLimited(messages);
   const inner = list.length
-    ? list.map((msg, i) => el('article', {
+    ? list.map((msg) => el('article', {
       class: 'wk-message',
-      'data-from': 'rakan',
+      'data-from': msg.from === 'guest' ? 'guest' : 'khalid',
       lang: msg.lang || locale,
     }, escapeHtml(msg.text)))
     : [el('div', { class: 'wk-empty', 'data-state': 'empty' }, t(locale, 'empty_messages'))];

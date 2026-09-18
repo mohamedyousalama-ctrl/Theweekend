@@ -105,11 +105,23 @@ async function readJson(req, maxBytes) {
   return value;
 }
 
+const HUB_PAGES = {
+  '/': 'index.html',
+  '/try': 'try.html',
+  '/journey': 'journey.html',
+  '/how': 'how.html',
+  '/brief': 'brief.html',
+  '/team': 'staff.html',
+  '/prefs': 'prefs.html',
+  '/status': 'status.html',
+};
+
 function tryServeUi(req, res, pathname) {
   if ((req.method || 'GET') !== 'GET') return false;
   if (!existsSync(UI_ROOT) || !statSync(UI_ROOT).isDirectory()) return false;
-  const rel = pathname === '/' ? 'index.html' : pathname.replace(/^\/+/, '');
-  const target = resolve(join(UI_ROOT, rel));
+  const mapped = HUB_PAGES[pathname];
+  const rel = mapped || pathname.replace(/^\/+/, '');
+  const target = resolve(join(UI_ROOT, rel || 'index.html'));
   if (target !== UI_ROOT && !target.startsWith(`${UI_ROOT}/`)) return false;
   if (!existsSync(target) || !statSync(target).isFile()) return false;
   res.writeHead(200, securityHeaders({

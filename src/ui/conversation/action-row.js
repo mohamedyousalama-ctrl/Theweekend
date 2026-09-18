@@ -3,9 +3,7 @@ import { t } from '../copy.js';
 import { filterAllowedActions, isAllowedActionKind } from '../policy.js';
 
 function bookingLabel(kind, locale, labelAr, labelEn) {
-  if (kind === 'open_official_booking' || kind === 'request_pending_booking') {
-    return `${locale === 'en' ? labelEn : labelAr} — ${t(locale, 'booking_unconfirmed')}`;
-  }
+  void kind;
   return locale === 'en' ? labelEn : labelAr;
 }
 
@@ -15,6 +13,7 @@ export function renderActionRow({
   locale = 'ar',
   disabled = false,
   reconnectInvalidates = false,
+  variant = 'weekend',
 } = {}) {
   // continue_without_photo has its own control in optional-image.js; rendering it here too gave one click two listeners.
   const allowed = filterAllowedActions(allowedActions).filter((a) => a.kind !== 'continue_without_photo');
@@ -37,7 +36,7 @@ export function renderActionRow({
     return el('button', { type: 'button', ...common, disabled: !enabled }, label);
   });
 
-  const proposed = Array.isArray(proposedActions) ? proposedActions : [];
+  const proposed = variant === 'whatsapp' ? [] : (Array.isArray(proposedActions) ? proposedActions : []);
   const proposedBlock = proposed.length
     ? el('aside', {
       class: 'wk-proposed',

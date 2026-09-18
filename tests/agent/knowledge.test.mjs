@@ -44,7 +44,7 @@ test('the branch pack carries the owner decisions of 2026-09-14', () => {
 
 test('post-merge review: product availability, treatment claims, annual expiry and citable arithmetic', () => {
   const byId = new Map(pack.records.map((r) => [r.knowledge_id, r]));
-  assert.equal(pack.pack_revision, 2);
+  assert.equal(pack.pack_revision, 3);
   assert.equal(pack.records.length, 47);
   const perfume = byId.get('kno_mrs_product_the_weekend_oud_perfume');
   assert.match(perfume.text_ar, /يُباع في الفرع/, 'a product the storefront lists for the branch');
