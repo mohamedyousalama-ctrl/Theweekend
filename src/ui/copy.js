@@ -119,7 +119,7 @@ export const COPY = {
     handoff_queue_empty: 'ما فيه طلب تحدث مع الفريق حالياً.',
     handoff_received: 'وصل الطلب. ما انقبل بعد.',
     handoff_accepted: 'قبلت الطلب. الرد الآلي متوقف لهذه الجلسة.',
-    handoff_accepted_by_other: 'قبل الطلب موظف آخر.',
+    handoff_accepted_by_other: 'موظف ثاني قبل الطلب.',
     handoff_accept: 'قبول الطلب',
     handoff_release: 'إفلات الطلب',
     handoff_not_accepted_until_click: 'ما نقول إن الفريق استلم إلا بعد زر القبول.',

@@ -76,13 +76,21 @@ test('accepted copy depends on mine and hides the not-accepted warning', () => {
   assert.doesNotMatch(other.html, /data-handoff-warning="not_accepted_until_click"/);
   assert.doesNotMatch(other.html, /Do not treat this as staff-accepted until Accept is pressed/);
 
+  const otherAr = renderHandoffList({
+    handoffs: [acceptedByOther],
+    locale: 'ar',
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(otherAr.html, /موظف ثاني قبل الطلب/);
+  assert.doesNotMatch(otherAr.html, /قبل الطلب موظف آخر/);
+
   const mine = renderHandoffList({
     handoffs: [{ ...acceptedByOther, accepted_by: 'sub_syn_staff_a' }],
     locale: 'ar',
     selfSubjectId: 'sub_syn_staff_a',
   });
   assert.match(mine.html, /قبلت الطلب/);
-  assert.doesNotMatch(mine.html, /قبل الطلب موظف آخر/);
+  assert.doesNotMatch(mine.html, /موظف ثاني قبل الطلب/);
   assert.doesNotMatch(mine.html, /data-handoff-warning="not_accepted_until_click"/);
 });
 
