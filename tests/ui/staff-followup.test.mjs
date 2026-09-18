@@ -161,6 +161,11 @@ test('staff brief panel renders written photo notes and never an image', () => {
   assert.match(view.html, /data-photo-bytes="false"/);
   assert.match(view.html, /ذقن خفيفة/);
   assert.doesNotMatch(view.html, />stubble</);
+  const en = renderBriefPanel({
+    brief: { ...brief, observations },
+    locale: 'en',
+  });
+  assert.match(en.html, /light stubble/);
   assert.doesNotMatch(view.html, /<img/i);
   const card = renderInboxList({
     context: staffContext,
