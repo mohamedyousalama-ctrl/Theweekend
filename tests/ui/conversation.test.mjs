@@ -46,9 +46,9 @@ test('composer builds ChatTurnInput with client turn_id uuid', () => {
   assert.equal(built.image_ref, null);
 });
 
-test('empty composer disables Send and shows turn.invalid copy locally', () => {
-  const empty = renderComposer({ locale: 'ar', draft: '   ' });
-  assert.match(empty.html, /disabled data-send="true"|data-send="true"[^>]*disabled/);
+test('empty composer shows turn.invalid copy locally and does not disable Send on a stale empty draft', () => {
+  const empty = renderComposer({ locale: 'ar', draft: '' });
+  assert.doesNotMatch(empty.html, /disabled data-send="true"|data-send="true"[^>]*disabled/);
   const invalid = renderComposer({
     locale: 'ar',
     draft: '',
@@ -59,9 +59,8 @@ test('empty composer disables Send and shows turn.invalid copy locally', () => {
     },
   });
   assert.match(invalid.html, /اكتب نصاً قبل الإرسال/);
-  const filled = renderComposer({ locale: 'en', draft: 'hello' });
-  assert.doesNotMatch(filled.html, /data-send="true"[^>]*disabled/);
-  assert.doesNotMatch(filled.html, /disabled[^>]*data-send="true"/);
+  const blocked = renderComposer({ locale: 'en', draft: 'hello', disabled: true });
+  assert.match(blocked.html, /disabled data-send="true"|data-send="true"[^>]*disabled/);
 });
 
 test('action row drops invented kinds and does not execute proposals', () => {

@@ -10,7 +10,6 @@ export function renderComposer({
   imageRef = null,
   validationError = null,
 } = {}) {
-  const empty = !String(draft || '').trim();
   const fieldCopy = validationError?.message_key
     ? (messageFromKey(validationError.message_key, locale) || t(locale, 'validation'))
     : t(locale, 'validation');
@@ -36,7 +35,7 @@ export function renderComposer({
     el('button', {
       type: 'submit',
       class: 'wk-pill',
-      disabled: disabled || empty,
+      disabled,
       'data-send': 'true',
     }, t(locale, 'send')),
   ]);

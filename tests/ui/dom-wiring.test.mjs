@@ -584,3 +584,40 @@ test('empty or whitespace composer submit does not post /turns and shows turn.in
   for (let i = 0; i < 10; i += 1) await Promise.resolve();
   assert.equal(calls.filter((c) => c.path === '/turns').length, 0);
 });
+
+test('first paint leaves Send enabled; typing without a repaint posts /turns once', async () => {
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    calls.push({ path, method: opts.method || 'GET', json });
+    if (path === '/turns') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          output,
+          allowed_actions: [],
+          action_result: null,
+          context,
+        }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = context;
+  app.state.token = 'tok_syn';
+  app.state.surface = 'conversation';
+  app.paint();
+  const send = root.querySelector('[data-send="true"]');
+  assert.ok(send);
+  assert.equal(send.hasAttribute('disabled'), false);
+  const textarea = root.querySelector('#wk-composer-text');
+  const composer = root.querySelector('[data-component="composer"]');
+  textarea.value = 'سلام';
+  assert.equal(send.hasAttribute('disabled'), false, 'no repaint required to keep Send enabled');
+  assert.equal(composer.fire('submit'), 1);
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/turns' && c.method === 'POST').length, 1);
+});
