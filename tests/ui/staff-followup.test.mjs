@@ -5,6 +5,7 @@ import { createRoot } from './dom-shim.mjs';
 import { renderHandoffList } from '../../src/ui/staff/handoff-list.js';
 import { renderBriefPanel } from '../../src/ui/staff/brief-panel.js';
 import { renderInboxList } from '../../src/ui/staff/inbox-list.js';
+import { renderPhotoNotes } from '../../src/ui/staff/photo-notes.js';
 import { messageFromKey } from '../../src/ui/copy.js';
 
 const { createRakanUi } = await import('../../src/ui/app.js');
@@ -174,6 +175,23 @@ test('staff brief panel renders written photo notes and never an image', () => {
   });
   assert.match(card.html, /data-photo-notes="true"/);
   assert.doesNotMatch(card.html, /<img/i);
+});
+
+test('unknown photo-note limitation is labelled, not printed as a raw token', () => {
+  const view = renderPhotoNotes({
+    observations: { ...observations, limitations: ['low_resolution', 'covered'] },
+    locale: 'en',
+  });
+  assert.match(view.html, /note: low resolution/);
+  assert.doesNotMatch(view.html, /low_resolution/);
+  assert.match(view.html, /covered/);
+  assert.doesNotMatch(view.html, /note: covered/);
+  const ar = renderPhotoNotes({
+    observations: { ...observations, limitations: ['low_resolution'] },
+    locale: 'ar',
+  });
+  assert.match(ar.html, /ملاحظة: low resolution/);
+  assert.doesNotMatch(ar.html, /low_resolution/);
 });
 
 test('staff inbox loads briefs and handoffs then accept posts once', async () => {

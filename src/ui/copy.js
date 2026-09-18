@@ -450,5 +450,8 @@ export function observationValueLabel(token, locale = 'ar') {
     angle: 'angle',
     blur: 'blur',
   };
-  return locale === 'en' ? (en[token] ?? token) : (ar[token] ?? token);
+  const mapped = locale === 'en' ? en[token] : ar[token];
+  if (mapped) return mapped;
+  const spaced = String(token ?? '').replaceAll('_', ' ');
+  return locale === 'en' ? `note: ${spaced}` : `ملاحظة: ${spaced}`;
 }
