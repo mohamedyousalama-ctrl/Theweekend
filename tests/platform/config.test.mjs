@@ -55,9 +55,7 @@ test('owner-review does not require a local customer passcode', () => {
   assert.equal(cfg.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, null);
 });
 
-test('owner-review public guest is on so /try works; local stays opt-in', () => {
-  const local = loadConfig(testEnv());
-  assert.equal(local.WEEKEND_PUBLIC_GUEST, false);
+test('WEEKEND_PUBLIC_GUEST defaults true in owner-review and false in local; an explicit value wins', () => {
   const env = testEnv({ WEEKEND_ENV: 'owner-review', WEEKEND_MODEL_MODE: 'real' });
   delete env.WEEKEND_PUBLIC_GUEST;
   const review = loadConfig(env);
@@ -67,7 +65,9 @@ test('owner-review public guest is on so /try works; local stays opt-in', () => 
     WEEKEND_MODEL_MODE: 'real',
     WEEKEND_PUBLIC_GUEST: 'false',
   }));
-  assert.equal(forcedOff.WEEKEND_PUBLIC_GUEST, true);
+  assert.equal(forcedOff.WEEKEND_PUBLIC_GUEST, false);
+  const local = loadConfig(testEnv());
+  assert.equal(local.WEEKEND_PUBLIC_GUEST, false);
   const localOn = loadConfig(testEnv({ WEEKEND_PUBLIC_GUEST: 'true' }));
   assert.equal(localOn.WEEKEND_PUBLIC_GUEST, true);
 });

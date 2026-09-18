@@ -59,14 +59,16 @@ test('empty customer passcode is rejected when public guest is off', () => {
   app.close();
 });
 
-test('owner-review opens a customer session with an empty passcode even if the flag is false', () => {
+test('owner-review with WEEKEND_PUBLIC_GUEST false rejects an empty customer passcode', () => {
   const { app } = testApp({
     WEEKEND_ENV: 'owner-review',
     WEEKEND_MODEL_MODE: 'real',
     WEEKEND_PUBLIC_GUEST: 'false',
   });
-  const out = app.createSession('customer', '');
-  assert.equal(out.context.role, 'customer');
+  assert.throws(
+    () => app.createSession('customer', ''),
+    err => err instanceof AppError && err.status === 401 && err.shape.message_key === 'session.passcode',
+  );
   app.close();
 });
 
