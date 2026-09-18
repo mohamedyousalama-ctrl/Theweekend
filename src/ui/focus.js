@@ -1,6 +1,7 @@
 /** Remember which control had keyboard focus before a full innerHTML paint, then restore it. */
 
 const FOCUS_ATTRS = [
+  'data-handoff-control',
   'data-action-id',
   'data-consent-grant',
   'data-consent-revoke',

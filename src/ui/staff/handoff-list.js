@@ -22,6 +22,7 @@ export function renderHandoffList({
         class: 'wk-pill',
         'data-handoff-id': item.handoff_id,
         'data-handoff-accept': 'true',
+        'data-handoff-control': `accept:${item.handoff_id}`,
       }, t(locale, 'handoff_accept')));
     }
     if (canRelease) {
@@ -30,6 +31,7 @@ export function renderHandoffList({
         class: 'wk-pill is-ghost',
         'data-handoff-id': item.handoff_id,
         'data-handoff-release': 'true',
+        'data-handoff-control': `release:${item.handoff_id}`,
       }, t(locale, 'handoff_release')));
     }
     return el('div', {
