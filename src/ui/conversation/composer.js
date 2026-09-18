@@ -14,7 +14,7 @@ export function renderComposer({
     ? (messageFromKey(validationError.message_key, locale) || t(locale, 'validation'))
     : t(locale, 'validation');
   const fieldError = validationError?.details?.field === 'text'
-    ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, fieldCopy)
+    ? el('p', { class: 'wk-error', id: 'composer-error', 'data-code': validationError.code }, escapeHtml(fieldCopy))
     : '';
   const html = el('form', {
     class: 'wk-composer',

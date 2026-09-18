@@ -63,6 +63,19 @@ test('empty composer shows turn.invalid copy locally and does not disable Send o
   assert.match(blocked.html, /disabled data-send="true"|data-send="true"[^>]*disabled/);
 });
 
+test('composer field copy is HTML-escaped', () => {
+  const view = renderComposer({
+    locale: 'ar',
+    validationError: {
+      code: 'VALIDATION_ERROR',
+      message_key: '<img src=x onerror=alert(1)>',
+      details: { field: 'text' },
+    },
+  });
+  assert.match(view.html, /&lt;img src=x onerror=alert\(1\)&gt;/);
+  assert.equal(view.html.includes('<img'), false);
+});
+
 test('action row drops invented kinds and does not execute proposals', () => {
   const row = renderActionRow({
     allowedActions: [allowed, { action_id: 'act_x', kind: 'prepare_booking_request', label_ar: 'x', label_en: 'x' }],
