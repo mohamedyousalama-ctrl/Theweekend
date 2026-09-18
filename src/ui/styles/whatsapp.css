@@ -1,5 +1,6 @@
 .try-body {
   min-height: 100vh;
+  min-height: 100dvh;
   margin: 0;
   background: var(--wk-ground);
   color: #111b21;
@@ -16,6 +17,14 @@
   line-height: 1.55;
   text-align: center;
   border-bottom: 1px solid var(--wk-hairline);
+  flex-shrink: 0;
+}
+
+.try-body #rakan-root {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 
 .try-site-chat-notice [lang="en"] {
@@ -27,7 +36,8 @@
 
 .wa-stage {
   width: min(420px, 100%);
-  min-height: 100vh;
+  flex: 1;
+  min-height: 0;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -433,6 +443,39 @@
   border-radius: 50%;
   background: #8696a0;
   opacity: 0.4;
+}
+
+.wa-pass {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f0f2f5;
+  flex-shrink: 0;
+}
+
+.wa-pass label[for="wk-try-pass-input"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.wa-pass input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 42px;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  color: #111b21;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.wa-pass [type="submit"] {
+  flex-shrink: 0;
 }
 
 .wa-stage .wk-consent,

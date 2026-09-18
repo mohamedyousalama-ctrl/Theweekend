@@ -378,3 +378,19 @@ test('try skin and hub pages do not ship WhatsApp trademarks or demo shame copy'
   assert.match(tryCss, /\.wa-typing/);
   assert.match(tryCss, /margin-left:\s*auto/);
 });
+
+test('try-page CSS keeps composer in first viewport (DOM shim cannot measure layout)', () => {
+  const tryCss = readFileSync(join(ROOT, 'src/ui/styles/whatsapp.css'), 'utf8');
+  const waStageRules = [...tryCss.matchAll(/\.wa-stage\s*\{[^}]*\}/g)].map((m) => m[0]);
+  assert.ok(waStageRules.length >= 1, 'expected a .wa-stage rule');
+  for (const rule of waStageRules) {
+    assert.doesNotMatch(rule, /min-height:\s*100vh/);
+  }
+  assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*display:\s*flex/);
+  assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*flex:\s*1/);
+  assert.match(tryCss, /\.try-body\s+#rakan-root\s*\{[^}]*min-height:\s*0/);
+  const waStageBase = waStageRules[0]; // first .wa-stage rule in source order = the base rule
+  assert.match(waStageBase, /flex:\s*1/);
+  assert.match(waStageBase, /min-height:\s*0/);
+  for (const rule of waStageRules) assert.doesNotMatch(rule, /min-height:\s*100%/);
+});

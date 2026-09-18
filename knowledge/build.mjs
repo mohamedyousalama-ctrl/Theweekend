@@ -133,8 +133,8 @@ export function buildPack() {
     knowledge_id: 'kno_mrs_booking_url',
     kind: 'faq',
     ref: OFFICIAL_BOOKING_URL,
-    text_ar: `الحجز يتم من صفحة الحجز الرسمية: ${OFFICIAL_BOOKING_URL}?branchId=${STOREFRONT_BRANCH_ID} — يختار العميل الخدمة والحلاق والوقت بنفسه، والتأكيد يصير من الموقع بعد الدفع. خالد ما يحجز ولا يغيّر الحجز بنفسه في هذه المرحلة.`,
-    text_en: `Booking happens on the official page ${OFFICIAL_BOOKING_URL}?branchId=${STOREFRONT_BRANCH_ID}; the customer picks service, barber and time; confirmation comes from the site after payment. Khalid does not create or change bookings in this phase.`,
+    text_ar: `الحجز يتم من صفحة الحجز الرسمية: ${OFFICIAL_BOOKING_URL}?branchId=${STOREFRONT_BRANCH_ID} — يختار العميل الخدمة والحلاق والوقت بنفسه، والتأكيد يصير من صفحة الحجز الرسمية. خالد ما يحجز ولا يغيّر الحجز بنفسه في هذه المرحلة.`,
+    text_en: `Booking happens on the official page ${OFFICIAL_BOOKING_URL}?branchId=${STOREFRONT_BRANCH_ID}; the customer picks service, barber and time; confirmation comes from the official booking page. Khalid does not create or change bookings in this phase.`,
     source: OWNER.source,
     source_hash: OWNER.hash,
     status: 'merchant_approved',
@@ -366,7 +366,7 @@ export function buildPack() {
 
   return {
     pack_version: PACK_VERSION,
-    pack_revision: 3,
+    pack_revision: 5,
     branch_id: BRANCH_ID,
     storefront_branch_id: STOREFRONT_BRANCH_ID,
     built_from: ['research/claude-20260913/catalogue.sanitized.json', 'research/claude-20260913/staff.sanitized.json', 'research/claude-20260913/OWNER-ANSWERS-2026-09-14.md'],

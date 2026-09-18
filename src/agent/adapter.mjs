@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.8';
+export const PROMPT_VERSION = 'rakan.system.v0.9';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
