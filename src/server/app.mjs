@@ -1233,6 +1233,7 @@ export function createApp(config, deps = {}) {
         messageKey = 'booking.pending_unconfirmed';
         break;
       case 'talk_to_staff': {
+        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         sweepStaffHandoffs();
         const existing = store.get(
           `SELECT * FROM staff_handoffs
@@ -1322,6 +1323,7 @@ export function createApp(config, deps = {}) {
         messageKey = `action.${row.kind}`;
         break;
       case 'share_brief_text': {
+        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         if (!activeReceipt(session.subject_id, 'staff_sharing_text')) {
           fail('CONSENT_REQUIRED', 'brief.share_consent', false, { capability: 'staff_inbox' }, 403);
         }
@@ -1346,6 +1348,7 @@ export function createApp(config, deps = {}) {
         break;
       }
       case 'share_photo_ref': {
+        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         const photoReceipt = activeReceipt(session.subject_id, 'staff_sharing_photo');
         if (!photoReceipt) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
@@ -1394,7 +1397,9 @@ export function createApp(config, deps = {}) {
     } else {
       actions.push(persistAction(session, 'request_pending_booking', 'handoff_pending_booking', 1));
     }
-    actions.push(persistAction(session, 'talk_to_staff', 'handoff_staff', 1));
+    if (staffInboxStoreUp()) {
+      actions.push(persistAction(session, 'talk_to_staff', 'handoff_staff', 1));
+    }
     return actions;
   }
 
@@ -1667,6 +1672,9 @@ export function createApp(config, deps = {}) {
     const brief = store.get('SELECT * FROM briefs WHERE brief_id = ?', [briefId]);
     if (!brief || brief.subject_id !== session.subject_id) {
       fail('NOT_FOUND', 'brief.not_found', false, {}, 404);
+    }
+    if (!staffInboxStoreUp()) {
+      fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
     }
     const allowed = [
       persistAction(session, 'share_brief_text', brief.brief_id, brief.version, {

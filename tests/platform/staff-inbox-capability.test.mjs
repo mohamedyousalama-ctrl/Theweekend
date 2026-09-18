@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRakanAdapter } from '../../src/agent/adapter.mjs';
+import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
 import { createHttpServer } from '../../src/server/http.mjs';
-import { capabilitiesFor } from '../../src/server/app.mjs';
+import { AppError, capabilitiesFor } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
 import { handoffSkip } from '../../scripts/owner-walkthrough.mjs';
 import { fakeClient, knowledge, modelJson, response } from '../agent/fixtures.mjs';
@@ -149,4 +150,88 @@ test('real adapter keeps talk_to_staff for a customer session and queues the sta
     await new Promise((resolve) => server.close(resolve));
     app.close();
   }
+});
+
+function turnInput(sessionId, turnId, text = 'أبغى قصة') {
+  return {
+    contract_version: '0.1.0',
+    session_id: sessionId,
+    turn_id: turnId,
+    text,
+    image_ref: null,
+    client_action_id: null,
+    locale_hint: 'ar',
+  };
+}
+
+function inboxDown(err) {
+  return err instanceof AppError
+    && err.status === 403
+    && err.shape.code === 'CAPABILITY_UNAVAILABLE'
+    && err.shape.message_key === 'staff_inbox.unavailable'
+    && err.shape.details.capability === 'staff_inbox';
+}
+
+test('staff actions are not issued or executed after the inbox store goes down', async () => {
+  const { app, config } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' }, {
+    adapter: ({ context, input, now }) => {
+      const result = runModelTurn({ context, input, now });
+      result.output.proposed_actions = [];
+      return result;
+    },
+  });
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'staff_sharing_text', 'customer_ui');
+  app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  app.grantConsent(token, 'staff_sharing_photo', 'customer_ui');
+  const brief = app.createBrief(token, { text_ar: 'موجز قبل سقوط المتجر', do_not: [] });
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+
+  const first = await app.submitTurn(
+    token,
+    turnInput(context.session_id, '11111111-2222-4333-8444-555555555871'),
+  );
+  const talk = first.allowed_actions.find((a) => a.kind === 'talk_to_staff');
+  assert.ok(talk);
+  const shareText = app.issueShareActionsForBrief(token, brief.brief_id)
+    .allowed_actions.find((a) => a.kind === 'share_brief_text');
+  assert.ok(shareText);
+  const sharePhoto = app.issueSharePhotoAction(token, { image_ref: up.image_ref });
+  assert.equal(sharePhoto.kind, 'share_photo_ref');
+
+  app.store.probe = () => {
+    throw new Error('down');
+  };
+
+  const fallback = await app.submitTurn(
+    token,
+    turnInput(context.session_id, '11111111-2222-4333-8444-555555555872'),
+  );
+  assert.equal(fallback.context.capabilities.staff_inbox, 'unavailable');
+  const fallbackKinds = (fallback.allowed_actions || []).map((a) => a.kind);
+  assert.equal(fallbackKinds.includes('talk_to_staff'), false);
+  assert.ok(fallbackKinds.includes('open_official_booking'));
+
+  assert.throws(() => app.issueShareActionsForBrief(token, brief.brief_id), inboxDown);
+
+  const server = createHttpServer(app, config);
+  const port = await listen(server);
+  const base = `http://127.0.0.1:${port}`;
+  try {
+    const shareHttp = await req(base, `/briefs/${brief.brief_id}/share-actions`, {
+      method: 'POST',
+      token,
+      body: {},
+    });
+    assert.equal(shareHttp.status, 403);
+    assert.equal(shareHttp.json.code, 'CAPABILITY_UNAVAILABLE');
+    assert.equal(shareHttp.json.message_key, 'staff_inbox.unavailable');
+  } finally {
+    await new Promise((resolve) => server.close(resolve));
+  }
+
+  assert.throws(() => app.executeAction(token, talk.action_id), inboxDown);
+  assert.throws(() => app.executeAction(token, shareText.action_id), inboxDown);
+  assert.throws(() => app.executeAction(token, sharePhoto.action_id), inboxDown);
+  app.close();
 });
