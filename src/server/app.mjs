@@ -319,6 +319,14 @@ export function createApp(config, deps = {}) {
   const inflight = new Map();
   const inflightTurns = new Map();
   store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
+  // A persisted guest session must not outlive an operator turning the switch off: a browser tab holding a token
+  // minted before this deployment cannot be told to log out, so any still-live guest session row is expired here,
+  // at the moment the switch is off, before any request is served. requireSession's live WEEKEND_PUBLIC_GUEST check
+  // is the check that actually closes the hole for this process; this is defence in depth for the data itself.
+  if (config.WEEKEND_PUBLIC_GUEST !== true) {
+    const startupNow = iso(clock);
+    store.run('UPDATE sessions SET expires_at = ? WHERE guest = 1 AND expires_at > ?', [startupNow, startupNow]);
+  }
   sweepPreferenceRetentionAt(store, clock);
   sweepStaffHandoffsAt(store, clock);
   sealStoredClientKeys(store, config.WEEKEND_SESSION_SECRET);
@@ -446,6 +454,12 @@ export function createApp(config, deps = {}) {
     if (!sessionId) fail('UNAUTHORIZED', 'session.invalid', false, {}, 401);
     const session = store.get('SELECT * FROM sessions WHERE session_id = ?', [sessionId]);
     if (!session || session.verified !== 1) fail('UNAUTHORIZED', 'session.invalid', false, {}, 401);
+    // The switch is read once at process start (docs/16 §5): a guest session opened while it was on must not go
+    // on authorizing requests once a deployment starts with it off, even though the token itself is still fresh.
+    // Checked before expiry so a row expired at start (defence in depth) is still reported as session.guest_closed.
+    if (isGuestSession(session) && config.WEEKEND_PUBLIC_GUEST !== true) {
+      fail('UNAUTHORIZED', 'session.guest_closed', false, {}, 401);
+    }
     if (Date.parse(session.expires_at) <= Date.parse(iso(clock))) {
       fail('UNAUTHORIZED', 'session.expired', false, {}, 401);
     }

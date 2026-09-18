@@ -5,9 +5,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { DatabaseSync } from 'node:sqlite';
 import { AppError, CLIENT_KEY_RETENTION_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
+import { loadConfig } from '../../src/server/config.mjs';
 import { hmacClientKey, signSession } from '../../src/server/ids.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
-import { OWNER_PASS, STAFF_PASS, testApp } from './helpers.mjs';
+import { OWNER_PASS, STAFF_PASS, testApp, testEnv } from './helpers.mjs';
 
 const turn = (sessionId, turnId) => ({
   contract_version: '0.1.0',
@@ -640,4 +641,70 @@ test('migrate backfills guest_settled_minor from existing guest_cost_minor', asy
       && err.shape.message_key === 'model.budget_exceeded',
   );
   app.close();
+});
+
+function guestClosed(err) {
+  return err instanceof AppError
+    && err.status === 401
+    && err.shape.code === 'UNAUTHORIZED'
+    && err.shape.message_key === 'session.guest_closed'
+    && err.shape.retryable === false;
+}
+
+test('turning public guest off refuses an already-open guest token', async () => {
+  const env = testEnv({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_PHOTO_ENABLED: 'true',
+  });
+  const first = createApp(loadConfig(env));
+  const guest = first.createSession('customer', '', { clientKey: '203.0.113.101' });
+  const authenticated = first.createSession('customer', OWNER_PASS, { clientKey: '203.0.113.102' });
+  first.close();
+  const closed = createApp(loadConfig({ ...env, WEEKEND_PUBLIC_GUEST: 'false' }));
+  try {
+    await assert.rejects(
+      () => closed.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555701')),
+      guestClosed,
+    );
+    assert.throws(
+      () => closed.grantConsent(guest.token, 'photo_analysis', 'customer_ui'),
+      guestClosed,
+    );
+    assert.throws(
+      () => closed.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' }),
+      guestClosed,
+    );
+    closed.store.run(
+      'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+      ['2099-01-01T00:00:00.000Z', guest.context.session_id],
+    );
+    await assert.rejects(
+      () => closed.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555702')),
+      guestClosed,
+    );
+    const stillOk = await closed.submitTurn(
+      authenticated.token,
+      turn(authenticated.context.session_id, '11111111-2222-4333-8444-555555555703'),
+    );
+    assert.equal(stillOk.output.state, 'ok', 'a non-guest customer session survives the switch');
+  } finally {
+    closed.close();
+  }
+});
+
+test('an already-open guest token still works when the switch stays on', async () => {
+  const env = testEnv({ WEEKEND_PUBLIC_GUEST: 'true' });
+  const first = createApp(loadConfig(env));
+  const guest = first.createSession('customer', '', { clientKey: '203.0.113.103' });
+  first.close();
+  const restarted = createApp(loadConfig(env));
+  try {
+    const out = await restarted.submitTurn(
+      guest.token,
+      turn(guest.context.session_id, '11111111-2222-4333-8444-555555555704'),
+    );
+    assert.equal(out.output.state, 'ok');
+  } finally {
+    restarted.close();
+  }
 });

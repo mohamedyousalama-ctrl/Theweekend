@@ -71,7 +71,7 @@ The original numbered signup steps (1–5), including the model key, are done. N
 | `WEEKEND_STAFF_PASSCODE` or `WEEKEND_STAFF_PASSCODE_HASH` | plain or `scrypt$…` |
 | `WEEKEND_BRANCH_ID` | `br_…` for فرع النرجس (مرسية) |
 | `WEEKEND_TRUST_PROXY` | `1` |
-| `WEEKEND_PUBLIC_GUEST` | optional; default `true` in owner-review (C4 guest limits apply), `false` in local. Read once at process start. To close `/try`, set it explicitly `false` in Railway Variables, deploy that change, and confirm in the Deployments tab that the new deployment is live; saving the variable alone does not change the running process. |
+| `WEEKEND_PUBLIC_GUEST` | optional; default `true` in owner-review (C4 guest limits apply), `false` in local. Read once at process start. To close `/try`, set it explicitly `false` in Railway Variables, deploy that change, and confirm in the Deployments tab that the new deployment is live; saving the variable alone does not change the running process. The new deployment also ends guest sessions that were already open. |
 | `WEEKEND_GUEST_SESSIONS_PER_10MIN` | optional; default `5` public-guest session creates per client per 10 minutes |
 | `WEEKEND_GUEST_TURNS_PER_MIN` | optional; default `6` public-guest paid turns per client per minute |
 | `WEEKEND_OWNER_RESERVED_USD_PER_DAY` | optional; default 20% of the daily cap, reserved for owner/staff |

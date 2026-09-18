@@ -113,6 +113,50 @@ test('try Send does not drop the message when public guest is closed', async () 
   assert.equal(root.querySelector('[data-try-pass="true"]'), null);
 });
 
+test('try Send recovers a guest_closed token by showing the passcode gate', async () => {
+  let sessionCalls = 0;
+  const guestClosed = {
+    contract_version: '0.1.0',
+    code: 'UNAUTHORIZED',
+    message_key: 'session.guest_closed',
+    retryable: false,
+    details: {},
+  };
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    if (path === '/session') {
+      sessionCalls += 1;
+      if (sessionCalls === 1) {
+        return { ok: true, status: 200, json: async () => ({ token: 'tok_old', context }) };
+      }
+      if (!json.passcode) {
+        return { ok: false, status: 401, json: async () => guestDenied };
+      }
+      return { ok: true, status: 200, json: async () => ({ token: 'tok_new', context }) };
+    }
+    if (path === '/turns') {
+      return { ok: false, status: 401, json: async () => guestClosed };
+    }
+    if (path === '/health') {
+      return { ok: true, status: 200, json: async () => ({ contract_version: '0.1.0', model: 'ok', store: 'ok' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl, shell: 'try' });
+  await app.startPublicGuest();
+  assert.equal(app.state.context?.session_id, context.session_id);
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'أبغى فيد';
+  assert.equal(composer.fire('submit'), 1);
+  await settle();
+  assert.equal(app.state.context, null);
+  assert.equal(app.state.pendingTurnText, 'أبغى فيد');
+  assert.ok(root.querySelector('[data-try-pass="true"]'), 'passcode gate after the trial session is closed');
+  assert.match(root.innerHTML, /افتح المحادثة برمز الدخول/);
+});
+
 test('try pass-gate copy exists in both languages and is not shame copy', () => {
   assert.equal(Boolean(COPY.ar.try_pass_label), true);
   assert.equal(Boolean(COPY.en.try_pass_label), true);

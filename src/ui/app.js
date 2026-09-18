@@ -691,6 +691,19 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         beginConsent(err, { type: 'turn', text }, 'photo_analysis');
         return;
       }
+      if (
+        state.shell === 'try'
+        && (err?.message_key === 'session.guest_closed'
+          || err?.message_key === 'session.expired'
+          || err?.message_key === 'session.invalid')
+      ) {
+        state.token = null;
+        state.context = null;
+        state.error = err;
+        state.pendingTurnText = text;
+        await ensureGuestSession();
+        return;
+      }
       state.error = err;
       if (err?.retryable) state.pendingRetry = { type: 'turn', text };
     } finally {
@@ -718,6 +731,19 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         const receiptKind = lookupReceiptKindForAction(actionId, [state.allowedActions, state.shareActions]);
         beginConsent(err, { type: 'action', actionId, opensItself, receiptKind }, receiptKind);
         state.actionResult = null;
+        return;
+      }
+      if (
+        state.shell === 'try'
+        && (err?.message_key === 'session.guest_closed'
+          || err?.message_key === 'session.expired'
+          || err?.message_key === 'session.invalid')
+      ) {
+        state.token = null;
+        state.context = null;
+        state.error = err;
+        await ensureGuestSession();
+        paint();
         return;
       }
       state.error = err;
