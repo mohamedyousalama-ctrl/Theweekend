@@ -20,12 +20,12 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 
 | Item | State |
 |---|---|
-| `main` = `fcf75f2` | Owner instructed Cursor to merge: **#26** (docs/health), **#28** (eval record + prompt v0.5), **#27** (retry resend), **#29** (staff handoffs + photo notes); **#30** (docs pin) followed. `npm test` on `fcf75f2`: 364 pass / 0 fail. This is not a two-agent D17 review of those heads. |
+| `main` = `0e3c687` | Owner instructed Cursor to merge: **#26** (docs/health), **#28** (eval record + prompt v0.5), **#27** (retry resend), **#29** (staff handoffs + photo notes); **#30** (docs pin), **#31** (privacy scrub), **#32** (C3), **#33** (A3), **#34** (B4) followed. This is not a two-agent D17 review of those heads. |
 | Post-merge audit (integrator, 2026-09-18) | PR #24 items 11–18 and PRs #25–#30 were merged by the Cursor agent without the two-agent review (the owner instructed the merges of #24 and #26–#29 and told Cursor to continue; #25 and #30 followed from that). The integrator ran it afterwards (auditor + reviewer, reproductions): 21 findings, no exposure or bypass in the server. Required fixes requested as packages **B4** (#6: release control, retry routing, 20 missing copy keys, polish), **C3** (#7: timed retention sweeps, CSP) and **A3** (#5: `eid_rush` guard, eval exit code, error language). Privacy: the owner e-mail, the Railway project id and the review domain were removed from the docs by the integrator PR that carries this row; they remain in Git history. Details: the #2 board comment of 2026-09-18. |
 | Package C2 (Cursor, issue #7) | **merged** (PR #24). |
 | UI third handback (issue #6, PR #25) plus follow-up **PR #29** | **merged**. Consent/brief/prefs/upload, then dedicated `handoff.queued` copy, staff photo notes (text only), staff accept/release UI. |
 | Prompt | `rakan.system.v0.5` on `main` (PR #28). |
-| #8 owner walkthrough | Railway live; `/health` 200. Text eval recorded in `docs/19-EVAL-AGENT-2026-09-15.md` (28/30 on v0.4; two-case recheck on v0.5). Vision **NOT RUN**. Walkthrough with Khalid not done. |
+| #8 owner walkthrough | Railway live; `/health` 200. Partial record in `docs/20-OWNER-WALKTHROUGH-2026-09-18.md` (unauthenticated probes + static hash; authenticated turns skipped). Text eval in `docs/19`. Vision **NOT RUN**. Khalid phone walkthrough not done. Live `/app.js` still matched PR #25. |
 | #10 Rekaz booking | READY-PENDING-CREDENTIALS (owner asks Khalid for the API key); after M1 |
 | Hosting | Railway **project live for owner-review**. **Not released.** Passcodes live in Railway Variables. |
 | Open owner questions | MISSING-FACTS rows 18–19; photo share: observations only (D14) or the real photo later |
@@ -80,21 +80,21 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 ## 5. Stream C next steps (Cursor)
 
 1. **Package C2 — done** (PR #24 on `main`).
-2. **Railway** — live owner-review (the domain is in the Railway dashboard, not in Git); `/health` 200. After each merge to `main`, confirm auto-deploy. **Not released.**
+2. **Railway** — live owner-review (the domain is in the Railway dashboard, not in Git); `/health` 200. After each merge to `main`, confirm auto-deploy. On 2026-09-18 live `/app.js` still matched PR #25 (`4bfe6b5`), not `0e3c687`. **Not released.**
 3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10).
 
 ## 6. Stream B next steps (Grok)
 
-Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29): `handoff.queued` copy, photo notes on the inbox, accept/release UI. Remaining polish only if the owner asks. No framework; `design/reference/**` SHA unchanged.
+Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29). B4 polish **merged** (PR #34). No framework; `design/reference/**` SHA unchanged. Live UI on 2026-09-18 had not yet picked up #29/#34.
 
 ## 7. Owner pending tasks (as of this file)
 
 1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
-2. **#8 owner walkthrough** with Khalid (domain from Railway → Settings → Networking, shared privately). Text eval is recorded (`docs/19`); vision eval still needs permitted faces.
+2. **#8 owner walkthrough** with Khalid (domain from Railway → Settings → Networking, shared privately). Partial agent record: `docs/20`. Text eval is recorded (`docs/19`); vision eval still needs permitted faces. Confirm Railway deployed `0e3c687` before the phone pass.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 5. **Privacy** — regenerate the Railway domain (Settings → Networking) because the old one was published in Git history; share the new one privately. Decide whether the repository stays public: the e-mail and the old domain stay in history unless the history is rewritten, which needs your explicit authority.
-6. **Merge rule** — either keep D17 (Cursor opens PRs, the integrator reviews and merges) or record a new decision that Cursor merges on your instruction and the integrator audits afterwards. Until you decide, the fix packages B4, C3 and A3 wait for the integrator's merge.
+6. **Merge rule** — either keep D17 (Cursor opens PRs, the integrator reviews and merges) or record a new decision that Cursor merges on your instruction and the integrator audits afterwards. B4 (**#34**), C3 (**#32**) and A3 (**#33**) are on `main`; they were not a two-agent D17 review.
 
 ## 8. Automation that only Claude Code can run (disable if Claude is gone)
 
