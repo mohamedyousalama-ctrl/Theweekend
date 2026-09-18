@@ -7,7 +7,7 @@ import { newId } from './ids.mjs';
 
 const JSON_TYPE = 'application/json; charset=utf-8';
 const UI_ROOT = resolve(join(fileURLToPath(new URL('../ui', import.meta.url))));
-const CONTENT_SECURITY_POLICY = "default-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
+const CONTENT_SECURITY_POLICY = "default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'";
 const STATIC_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
