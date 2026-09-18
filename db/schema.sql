@@ -131,7 +131,10 @@ CREATE TABLE IF NOT EXISTS images (
 CREATE TABLE IF NOT EXISTS daily_spend (
   day TEXT PRIMARY KEY,
   calls INTEGER NOT NULL,
-  cost_minor INTEGER NOT NULL
+  cost_minor INTEGER NOT NULL,
+  guest_cost_minor INTEGER NOT NULL DEFAULT 0,
+  guest_alert_80 INTEGER NOT NULL DEFAULT 0,
+  guest_alert_100 INTEGER NOT NULL DEFAULT 0
 );
 
 -- Text observations only. Image bytes never land here or on disk.

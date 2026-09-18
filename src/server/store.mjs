@@ -71,6 +71,16 @@ function migrate(db) {
   if (!sessionCols.some((c) => c.name === 'client_key')) {
     db.exec('ALTER TABLE sessions ADD COLUMN client_key TEXT');
   }
+  const spendCols = db.prepare('PRAGMA table_info(daily_spend)').all();
+  if (!spendCols.some((c) => c.name === 'guest_cost_minor')) {
+    db.exec('ALTER TABLE daily_spend ADD COLUMN guest_cost_minor INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!spendCols.some((c) => c.name === 'guest_alert_80')) {
+    db.exec('ALTER TABLE daily_spend ADD COLUMN guest_alert_80 INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!spendCols.some((c) => c.name === 'guest_alert_100')) {
+    db.exec('ALTER TABLE daily_spend ADD COLUMN guest_alert_100 INTEGER NOT NULL DEFAULT 0');
+  }
 }
 
 export function openStore(dbPath) {
