@@ -72,3 +72,53 @@ test('WEEKEND_PUBLIC_GUEST rejects values other than true or false', () => {
     err => err instanceof ConfigError && err.variable === 'WEEKEND_PUBLIC_GUEST',
   );
 });
+
+test('WEEKEND_GUEST_SESSIONS_PER_10MIN defaults to 5 and rejects non-integers below 1', () => {
+  const env = testEnv();
+  delete env.WEEKEND_GUEST_SESSIONS_PER_10MIN;
+  assert.equal(loadConfig(env).WEEKEND_GUEST_SESSIONS_PER_10MIN, 5);
+  assert.equal(loadConfig(testEnv({ WEEKEND_GUEST_SESSIONS_PER_10MIN: '2' })).WEEKEND_GUEST_SESSIONS_PER_10MIN, 2);
+  for (const value of ['0', '-1', '1.5', 'yes']) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_GUEST_SESSIONS_PER_10MIN: value })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_GUEST_SESSIONS_PER_10MIN',
+      value,
+    );
+  }
+});
+
+test('WEEKEND_GUEST_TURNS_PER_MIN defaults to 6 and WEEKEND_OWNER_RESERVED_USD_PER_DAY defaults to 20% of the cap', () => {
+  const env = testEnv({ WEEKEND_SPEND_CAP_USD_PER_DAY: '5' });
+  delete env.WEEKEND_GUEST_TURNS_PER_MIN;
+  delete env.WEEKEND_OWNER_RESERVED_USD_PER_DAY;
+  const cfg = loadConfig(env);
+  assert.equal(cfg.WEEKEND_GUEST_TURNS_PER_MIN, 6);
+  assert.equal(cfg.WEEKEND_OWNER_RESERVED_MINOR, 100);
+  assert.equal(loadConfig(testEnv({ WEEKEND_GUEST_TURNS_PER_MIN: '2' })).WEEKEND_GUEST_TURNS_PER_MIN, 2);
+  assert.equal(loadConfig(testEnv({ WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1', WEEKEND_SPEND_CAP_USD_PER_DAY: '5' })).WEEKEND_OWNER_RESERVED_MINOR, 100);
+  assert.throws(
+    () => loadConfig(testEnv({ WEEKEND_OWNER_RESERVED_USD_PER_DAY: '6', WEEKEND_SPEND_CAP_USD_PER_DAY: '5' })),
+    err => err instanceof ConfigError && err.variable === 'WEEKEND_OWNER_RESERVED_USD_PER_DAY',
+  );
+  for (const value of ['0', '-1', '1.5', 'yes']) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_GUEST_TURNS_PER_MIN: value })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_GUEST_TURNS_PER_MIN',
+      value,
+    );
+  }
+});
+
+test('WEEKEND_GUEST_UPLOADS_PER_DAY defaults to 3 and rejects non-integers below 1', () => {
+  const env = testEnv();
+  delete env.WEEKEND_GUEST_UPLOADS_PER_DAY;
+  assert.equal(loadConfig(env).WEEKEND_GUEST_UPLOADS_PER_DAY, 3);
+  assert.equal(loadConfig(testEnv({ WEEKEND_GUEST_UPLOADS_PER_DAY: '1' })).WEEKEND_GUEST_UPLOADS_PER_DAY, 1);
+  for (const value of ['0', '-1', '1.5', 'yes']) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_GUEST_UPLOADS_PER_DAY: value })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_GUEST_UPLOADS_PER_DAY',
+      value,
+    );
+  }
+});

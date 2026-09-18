@@ -61,6 +61,11 @@ function intField(env, name, min) {
   return n;
 }
 
+function optionalIntField(env, name, fallback, min) {
+  if (!present(env[name])) return fallback;
+  return intField(env, name, min);
+}
+
 function resolvePasscodeHash(env, hashKey, plainKey, required) {
   if (present(env[hashKey])) {
     const hash = env[hashKey].trim();
@@ -101,6 +106,20 @@ export function loadConfig(env) {
   const publicGuestRaw = present(env.WEEKEND_PUBLIC_GUEST) ? env.WEEKEND_PUBLIC_GUEST.trim() : 'false';
   if (!['true', 'false'].includes(publicGuestRaw)) throw new ConfigError('WEEKEND_PUBLIC_GUEST');
 
+  const guestSessionsPer10Min = optionalIntField(env, 'WEEKEND_GUEST_SESSIONS_PER_10MIN', 5, 1);
+  const guestTurnsPerMin = optionalIntField(env, 'WEEKEND_GUEST_TURNS_PER_MIN', 6, 1);
+  const guestUploadsPerDay = optionalIntField(env, 'WEEKEND_GUEST_UPLOADS_PER_DAY', 3, 1);
+  const capUsd = intField(env, 'WEEKEND_SPEND_CAP_USD_PER_DAY', 0);
+  const capMinor = capUsd * 100;
+  let reservedMinor;
+  if (present(env.WEEKEND_OWNER_RESERVED_USD_PER_DAY)) {
+    const reservedUsd = intField(env, 'WEEKEND_OWNER_RESERVED_USD_PER_DAY', 0);
+    reservedMinor = reservedUsd * 100;
+    if (reservedMinor > capMinor) throw new ConfigError('WEEKEND_OWNER_RESERVED_USD_PER_DAY');
+  } else {
+    reservedMinor = Math.floor(capMinor * 0.2);
+  }
+
   const ownerHash = resolvePasscodeHash(env, 'WEEKEND_OWNER_PASSCODE_HASH', 'WEEKEND_OWNER_PASSCODE', true);
   const staffHash = resolvePasscodeHash(env, 'WEEKEND_STAFF_PASSCODE_HASH', 'WEEKEND_STAFF_PASSCODE', true);
   const localCustomerHash = resolvePasscodeHash(
@@ -122,7 +141,7 @@ export function loadConfig(env) {
     WEEKEND_MODEL_ID: env.WEEKEND_MODEL_ID.trim(),
     WEEKEND_VISION_MODEL_ID: env.WEEKEND_VISION_MODEL_ID.trim(),
     WEEKEND_MODEL_API_KEY: env.WEEKEND_MODEL_API_KEY.trim(),
-    WEEKEND_SPEND_CAP_USD_PER_DAY: intField(env, 'WEEKEND_SPEND_CAP_USD_PER_DAY', 0),
+    WEEKEND_SPEND_CAP_USD_PER_DAY: capUsd,
     WEEKEND_MAX_CALLS_PER_SESSION: intField(env, 'WEEKEND_MAX_CALLS_PER_SESSION', 1),
     WEEKEND_REQUEST_TIMEOUT_MS: intField(env, 'WEEKEND_REQUEST_TIMEOUT_MS', 1),
     WEEKEND_PHOTO_ENABLED: photoEnabled === 'true',
@@ -136,6 +155,11 @@ export function loadConfig(env) {
     WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH: localCustomerHash,
     WEEKEND_BRANCH_ID: branchId,
     WEEKEND_PUBLIC_GUEST: publicGuestRaw === 'true',
+    WEEKEND_GUEST_SESSIONS_PER_10MIN: guestSessionsPer10Min,
+    WEEKEND_GUEST_TURNS_PER_MIN: guestTurnsPerMin,
+    WEEKEND_GUEST_UPLOADS_PER_DAY: guestUploadsPerDay,
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: reservedMinor / 100,
+    WEEKEND_OWNER_RESERVED_MINOR: reservedMinor,
   };
 }
 

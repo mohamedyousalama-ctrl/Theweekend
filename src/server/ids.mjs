@@ -43,6 +43,11 @@ export function signSession(sessionId, secret) {
   return `${sessionId}.${hmac}`;
 }
 
+/** HMAC-SHA256 of a client address with WEEKEND_SESSION_SECRET. Digest hex only — never store the raw address. Prefixed so the digest cannot equal a session-token signature. */
+export function hmacClientKey(clientKey, secret) {
+  return createHmac('sha256', secret).update(`client:${String(clientKey || 'unknown')}`, 'utf8').digest('hex');
+}
+
 export function readSignedSession(token, secret) {
   if (typeof token !== 'string' || !token.includes('.')) return null;
   const i = token.indexOf('.');

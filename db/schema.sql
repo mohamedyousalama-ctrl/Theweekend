@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   verified INTEGER NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  guest INTEGER NOT NULL DEFAULT 0,
+  client_key TEXT,
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 
@@ -129,7 +131,17 @@ CREATE TABLE IF NOT EXISTS images (
 CREATE TABLE IF NOT EXISTS daily_spend (
   day TEXT PRIMARY KEY,
   calls INTEGER NOT NULL,
-  cost_minor INTEGER NOT NULL
+  cost_minor INTEGER NOT NULL,
+  guest_cost_minor INTEGER NOT NULL DEFAULT 0,
+  guest_alert_80 INTEGER NOT NULL DEFAULT 0,
+  guest_alert_100 INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS guest_upload_quota (
+  day TEXT NOT NULL,
+  client_key TEXT NOT NULL,
+  n INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (day, client_key)
 );
 
 -- Text observations only. Image bytes never land here or on disk.
