@@ -96,6 +96,49 @@ test('guest spend cannot enter the owner reserve; an owner turn still runs', asy
   }
 });
 
+test('a guest actual above the ceiling is clamped to the guest share', async () => {
+  const logs = [];
+  const { app, config } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+  }, {
+    adapter: adapterWithCost(500),
+    costCeilingMinor: 100,
+    log: (record) => logs.push(record),
+  });
+  const guest = app.createSession('customer', '', { clientKey: '203.0.113.52' });
+  const first = await app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555631'));
+  assert.equal(first.output.state, 'ok');
+  const spent = app.store.get('SELECT * FROM daily_spend');
+  assert.equal(spent.guest_cost_minor, 400);
+  assert.equal(spent.cost_minor, 400);
+  const overage = logs.find((row) => row.kind === 'guest_spend' && row.ceiling_violation === true);
+  assert.equal(overage?.requested_minor, 500);
+  assert.equal(overage?.charged_minor, 400);
+  assert.equal(overage?.overage_minor, 100);
+  const ownerApp = createApp(config, {
+    store: app.store,
+    adapter: adapterWithCost(50),
+    costCeilingMinor: 50,
+    log: (record) => logs.push(record),
+  });
+  try {
+    const owner = ownerApp.createSession('owner', OWNER_PASS, { clientKey: '203.0.113.53' });
+    const out = await ownerApp.submitTurn(owner.token, turn(owner.context.session_id, '11111111-2222-4333-8444-555555555632'));
+    assert.equal(out.output.state, 'ok', 'owner still runs inside the reserved slice after a guest ceiling violation');
+    await assert.rejects(
+      () => app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555633')),
+      err => err instanceof AppError && err.status === 429 && err.shape.code === 'BUDGET_EXCEEDED'
+        && err.shape.message_key === 'model.budget_exceeded',
+    );
+  } finally {
+    try { ownerApp.close(); } catch { /* store closed with the guest app below */ }
+    try { app.close(); } catch { /* already closed by ownerApp */ }
+  }
+});
+
 test('public-guest paid turns are limited per client per minute', async () => {
   const { app } = testApp({
     WEEKEND_PUBLIC_GUEST: 'true',
@@ -148,6 +191,32 @@ test('public-guest uploads beyond the daily per-client limit are rejected', () =
   const extra = app.registerUpload(authenticated.token, { byteLength: 12, contentType: 'image/jpeg' });
   assert.match(extra.image_ref, /^img_/, 'an authenticated customer is not under the guest upload quota');
   app.close();
+});
+
+test('guest upload quota survives a process restart on the same sqlite file', () => {
+  const { app, config } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_PHOTO_ENABLED: 'true',
+    WEEKEND_GUEST_UPLOADS_PER_DAY: '3',
+  });
+  const clientKey = '203.0.113.72';
+  const guest = app.createSession('customer', '', { clientKey });
+  app.grantConsent(guest.token, 'photo_analysis', 'customer_ui');
+  for (let i = 0; i < 3; i += 1) {
+    const up = app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' });
+    assert.match(up.image_ref, /^img_/);
+  }
+  app.close();
+  const restarted = createApp(config);
+  try {
+    assert.throws(
+      () => restarted.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' }),
+      err => err instanceof AppError && err.status === 400 && err.shape.code === 'UPLOAD_REJECTED'
+        && err.shape.message_key === 'upload.rejected' && err.shape.details.limit === 3,
+    );
+  } finally {
+    restarted.close();
+  }
 });
 
 test('guest vision turns count inside the guest spend share', async () => {

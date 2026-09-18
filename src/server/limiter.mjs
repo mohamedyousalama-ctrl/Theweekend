@@ -8,12 +8,13 @@ const GLOBAL_MAX_FAILURES = 30;
  * (30 failures / minute across all addresses) so a spoofed or rotating address cannot buy unlimited tries.
  */
 export class AttemptLimiter {
-  constructor(now = () => Date.now(), { windowMs = WINDOW_MS, maxFailures = MAX_FAILURES, globalWindowMs = GLOBAL_WINDOW_MS, globalMaxFailures = GLOBAL_MAX_FAILURES } = {}) {
+  constructor(now = () => Date.now(), { windowMs = WINDOW_MS, maxFailures = MAX_FAILURES, globalWindowMs = GLOBAL_WINDOW_MS, globalMaxFailures = GLOBAL_MAX_FAILURES, maxKeys = 5000 } = {}) {
     this.now = now;
     this.windowMs = windowMs;
     this.maxFailures = maxFailures;
     this.globalWindowMs = globalWindowMs;
     this.globalMaxFailures = globalMaxFailures;
+    this.maxKeys = Number.isInteger(maxKeys) && maxKeys > 0 ? maxKeys : 5000;
     this.byKey = new Map();
     this.global = [];
   }
@@ -24,6 +25,15 @@ export class AttemptLimiter {
     if (list.length) this.byKey.set(key, list); else this.byKey.delete(key);
     this.global = this.global.filter((t) => now - t < this.globalWindowMs);
     return list;
+  }
+
+  sweep() {
+    const now = this.now();
+    for (const [key, list] of this.byKey) {
+      const kept = list.filter((t) => now - t < this.windowMs);
+      if (kept.length) this.byKey.set(key, kept); else this.byKey.delete(key);
+    }
+    this.global = this.global.filter((t) => now - t < this.globalWindowMs);
   }
 
   isGloballyLimited() {
@@ -41,6 +51,7 @@ export class AttemptLimiter {
     list.push(this.now());
     this.byKey.set(key, list);
     this.global.push(this.now());
+    while (this.byKey.size > this.maxKeys) this.byKey.delete(this.byKey.keys().next().value);
   }
 }
 
@@ -49,10 +60,11 @@ export class AttemptLimiter {
  * Check-and-add is one step so two concurrent calls cannot both pass the max.
  */
 export class WindowCounter {
-  constructor(now = () => Date.now(), { windowMs, max } = {}) {
+  constructor(now = () => Date.now(), { windowMs, max, maxKeys = 5000 } = {}) {
     this.now = now;
     this.windowMs = windowMs;
     this.max = max;
+    this.maxKeys = Number.isInteger(maxKeys) && maxKeys > 0 ? maxKeys : 5000;
     this.byKey = new Map();
   }
 
@@ -61,6 +73,14 @@ export class WindowCounter {
     const list = (this.byKey.get(key) ?? []).filter((t) => now - t < this.windowMs);
     if (list.length) this.byKey.set(key, list); else this.byKey.delete(key);
     return list;
+  }
+
+  sweep() {
+    const now = this.now();
+    for (const [key, list] of this.byKey) {
+      const kept = list.filter((t) => now - t < this.windowMs);
+      if (kept.length) this.byKey.set(key, kept); else this.byKey.delete(key);
+    }
   }
 
   isLimited(key) {
@@ -73,33 +93,7 @@ export class WindowCounter {
     if (list.length >= this.max) return false;
     list.push(this.now());
     this.byKey.set(key, list);
-    return true;
-  }
-}
-
-/**
- * UTC-day counter for public-guest uploads. Check-and-add is one step.
- */
-export class UtcDayCounter {
-  constructor(now = () => Date.now()) {
-    this.now = now;
-    this.days = new Map();
-  }
-
-  dayKey() {
-    return new Date(this.now()).toISOString().slice(0, 10);
-  }
-
-  tryIncrement(key, max) {
-    const today = this.dayKey();
-    for (const day of [...this.days.keys()]) {
-      if (day !== today) this.days.delete(day);
-    }
-    const map = this.days.get(today) ?? new Map();
-    const n = map.get(key) ?? 0;
-    if (n >= max) return false;
-    map.set(key, n + 1);
-    this.days.set(today, map);
+    while (this.byKey.size > this.maxKeys) this.byKey.delete(this.byKey.keys().next().value);
     return true;
   }
 }

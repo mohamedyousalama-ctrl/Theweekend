@@ -5,7 +5,7 @@
 import { assertContract, validateContract } from '../contracts/validate.mjs';
 import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
 import { hmacClientKey, newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
-import { AttemptLimiter, UtcDayCounter, WindowCounter } from './limiter.mjs';
+import { AttemptLimiter, WindowCounter } from './limiter.mjs';
 import { openStore } from './store.mjs';
 import { settledOrSoon, withTimeout } from './timeout.mjs';
 
@@ -335,7 +335,6 @@ export function createApp(config, deps = {}) {
     windowMs: GUEST_TURN_WINDOW_MS,
     max: config.WEEKEND_GUEST_TURNS_PER_MIN,
   });
-  const guestUploadCounter = deps.guestUploadCounter || new UtcDayCounter(nowMs);
   const log = deps.log || ((record) => console.error(JSON.stringify(record)));
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -714,25 +713,45 @@ export function createApp(config, deps = {}) {
     return result.changes === 1;
   }
 
-  /** After the call: the reserved ceiling is replaced by the real cost — a real cost is always recorded, even past the cap. */
+  /**
+   * After the call: the reserved ceiling is replaced by the real cost. Owner/staff actuals are recorded even past
+   * the cap. A guest actual is clamped to the remaining guest share so it cannot consume the owner reserve.
+   */
   function settleSpend(now, reservedMinor, actualMinor, { guest = false } = {}) {
     const day = now.slice(0, 10);
     const actual = Number.isInteger(actualMinor) && actualMinor > 0 ? actualMinor : 0;
-    if (guest) {
-      store.run(
-        `UPDATE daily_spend
-         SET cost_minor = MAX(0, cost_minor - ? + ?),
-             guest_cost_minor = MAX(0, guest_cost_minor - ? + ?)
-         WHERE day = ?`,
-        [reservedMinor, actual, reservedMinor, actual, day],
-      );
-      noteGuestSpendAlerts(day);
+    if (!guest) {
+      store.run('UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?) WHERE day = ?', [reservedMinor, actual, day]);
       return;
     }
+    const row = store.get('SELECT guest_cost_minor FROM daily_spend WHERE day = ?', [day]);
+    const guestCap = guestShareMinor();
+    const guestBase = Math.max(0, (row?.guest_cost_minor ?? 0) - reservedMinor);
+    const charged = Math.max(0, Math.min(actual, guestCap - guestBase));
+    const overage = actual - charged;
     store.run(
-      'UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?) WHERE day = ?',
-      [reservedMinor, actual, day],
+      `UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?), guest_cost_minor = MAX(0, guest_cost_minor - ? + ?) WHERE day = ?`,
+      [reservedMinor, charged, reservedMinor, charged, day],
     );
+    if (overage > 0) {
+      log({
+        kind: 'guest_spend',
+        ceiling_violation: true,
+        requested_minor: actual,
+        charged_minor: charged,
+        overage_minor: overage,
+      });
+    }
+    noteGuestSpendAlerts(day);
+  }
+
+  function guestUploadsToday(clientKeyDigest, now) {
+    const dayStart = `${now.slice(0, 10)}T00:00:00.000Z`;
+    return store.get(
+      `SELECT COUNT(*) AS n FROM images i JOIN sessions s ON s.session_id = i.session_id
+       WHERE s.client_key = ? AND i.created_at >= ?`,
+      [clientKeyDigest, dayStart],
+    ).n;
   }
 
   function rejectPasscode(clientKey) {
@@ -1090,19 +1109,22 @@ export function createApp(config, deps = {}) {
         fail('UPLOAD_REJECTED', 'upload.rejected', false, { field: 'image_ref', limit: config.WEEKEND_UPLOAD_MAX_BYTES }, 400);
       }
     }
-    if (isGuestSession(session)
-      && !guestUploadCounter.tryIncrement(session.client_key || 'unknown', config.WEEKEND_GUEST_UPLOADS_PER_DAY)) {
-      fail('UPLOAD_REJECTED', 'upload.rejected', false, {
-        field: 'image_ref',
-        limit: config.WEEKEND_GUEST_UPLOADS_PER_DAY,
-      }, 400);
-    }
     const imageRef = newId('img_');
-    store.run(
-      `INSERT INTO images (image_ref, subject_id, session_id, byte_length, content_type, created_at)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [imageRef, session.subject_id, session.session_id, byteLength, contentType, iso(clock)],
-    );
+    const now = iso(clock);
+    store.transaction(() => {
+      if (isGuestSession(session)
+        && guestUploadsToday(session.client_key, now) >= config.WEEKEND_GUEST_UPLOADS_PER_DAY) {
+        fail('UPLOAD_REJECTED', 'upload.rejected', false, {
+          field: 'image_ref',
+          limit: config.WEEKEND_GUEST_UPLOADS_PER_DAY,
+        }, 400);
+      }
+      store.run(
+        `INSERT INTO images (image_ref, subject_id, session_id, byte_length, content_type, created_at)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [imageRef, session.subject_id, session.session_id, byteLength, contentType, now],
+      );
+    });
     if (bytes instanceof Uint8Array) {
       photoBytes.set(imageRef, Buffer.from(bytes));
     }
@@ -1666,6 +1688,9 @@ export function createApp(config, deps = {}) {
     sweepPreferenceRetention();
     sweepPhotoRetention();
     sweepClientKeyRetentionAt(store, clock);
+    limiter.sweep();
+    guestSessionLimiter.sweep();
+    guestTurnLimiter.sweep();
   }
 
   const sweepIntervalMs = Number.isInteger(deps.retentionSweepIntervalMs) && deps.retentionSweepIntervalMs > 0
