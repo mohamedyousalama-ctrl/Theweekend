@@ -1,6 +1,6 @@
 # 17 — Hosting decision for the owner-review build (stream C)
 
-**Decision (integrator, 2026-09-14, owner asked for the easiest correct option):** host the owner-review application on **Railway** (railway.com) as one small always-on Node service with a persistent volume, under the owner's own Railway account. Label: `decision` — not yet `implemented`, not `released`.
+**Decision (integrator, 2026-09-14, owner asked for the easiest correct option):** host the owner-review application on **Railway** (railway.com) as one small always-on Node service with a persistent volume, under the owner's own Railway account. Label: `implemented` (project + GitHub deploy from `main`, `GET /health` HTTP 200 on 2026-09-15) — **not** `released`.
 
 ## Why Railway
 
@@ -24,14 +24,31 @@
 6. Serve the static UI from `src/ui/` on the same service (no second service).
 7. Log only ids and counts; Railway keeps stdout logs.
 
-## Owner steps (only when the app is ready — the integrator will say when)
+## Owner steps (unblocked 2026-09-15; project created the same day)
 
-1. Sign up at railway.com with the GitHub account that owns this repository; choose the Hobby plan.
-2. New Project → Deploy from GitHub repo → `mohamedyousalama-ctrl/Theweekend`, branch `main`.
-3. Add a Volume to the service, mount path `/data`.
-4. Variables: paste the names below into the Railway service (values stay in the Railway UI; never in Git, issues or PR text). Set `WEEKEND_TRUST_PROXY=1` so the login limiter keys on the real client address behind Railway's proxy.
+C2 (PR #24) and the consent/brief UI (PR #25) are on `main` (`4bfe6b5`). This is not a customer-facing release.
 
-Names the owner pastes (values are private):
+**Created (2026-09-15, owner Railway account `mohamed.you.salama@gmail.com`, CLI):**
+
+| Item | Value |
+|---|---|
+| Project | `Theweekend` (`cca3895c-f31a-4ce8-afe6-820c76dd0fd8`) — separate from other workspace apps |
+| Service | `rakan`, GitHub repo `mohamedyousalama-ctrl/Theweekend` branch `main` |
+| Volume | `rakan-volume` mounted at `/data`; `WEEKEND_DB_PATH=/data/weekend.sqlite` |
+| Domain | `https://rakan-production-7ae6.up.railway.app` |
+| Deployed commit | `4bfe6b526daa5bc5ebe448e2c90abc3f8415e673` (Railway deployment `2a6de687`, SUCCESS 2026-09-15 17:04 UTC) |
+| Health | **HTTP 200** at `https://rakan-production-7ae6.up.railway.app/health` (checked 2026-09-15 17:08 UTC). `HealthState`: `model`, `photo`, `booking_handoff`, `staff_inbox`, `preferences`, `store` all `ok`; `contract_version` `0.1.0`. Startup log: `weekend listening on 0.0.0.0:8080 env=owner-review`. |
+
+All names from the table below, including `WEEKEND_MODEL_API_KEY`, are set on the `rakan` service. Owner and staff passcodes are the Railway variables `WEEKEND_OWNER_PASSCODE` and `WEEKEND_STAFF_PASSCODE` (read them in the Railway Variables tab; they are not in Git or this file).
+
+**Owner still does:**
+
+1. Share `https://rakan-production-7ae6.up.railway.app` and the owner passcode (from the Variables tab) with Khalid for the #8 walkthrough.
+2. One `npm run eval:agent` with the live key (results to issue #5). That run has not happened yet.
+
+Health 200 is owner-review readiness of the process and store, not G01–G13 production release and not a substitute for `eval:agent` or the #8 walkthrough.
+
+The original numbered signup steps (1–5), including the model key, are done. Names remaining for reference:
 
 | Name | Owner-review value (description only) |
 |---|---|
@@ -56,8 +73,7 @@ Names the owner pastes (values are private):
 | `WEEKEND_TRUST_PROXY` | `1` |
 | `PORT` | set by Railway; do not invent a value |
 
-`WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). Deploy under the owner's Railway account is **not released** by this document.
-5. Settings → Networking → Generate Domain. Share that URL and the owner passcode with Khalid.
+`WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). The generated domain exists and `/health` is 200; the process is **not released**.
 
 Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied.
 
