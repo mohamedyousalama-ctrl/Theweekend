@@ -236,6 +236,30 @@ test('staff actions are not issued or executed after the inbox store goes down',
   app.close();
 });
 
+test('share_brief_text without a receipt reports inbox down, not a consent ask', () => {
+  const { app } = testApp();
+  const { token } = app.createSession('customer', OWNER_PASS);
+  const brief = app.createBrief(token, { text_ar: 'موجز قبل سقوط المتجر', do_not: [] });
+  const shareText = app.issueShareActionsForBrief(token, brief.brief_id)
+    .allowed_actions.find((a) => a.kind === 'share_brief_text');
+  assert.ok(shareText);
+
+  const originalProbe = app.store.probe;
+  app.store.probe = () => {
+    throw new Error('down');
+  };
+  assert.throws(
+    () => app.executeAction(token, shareText.action_id),
+    (err) => inboxDown(err) && err.shape.code !== 'CONSENT_REQUIRED',
+  );
+
+  app.store.probe = originalProbe;
+  app.grantConsent(token, 'staff_sharing_text', 'customer_ui');
+  const result = app.executeAction(token, shareText.action_id);
+  assert.equal(result.outcome, 'done');
+  app.close();
+});
+
 test('internal adapter staff proposals are filtered when the inbox store is down', async () => {
   const { app } = testApp();
   const { token, context } = app.createSession('customer', OWNER_PASS);

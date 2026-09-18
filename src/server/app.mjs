@@ -1198,6 +1198,12 @@ export function createApp(config, deps = {}) {
       );
       return expired;
     }
+    // Check store availability before asking for consent: a customer must never be asked to grant a durable
+    // staff-sharing permission for a team that cannot currently be reached. Still inside the transaction, so a
+    // failure here rolls back the consumed_at write above and leaves the action usable once the store recovers.
+    if (STAFF_INBOX_ACTION_KINDS.has(row.kind) && !staffInboxStoreUp()) {
+      fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
+    }
     if (row.requires_receipt_kind && !activeReceipt(session.subject_id, row.requires_receipt_kind)) {
       const messageKey = row.kind === 'share_brief_text'
         ? 'brief.share_consent'
@@ -1234,7 +1240,6 @@ export function createApp(config, deps = {}) {
         messageKey = 'booking.pending_unconfirmed';
         break;
       case 'talk_to_staff': {
-        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         sweepStaffHandoffs();
         const existing = store.get(
           `SELECT * FROM staff_handoffs
@@ -1324,7 +1329,6 @@ export function createApp(config, deps = {}) {
         messageKey = `action.${row.kind}`;
         break;
       case 'share_brief_text': {
-        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         if (!activeReceipt(session.subject_id, 'staff_sharing_text')) {
           fail('CONSENT_REQUIRED', 'brief.share_consent', false, { capability: 'staff_inbox' }, 403);
         }
@@ -1349,7 +1353,6 @@ export function createApp(config, deps = {}) {
         break;
       }
       case 'share_photo_ref': {
-        if (!staffInboxStoreUp()) fail('CAPABILITY_UNAVAILABLE', 'staff_inbox.unavailable', true, { capability: 'staff_inbox' }, 403);
         const photoReceipt = activeReceipt(session.subject_id, 'staff_sharing_photo');
         if (!photoReceipt) {
           fail('CONSENT_REQUIRED', 'brief.photo_consent', false, { capability: 'photo' }, 403);
