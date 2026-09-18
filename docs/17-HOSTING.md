@@ -26,7 +26,7 @@
 
 ## Owner steps (unblocked 2026-09-15; project created the same day)
 
-C2 (PR #24), the consent/brief UI (PR #25), then PRs #26–#30 are on `main` (`fcf75f2`). This is not a customer-facing release.
+C2 (PR #24), the consent/brief UI (PR #25), then PRs #26–#34 and **#36** (hub) are on `main` (`55c4c6b`). This is not a customer-facing release. Owner-reported 2026-09-18 15:17 UTC: live `GET /customer.js` HTTP 200 (CSP build). Confirm the Railway deployment SHA after each merge.
 
 **Created (2026-09-15, in the owner's own Railway account, by CLI):**
 
@@ -71,7 +71,7 @@ The original numbered signup steps (1–5), including the model key, are done. N
 | `WEEKEND_STAFF_PASSCODE` or `WEEKEND_STAFF_PASSCODE_HASH` | plain or `scrypt$…` |
 | `WEEKEND_BRANCH_ID` | `br_…` for فرع النرجس (مرسية) |
 | `WEEKEND_TRUST_PROXY` | `1` |
-| `WEEKEND_PUBLIC_GUEST` | optional; default `true` in owner-review |
+| `WEEKEND_PUBLIC_GUEST` | optional; default `false` everywhere; set `true` only on purpose |
 | `WEEKEND_GUEST_SESSIONS_PER_10MIN` | optional; default `5` public-guest session creates per client per 10 minutes |
 | `WEEKEND_GUEST_TURNS_PER_MIN` | optional; default `6` public-guest paid turns per client per minute |
 | `WEEKEND_OWNER_RESERVED_USD_PER_DAY` | optional; default 20% of the daily cap, reserved for owner/staff |
@@ -80,7 +80,7 @@ The original numbered signup steps (1–5), including the model key, are done. N
 
 `WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). The generated domain exists and `/health` is 200; the process is **not released**.
 
-Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied. The domain, the project id and the account e-mail are therefore not written in this repository (it is public). They were published in this file between 2026-09-15 and 2026-09-18 and remain in Git history: the owner should regenerate the domain in Railway (Settings → Networking) and share the new one privately.
+Deployment protection for the review period is the app's own passcode gate plus the unguessable Railway domain; no public launch is implied. `WEEKEND_PUBLIC_GUEST` (PR #36) switches the passcode gate off for customer sessions (the `/try` chat); since 2026-09-18 it defaults to `false` in every environment and is set to `true` only on purpose, in the Railway Variables, after the guest limits (package C4 on #7) are on `main`. The domain, the project id and the account e-mail are therefore not written in this repository (it is public). They were published in this file between 2026-09-15 and 2026-09-18 and remain in Git history: the owner should regenerate the domain in Railway (Settings → Networking) and share the new one privately.
 
 ## Later modifications the owner mentioned
 
