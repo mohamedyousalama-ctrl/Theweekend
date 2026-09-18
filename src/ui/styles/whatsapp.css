@@ -445,6 +445,39 @@
   opacity: 0.4;
 }
 
+.wa-pass {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px;
+  background: #f0f2f5;
+  flex-shrink: 0;
+}
+
+.wa-pass label[for="wk-try-pass-input"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+}
+
+.wa-pass input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 42px;
+  border: 0;
+  border-radius: 22px;
+  background: #fff;
+  color: #111b21;
+  padding: 10px 14px;
+  font-size: 14px;
+}
+
+.wa-pass [type="submit"] {
+  flex-shrink: 0;
+}
+
 .wa-stage .wk-consent,
 .wa-stage .wk-error {
   background: #fff;
