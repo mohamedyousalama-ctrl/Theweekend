@@ -108,6 +108,7 @@ export function loadConfig(env) {
 
   const guestSessionsPer10Min = optionalIntField(env, 'WEEKEND_GUEST_SESSIONS_PER_10MIN', 5, 1);
   const guestTurnsPerMin = optionalIntField(env, 'WEEKEND_GUEST_TURNS_PER_MIN', 6, 1);
+  const guestUploadsPerDay = optionalIntField(env, 'WEEKEND_GUEST_UPLOADS_PER_DAY', 3, 1);
   const capUsd = intField(env, 'WEEKEND_SPEND_CAP_USD_PER_DAY', 0);
   const capMinor = capUsd * 100;
   let reservedMinor;
@@ -156,6 +157,7 @@ export function loadConfig(env) {
     WEEKEND_PUBLIC_GUEST: publicGuestRaw === 'true',
     WEEKEND_GUEST_SESSIONS_PER_10MIN: guestSessionsPer10Min,
     WEEKEND_GUEST_TURNS_PER_MIN: guestTurnsPerMin,
+    WEEKEND_GUEST_UPLOADS_PER_DAY: guestUploadsPerDay,
     WEEKEND_OWNER_RESERVED_USD_PER_DAY: reservedMinor / 100,
     WEEKEND_OWNER_RESERVED_MINOR: reservedMinor,
   };

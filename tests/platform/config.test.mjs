@@ -106,3 +106,17 @@ test('WEEKEND_GUEST_TURNS_PER_MIN defaults to 6 and WEEKEND_OWNER_RESERVED_USD_P
     );
   }
 });
+
+test('WEEKEND_GUEST_UPLOADS_PER_DAY defaults to 3 and rejects non-integers below 1', () => {
+  const env = testEnv();
+  delete env.WEEKEND_GUEST_UPLOADS_PER_DAY;
+  assert.equal(loadConfig(env).WEEKEND_GUEST_UPLOADS_PER_DAY, 3);
+  assert.equal(loadConfig(testEnv({ WEEKEND_GUEST_UPLOADS_PER_DAY: '1' })).WEEKEND_GUEST_UPLOADS_PER_DAY, 1);
+  for (const value of ['0', '-1', '1.5', 'yes']) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_GUEST_UPLOADS_PER_DAY: value })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_GUEST_UPLOADS_PER_DAY',
+      value,
+    );
+  }
+});

@@ -119,3 +119,63 @@ test('public-guest paid turns are limited per client per minute', async () => {
   assert.equal(ownerTurn.output.state, 'ok', 'owner turns are not counted in the guest per-minute limit');
   app.close();
 });
+
+test('public-guest uploads beyond the daily per-client limit are rejected', () => {
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_PHOTO_ENABLED: 'true',
+    WEEKEND_GUEST_UPLOADS_PER_DAY: '3',
+  });
+  const clientKey = '203.0.113.70';
+  const guest = app.createSession('customer', '', { clientKey });
+  app.grantConsent(guest.token, 'photo_analysis', 'customer_ui');
+  for (let i = 0; i < 3; i += 1) {
+    const up = app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' });
+    assert.match(up.image_ref, /^img_/);
+  }
+  assert.throws(
+    () => app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' }),
+    err => err instanceof AppError && err.status === 400 && err.shape.code === 'UPLOAD_REJECTED'
+      && err.shape.message_key === 'upload.guest_limit' && err.shape.details.limit === 3,
+  );
+  const other = app.createSession('customer', '', { clientKey: '203.0.113.71' });
+  app.grantConsent(other.token, 'photo_analysis', 'customer_ui');
+  const allowed = app.registerUpload(other.token, { byteLength: 12, contentType: 'image/jpeg' });
+  assert.match(allowed.image_ref, /^img_/);
+  const authenticated = app.createSession('customer', OWNER_PASS, { clientKey });
+  app.grantConsent(authenticated.token, 'photo_analysis', 'customer_ui');
+  const extra = app.registerUpload(authenticated.token, { byteLength: 12, contentType: 'image/jpeg' });
+  assert.match(extra.image_ref, /^img_/, 'an authenticated customer is not under the guest upload quota');
+  app.close();
+});
+
+test('guest vision turns count inside the guest spend share', async () => {
+  let calls = 0;
+  const costly = (args) => {
+    calls += 1;
+    const result = runModelTurn(args);
+    result.usage.cost_estimate_minor = 400;
+    return result;
+  };
+  const { app } = testApp({
+    WEEKEND_PUBLIC_GUEST: 'true',
+    WEEKEND_PHOTO_ENABLED: 'true',
+    WEEKEND_SPEND_CAP_USD_PER_DAY: '5',
+    WEEKEND_OWNER_RESERVED_USD_PER_DAY: '1',
+    WEEKEND_MAX_CALLS_PER_SESSION: '8',
+  }, { adapter: costly, costCeilingMinor: 400, log() {} });
+  const guest = app.createSession('customer', '', { clientKey: '203.0.113.80' });
+  await app.submitTurn(guest.token, turn(guest.context.session_id, '11111111-2222-4333-8444-555555555621'));
+  assert.equal(calls, 1);
+  app.grantConsent(guest.token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(guest.token, { byteLength: 12, contentType: 'image/jpeg' });
+  await assert.rejects(
+    () => app.submitTurn(guest.token, {
+      ...turn(guest.context.session_id, '11111111-2222-4333-8444-555555555622'),
+      image_ref: up.image_ref,
+    }),
+    err => err instanceof AppError && err.shape.code === 'BUDGET_EXCEEDED' && err.shape.message_key === 'model.budget_exceeded',
+  );
+  assert.equal(calls, 1, 'the vision call was not made after the guest share was spent');
+  app.close();
+});

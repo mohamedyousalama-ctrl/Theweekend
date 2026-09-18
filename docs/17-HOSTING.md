@@ -75,6 +75,7 @@ The original numbered signup steps (1–5), including the model key, are done. N
 | `WEEKEND_GUEST_SESSIONS_PER_10MIN` | optional; default `5` public-guest session creates per client per 10 minutes |
 | `WEEKEND_GUEST_TURNS_PER_MIN` | optional; default `6` public-guest paid turns per client per minute |
 | `WEEKEND_OWNER_RESERVED_USD_PER_DAY` | optional; default 20% of the daily cap, reserved for owner/staff |
+| `WEEKEND_GUEST_UPLOADS_PER_DAY` | optional; default `3` public-guest photo uploads per client per UTC day |
 | `PORT` | set by Railway; do not invent a value |
 
 `WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). The generated domain exists and `/health` is 200; the process is **not released**.

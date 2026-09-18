@@ -5,7 +5,7 @@
 import { assertContract, validateContract } from '../contracts/validate.mjs';
 import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
 import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
-import { AttemptLimiter, WindowCounter } from './limiter.mjs';
+import { AttemptLimiter, UtcDayCounter, WindowCounter } from './limiter.mjs';
 import { openStore } from './store.mjs';
 import { settledOrSoon, withTimeout } from './timeout.mjs';
 
@@ -310,6 +310,7 @@ export function createApp(config, deps = {}) {
     windowMs: GUEST_TURN_WINDOW_MS,
     max: config.WEEKEND_GUEST_TURNS_PER_MIN,
   });
+  const guestUploadCounter = deps.guestUploadCounter || new UtcDayCounter(nowMs);
   const log = deps.log || ((record) => console.error(JSON.stringify(record)));
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
@@ -1062,6 +1063,13 @@ export function createApp(config, deps = {}) {
       if (bytes.length !== byteLength || !bytesMatchType(bytes, contentType)) {
         fail('UPLOAD_REJECTED', 'upload.rejected', false, { field: 'image_ref', limit: config.WEEKEND_UPLOAD_MAX_BYTES }, 400);
       }
+    }
+    if (isGuestSession(session)
+      && !guestUploadCounter.tryIncrement(session.client_key || 'unknown', config.WEEKEND_GUEST_UPLOADS_PER_DAY)) {
+      fail('UPLOAD_REJECTED', 'upload.guest_limit', false, {
+        field: 'image_ref',
+        limit: config.WEEKEND_GUEST_UPLOADS_PER_DAY,
+      }, 400);
     }
     const imageRef = newId('img_');
     store.run(

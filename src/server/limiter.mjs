@@ -76,3 +76,30 @@ export class WindowCounter {
     return true;
   }
 }
+
+/**
+ * UTC-day counter for public-guest uploads. Check-and-add is one step.
+ */
+export class UtcDayCounter {
+  constructor(now = () => Date.now()) {
+    this.now = now;
+    this.days = new Map();
+  }
+
+  dayKey() {
+    return new Date(this.now()).toISOString().slice(0, 10);
+  }
+
+  tryIncrement(key, max) {
+    const today = this.dayKey();
+    for (const day of [...this.days.keys()]) {
+      if (day !== today) this.days.delete(day);
+    }
+    const map = this.days.get(today) ?? new Map();
+    const n = map.get(key) ?? 0;
+    if (n >= max) return false;
+    map.set(key, n + 1);
+    this.days.set(today, map);
+    return true;
+  }
+}
