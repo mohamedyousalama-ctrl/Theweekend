@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError, PREFERENCE_TTL_MS, createApp } from '../../src/server/app.mjs';
+import { AppError, PREFERENCE_TTL_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp, testEnv } from './helpers.mjs';
 
@@ -138,6 +138,53 @@ test('saving a preference refreshes the 90-day activity window', () => {
   assert.equal(listed.length, 1);
   assert.equal(listed[0].value_text, 'محدث');
   app.close();
+});
+
+test('periodic retention sweep revokes idle rows without a preference or photo call', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  let tick = null;
+  let unrefed = false;
+  let cleared = false;
+  const { app } = testApp({ WEEKEND_PHOTO_ENABLED: 'true' }, {
+    clock: () => new Date(now).toISOString(),
+    setInterval(fn, ms) {
+      assert.equal(ms, RETENTION_SWEEP_INTERVAL_MS);
+      tick = fn;
+      return { unref() { unrefed = true; } };
+    },
+    clearInterval() { cleared = true; },
+  });
+  assert.equal(unrefed, true);
+  assert.equal(typeof tick, 'function');
+
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+  app.grantConsent(token, 'text_preferences', 'customer_ui');
+  const saved = app.savePreference(token, { kind: 'note', value_text: 'بدون عطر', source: 'customer_typed' });
+  app.grantConsent(token, 'photo_analysis', 'customer_ui');
+  const up = app.registerUpload(token, { byteLength: 12, contentType: 'image/jpeg' });
+  app.store.run(
+    `INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+     VALUES (?, ?, ?, ?, ?)`,
+    [up.image_ref, context.session_id, context.subject_id, '{"contract_version":"0.1.0"}', new Date(now).toISOString()],
+  );
+
+  now += PREFERENCE_TTL_MS + 1000;
+  app.store.run(
+    'UPDATE sessions SET expires_at = ? WHERE session_id = ?',
+    [new Date(now + 8 * 3600000).toISOString(), context.session_id],
+  );
+  app.context(token);
+  const beforePref = app.store.get('SELECT * FROM preferences WHERE preference_id = ?', [saved.preference_id]);
+  assert.equal(beforePref.revoked_at, null);
+  assert.ok(app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', [up.image_ref]));
+
+  tick();
+
+  const afterPref = app.store.get('SELECT * FROM preferences WHERE preference_id = ?', [saved.preference_id]);
+  assert.ok(afterPref.revoked_at);
+  assert.equal(app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', [up.image_ref]), null);
+  app.close();
+  assert.equal(cleared, true);
 });
 
 test('preference version conflict is CONFLICT', () => {

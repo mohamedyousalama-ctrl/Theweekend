@@ -40,6 +40,7 @@ export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
 export const PHOTO_BYTES_MAX_ENTRIES = 32;
 export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
 export const PREFERENCE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
+export const RETENTION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
 
 export class AppError extends Error {
@@ -361,6 +362,8 @@ export function createApp(config, deps = {}) {
     }
     redactTurnObservations({ olderThan: obsCutoff });
   }
+
+  sweepPhotoRetention();
 
   function purgeSubjectPhotoMaterial(subjectId) {
     const rows = store.all('SELECT image_ref FROM images WHERE subject_id = ?', [subjectId]);
@@ -1522,6 +1525,28 @@ export function createApp(config, deps = {}) {
     );
   }
 
+  function sweepIdleRetention() {
+    sweepPreferenceRetention();
+    sweepPhotoRetention();
+  }
+
+  const sweepIntervalMs = Number.isInteger(deps.retentionSweepIntervalMs) && deps.retentionSweepIntervalMs > 0
+    ? deps.retentionSweepIntervalMs
+    : RETENTION_SWEEP_INTERVAL_MS;
+  const scheduleSweep = deps.setInterval || setInterval;
+  const clearSweep = deps.clearInterval || clearInterval;
+  const sweepTimer = scheduleSweep(() => {
+    try {
+      sweepIdleRetention();
+    } catch (err) {
+      console.error(JSON.stringify({
+        kind: 'retention_sweep',
+        stack: err?.stack || String(err),
+      }));
+    }
+  }, sweepIntervalMs);
+  if (typeof sweepTimer?.unref === 'function') sweepTimer.unref();
+
   return {
     store,
     health() {
@@ -1563,6 +1588,7 @@ export function createApp(config, deps = {}) {
       return photoBytes.has(imageRef);
     },
     close() {
+      clearSweep(sweepTimer);
       store.close();
     },
   };

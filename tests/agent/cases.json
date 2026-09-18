@@ -289,8 +289,8 @@
         "صفحة الحجز|الحجز"
       ],
       "must_not": [
-        "فاضي الساعة",
-        "متاح الساعة",
+        "(موعد|مواعيد|وقت|الوقت|الحلاق)\\s+(فاضي|فاضية|فاضيه|فاضيين|متاح|متاحة|متاحه)",
+        "(فاضي|فاضية|فاضيه|فاضيين|متاح|متاحة|متاحه)\\s+(\\S+\\s+)?(موعد|مواعيد|وقت|الوقت|الحلاق)",
         "احجز بسرعة",
         "بيزحم",
         "زحمة",
@@ -299,7 +299,7 @@
       "actions_any_of": [
         "open_official_booking"
       ],
-      "notes": "no availability or scarcity claim"
+      "notes": "no availability or scarcity claim; inflected فاضي/متاح next to موعد|وقت|الحلاق in either order (one optional word when adjective-first), not the honest «الأوقات الفاضية / المتاحة … في صفحة الحجز»"
     },
     {
       "id": "group",

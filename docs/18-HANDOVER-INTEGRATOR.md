@@ -20,7 +20,8 @@ Rules that do not change with the person: `AGENTS.md`, `CONTINUE.md` §3–§4, 
 
 | Item | State |
 |---|---|
-| `main` = `2050d45` | Owner instructed Cursor to merge: **#26** (docs/health), **#28** (eval record + prompt v0.5), **#27** (retry resend), **#29** (staff handoffs + photo notes). Ancestor `npm test` on the #29 merge tree: 364 pass / 0 fail. This is not a two-agent D17 review of those heads. |
+| `main` = `fcf75f2` | Owner instructed Cursor to merge: **#26** (docs/health), **#28** (eval record + prompt v0.5), **#27** (retry resend), **#29** (staff handoffs + photo notes); **#30** (docs pin) followed. `npm test` on `fcf75f2`: 364 pass / 0 fail. This is not a two-agent D17 review of those heads. |
+| Post-merge audit (integrator, 2026-09-18) | PR #24 items 11–18 and PRs #25–#30 were merged by the Cursor agent without the two-agent review (the owner instructed the merges of #24 and #26–#29 and told Cursor to continue; #25 and #30 followed from that). The integrator ran it afterwards (auditor + reviewer, reproductions): 21 findings, no exposure or bypass in the server. Required fixes requested as packages **B4** (#6: release control, retry routing, 20 missing copy keys, polish), **C3** (#7: timed retention sweeps, CSP) and **A3** (#5: `eid_rush` guard, eval exit code, error language). Privacy: the owner e-mail, the Railway project id and the review domain were removed from the docs by the integrator PR that carries this row; they remain in Git history. Details: the #2 board comment of 2026-09-18. |
 | Package C2 (Cursor, issue #7) | **merged** (PR #24). |
 | UI third handback (issue #6, PR #25) plus follow-up **PR #29** | **merged**. Consent/brief/prefs/upload, then dedicated `handoff.queued` copy, staff photo notes (text only), staff accept/release UI. |
 | Prompt | `rakan.system.v0.5` on `main` (PR #28). |
@@ -79,7 +80,7 @@ Owned paths: `src/agent/**`, `prompts/**`, `knowledge/**`, `tests/agent/**`. Con
 ## 5. Stream C next steps (Cursor)
 
 1. **Package C2 — done** (PR #24 on `main`).
-2. **Railway** — live owner-review at `https://rakan-production-7ae6.up.railway.app`; `/health` 200. After each merge to `main`, confirm auto-deploy. **Not released.**
+2. **Railway** — live owner-review (the domain is in the Railway dashboard, not in Git); `/health` 200. After each merge to `main`, confirm auto-deploy. **Not released.**
 3. **Later**: contract v0.2 (D13) and the Rekaz merchant-API package (#10).
 
 ## 6. Stream B next steps (Grok)
@@ -89,15 +90,17 @@ Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29): `handof
 ## 7. Owner pending tasks (as of this file)
 
 1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
-2. **#8 owner walkthrough** with Khalid at `https://rakan-production-7ae6.up.railway.app`. Text eval is recorded (`docs/19`); vision eval still needs permitted faces.
+2. **#8 owner walkthrough** with Khalid (domain from Railway → Settings → Networking, shared privately). Text eval is recorded (`docs/19`); vision eval still needs permitted faces.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
+5. **Privacy** — regenerate the Railway domain (Settings → Networking) because the old one was published in Git history; share the new one privately. Decide whether the repository stays public: the e-mail and the old domain stay in history unless the history is rewritten, which needs your explicit authority.
+6. **Merge rule** — either keep D17 (Cursor opens PRs, the integrator reviews and merges) or record a new decision that Cursor merges on your instruction and the integrator audits afterwards. Until you decide, the fix packages B4, C3 and A3 wait for the integrator's merge.
 
 ## 8. Automation that only Claude Code can run (disable if Claude is gone)
 
 - An hourly Routine in the owner's claude.ai account wakes the Claude session to read GitHub and respond; a PR subscription on the integrator's open PR (#23 now) does the same on pushes and reviews. If Claude Code is retired, the owner disables the Routine in claude.ai → Routines. GPT then works from the owner's prompts; Cursor cannot post issue comments (reports in PR bodies); Grok's issue comments fail (403) — the owner relays them.
 - Bot reviewers on every PR: Codex (reviews automatically when a PR is opened or marked ready, or on a «@codex review» comment; found nothing wrong with PR #23); Qodo (paused for this account since 2026-09-14 — nothing to do); CodeRabbit (no automatic reviews). A bot finding is a bug report: verify, fix in a small PR, or say why not on the PR.
-- Under D17 the integrator may start Cursor work with an `@cursor` comment on the issue and ask Codex for a review with «@codex review»; whether the `@cursor` mention starts an agent in this repository is recorded on #2 the first time it is tried.
+- Under D17 the integrator may start Cursor work with an `@cursor` comment on the issue and ask Codex for a review with «@codex review». An `@cursor` comment on an issue or a PR starts a Cursor agent within about a minute (proven on #7, PR #24 and PR #29); the Cursor agent also merges PRs when the owner tells it to (2026-09-15 and 2026-09-18), which bypasses D17 unless the owner records a new decision (§7 item 6).
 
 ## 9. Evidence you cannot see in Git
 

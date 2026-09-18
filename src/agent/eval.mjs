@@ -1,22 +1,27 @@
 /**
  * Real-model evaluation for the Rakan adapter (issue #5 acceptance evidence).
  *
- *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir]
+ *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir] [--text-only]
  *
  * Runs every case against the real adapter, checks the stated expectations, and prints a report with
  * prompt version, model id, case counts, latency and cost — separately from the deterministic tests.
- * Never run in CI; every call costs money. Images (optional) must be permitted adult photos or
+ * Never run in CI; every call costs money. Images must be permitted adult photos or
  * AI-generated faces; they are read from disk for one call and not stored anywhere.
+ *
+ * Exit 0 only when every text case passed and either `--text-only` was given or `--images` was
+ * given and at least one image case ran and passed. Otherwise prints `vision: NOT RUN` and exits 1.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createRakanAdapter, PROMPT_VERSION } from './adapter.mjs';
+import { evalExit } from './eval-exit.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i === -1 ? def : args[i + 1]; };
 const casesPath = opt('--cases', 'tests/agent/cases.json');
 const imagesDir = opt('--images', null);
+const textOnly = args.includes('--text-only');
 
 const config = {
   WEEKEND_MODEL_MODE: 'real',
@@ -65,7 +70,7 @@ for (const c of cases) {
   report.cases.push({ id: c.id, pass: fails.length === 0, fails, latency_ms: usage.latency_ms, cost_minor: usage.cost_estimate_minor, flags: output.flags, actions: output.proposed_actions.map((a) => a.kind), reply: text });
   process.stdout.write(`${fails.length ? 'FAIL' : 'ok  '} ${c.id} ${usage.latency_ms}ms ${fails.join('; ')}\n`);
 }
-if (imagesDir) {
+if (imagesDir && !textOnly) {
   for (const file of readdirSync(imagesDir).filter((f) => /\.(jpe?g|png|webp)$/i.test(f))) {
     const bytes = readFileSync(path.join(imagesDir, file));
     const sessionId = `ses_evalimg_${randomUUID().slice(0, 8)}`;
@@ -85,5 +90,13 @@ report.summary = { text_cases: report.cases.length, text_passed: passed, image_c
 process.stdout.write(`\n${JSON.stringify(report.summary)}\n`);
 process.stdout.write(`full report: ${JSON.stringify(report, null, 2).length} bytes (print with --json)\n`);
 if (args.includes('--json')) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
-// Non-zero unless every text case AND every image case passed: a failed vision run must never read as success.
-process.exit(passed === report.cases.length && imagesPassed === report.images.length ? 0 : 1);
+const { code, note } = evalExit({
+  textPassed: passed,
+  textTotal: report.cases.length,
+  imagesRequested: Boolean(imagesDir),
+  imagePassed: imagesPassed,
+  imageTotal: report.images.length,
+  textOnly,
+});
+if (note) process.stdout.write(`${note}\n`);
+process.exit(code);

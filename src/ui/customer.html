@@ -19,12 +19,6 @@
 </head>
 <body>
   <div id="rakan-root" data-shell="customer" data-initial-surface="conversation"></div>
-  <script type="module">
-    import { createRakanUi } from './app.js';
-    const root = document.getElementById('rakan-root');
-    const ui = createRakanUi(root, { initialSurface: 'conversation' });
-    ui.paint();
-    void ui.refreshHealth();
-  </script>
+  <script type="module" src="./customer.js"></script>
 </body>
 </html>
