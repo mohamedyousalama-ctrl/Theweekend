@@ -9,9 +9,8 @@ export function renderHandoffList({
   const rows = Array.isArray(handoffs) ? handoffs : [];
   const cards = rows.map((item) => {
     const status = item.status;
-    const mine = Boolean(selfSubjectId && item.accepted_by === selfSubjectId);
     const canAccept = status === 'received';
-    const canRelease = status === 'received' || (status === 'accepted' && mine);
+    const canRelease = status === 'received' || status === 'accepted';
     const statusKey = status === 'accepted' ? 'handoff_accepted' : 'handoff_received';
     const actions = [];
     if (canAccept) {

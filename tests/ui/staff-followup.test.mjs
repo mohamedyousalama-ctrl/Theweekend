@@ -68,8 +68,58 @@ test('another staff member cannot steal an accepted handoff', () => {
     selfSubjectId: 'sub_syn_staff_a',
   });
   assert.doesNotMatch(view.html, /data-handoff-accept="true"/);
-  assert.doesNotMatch(view.html, /data-handoff-release="true"/);
+  assert.match(view.html, /data-handoff-release="true"/);
   assert.match(view.html, /data-accepted="true"/);
+});
+
+test('a row accepted by another subject still offers Release and Release posts /staff/handoffs/:id/release', async () => {
+  const acceptedByOther = {
+    ...received,
+    status: 'accepted',
+    accepted_at: '2026-09-17T10:05:00Z',
+    accepted_by: 'sub_syn_staff_b',
+  };
+  const view = renderHandoffList({
+    handoffs: [acceptedByOther],
+    selfSubjectId: 'sub_syn_staff_a',
+  });
+  assert.match(view.html, /data-handoff-release="true"/);
+  assert.doesNotMatch(view.html, /data-handoff-accept="true"/);
+
+  const calls = [];
+  const fetchImpl = async (path, opts = {}) => {
+    calls.push({ path, method: opts.method || 'GET' });
+    if (path === '/staff/briefs') {
+      return { ok: true, status: 200, json: async () => ({ briefs: [] }) };
+    }
+    if (path === '/staff/handoffs') {
+      return { ok: true, status: 200, json: async () => ({ handoffs: [acceptedByOther] }) };
+    }
+    if (path === '/staff/handoffs/hnd_syn_a/release') {
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ ...acceptedByOther, status: 'released', released_at: '2026-09-17T10:10:00Z' }),
+      };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl });
+  app.state.context = staffContext;
+  app.state.token = 'tok_syn';
+  app.state.health = healthOk;
+  app.state.surface = 'staff_inbox';
+  app.paint();
+  const inboxBtn = root.querySelector('[data-surface="staff_inbox"]');
+  assert.ok(inboxBtn);
+  inboxBtn.click();
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  const release = root.querySelector('[data-handoff-release="true"]');
+  assert.ok(release);
+  assert.equal(release.click(), 1);
+  for (let i = 0; i < 20; i += 1) await Promise.resolve();
+  assert.equal(calls.filter((c) => c.path === '/staff/handoffs/hnd_syn_a/release' && c.method === 'POST').length, 1);
 });
 
 test('staff brief panel renders written photo notes and never an image', () => {
