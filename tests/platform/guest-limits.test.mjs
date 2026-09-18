@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AppError, createApp } from '../../src/server/app.mjs';
+import { AppError, CLIENT_KEY_RETENTION_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
+import { hmacClientKey } from '../../src/server/ids.mjs';
 import { runModelTurn } from '../../src/integrations/internal/model-adapter.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp } from './helpers.mjs';
 
@@ -177,5 +178,59 @@ test('guest vision turns count inside the guest spend share', async () => {
     err => err instanceof AppError && err.shape.code === 'BUDGET_EXCEEDED' && err.shape.message_key === 'model.budget_exceeded',
   );
   assert.equal(calls, 1, 'the vision call was not made after the guest share was spent');
+  app.close();
+});
+
+test('sessions store an HMAC of the client address, never the raw IP', () => {
+  const ip = '203.0.113.40';
+  const { app, config } = testApp({ WEEKEND_PUBLIC_GUEST: 'true' });
+  const guest = app.createSession('customer', '', { clientKey: ip });
+  const row = app.store.get('SELECT * FROM sessions WHERE session_id = ?', [guest.context.session_id]);
+  assert.equal(row.client_key, hmacClientKey(ip, config.WEEKEND_SESSION_SECRET));
+  assert.match(row.client_key, /^[a-f0-9]{64}$/);
+  assert.equal(row.client_key.includes(ip), false);
+  const dump = JSON.stringify(app.store.all('SELECT session_id, client_key, role FROM sessions'));
+  assert.equal(dump.includes(ip), false, 'the raw address does not appear in session rows');
+  const owner = app.createSession('owner', OWNER_PASS, { clientKey: '198.51.100.7' });
+  const ownerRow = app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [owner.context.session_id]);
+  assert.equal(ownerRow.client_key, hmacClientKey('198.51.100.7', config.WEEKEND_SESSION_SECRET));
+  app.close();
+});
+
+test('idle sweep nulls client_key after expiry plus one UTC day', () => {
+  let now = Date.parse('2026-01-01T00:00:00.000Z');
+  let tick = null;
+  const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'true' }, {
+    clock: () => new Date(now).toISOString(),
+    setInterval(fn, ms) {
+      assert.equal(ms, RETENTION_SWEEP_INTERVAL_MS);
+      tick = fn;
+      return { unref() {} };
+    },
+    clearInterval() {},
+  });
+  const ip = '203.0.113.99';
+  const guest = app.createSession('customer', '', { clientKey: ip });
+  const sessionId = guest.context.session_id;
+  assert.ok(app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [sessionId]).client_key);
+  tick();
+  assert.ok(app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [sessionId]).client_key, 'live sessions keep the digest');
+
+  now += 8 * 3600000;
+  tick();
+  assert.ok(app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [sessionId]).client_key, 'just-expired sessions keep the digest through the upload window');
+
+  now += CLIENT_KEY_RETENTION_MS - 1000;
+  tick();
+  assert.ok(app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [sessionId]).client_key);
+
+  now += 2000;
+  tick();
+  assert.equal(
+    app.store.get('SELECT client_key FROM sessions WHERE session_id = ?', [sessionId]).client_key,
+    null,
+  );
+  const dump = JSON.stringify(app.store.all('SELECT * FROM sessions'));
+  assert.equal(dump.includes(ip), false);
   app.close();
 });

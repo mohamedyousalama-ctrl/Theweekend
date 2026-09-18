@@ -4,7 +4,7 @@
  */
 import { assertContract, validateContract } from '../contracts/validate.mjs';
 import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
-import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
+import { hmacClientKey, newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
 import { AttemptLimiter, UtcDayCounter, WindowCounter } from './limiter.mjs';
 import { openStore } from './store.mjs';
 import { settledOrSoon, withTimeout } from './timeout.mjs';
@@ -44,6 +44,7 @@ export const RETENTION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
 export const GUEST_SESSION_WINDOW_MS = 10 * 60 * 1000;
 export const GUEST_TURN_WINDOW_MS = 60 * 1000;
+export const CLIENT_KEY_RETENTION_MS = 24 * 60 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -92,6 +93,28 @@ function iso(clock) {
 
 function preferenceActivityCutoff(clock) {
   return new Date(Date.parse(iso(clock)) - PREFERENCE_TTL_MS).toISOString();
+}
+
+function sweepClientKeyRetentionAt(store, clock) {
+  const cutoff = new Date(Date.parse(iso(clock)) - CLIENT_KEY_RETENTION_MS).toISOString();
+  store.run(
+    `UPDATE sessions
+     SET client_key = NULL
+     WHERE client_key IS NOT NULL
+       AND expires_at <= ?`,
+    [cutoff],
+  );
+}
+
+function sealStoredClientKeys(store, secret) {
+  const leftover = store.all('SELECT session_id, client_key FROM sessions WHERE client_key IS NOT NULL');
+  for (const row of leftover) {
+    if (typeof row.client_key === 'string' && /^[a-f0-9]{64}$/.test(row.client_key)) continue;
+    store.run('UPDATE sessions SET client_key = ? WHERE session_id = ?', [
+      hmacClientKey(row.client_key, secret),
+      row.session_id,
+    ]);
+  }
 }
 
 function sweepPreferenceRetentionAt(store, clock) {
@@ -297,6 +320,8 @@ export function createApp(config, deps = {}) {
   store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
   sweepPreferenceRetentionAt(store, clock);
   sweepStaffHandoffsAt(store, clock);
+  sealStoredClientKeys(store, config.WEEKEND_SESSION_SECRET);
+  sweepClientKeyRetentionAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
   const nowMs = () => {
     const t = Date.parse(clock());
@@ -719,9 +744,10 @@ export function createApp(config, deps = {}) {
     if (!['customer', 'staff', 'owner'].includes(role)) {
       fail('VALIDATION_ERROR', 'session.role', false, { field: 'role' });
     }
-    const clientKey = typeof options.clientKey === 'string' && options.clientKey
+    const rawClientKey = typeof options.clientKey === 'string' && options.clientKey
       ? options.clientKey
       : 'unknown';
+    const clientKey = hmacClientKey(rawClientKey, config.WEEKEND_SESSION_SECRET);
     if (limiter.isLimited(clientKey)) {
       fail('UNAUTHORIZED', 'session.throttled', true, {}, 401);
     }
@@ -1639,6 +1665,7 @@ export function createApp(config, deps = {}) {
   function sweepIdleRetention() {
     sweepPreferenceRetention();
     sweepPhotoRetention();
+    sweepClientKeyRetentionAt(store, clock);
   }
 
   const sweepIntervalMs = Number.isInteger(deps.retentionSweepIntervalMs) && deps.retentionSweepIntervalMs > 0
