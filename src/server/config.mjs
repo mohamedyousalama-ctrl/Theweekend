@@ -61,6 +61,11 @@ function intField(env, name, min) {
   return n;
 }
 
+function optionalIntField(env, name, fallback, min) {
+  if (!present(env[name])) return fallback;
+  return intField(env, name, min);
+}
+
 function resolvePasscodeHash(env, hashKey, plainKey, required) {
   if (present(env[hashKey])) {
     const hash = env[hashKey].trim();
@@ -101,6 +106,8 @@ export function loadConfig(env) {
     : (weekendEnv === 'owner-review' ? 'true' : 'false');
   if (!['true', 'false'].includes(publicGuestRaw)) throw new ConfigError('WEEKEND_PUBLIC_GUEST');
 
+  const guestSessionsPer10Min = optionalIntField(env, 'WEEKEND_GUEST_SESSIONS_PER_10MIN', 5, 1);
+
   const ownerHash = resolvePasscodeHash(env, 'WEEKEND_OWNER_PASSCODE_HASH', 'WEEKEND_OWNER_PASSCODE', true);
   const staffHash = resolvePasscodeHash(env, 'WEEKEND_STAFF_PASSCODE_HASH', 'WEEKEND_STAFF_PASSCODE', true);
   const localCustomerHash = resolvePasscodeHash(
@@ -136,6 +143,7 @@ export function loadConfig(env) {
     WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH: localCustomerHash,
     WEEKEND_BRANCH_ID: branchId,
     WEEKEND_PUBLIC_GUEST: publicGuestRaw === 'true',
+    WEEKEND_GUEST_SESSIONS_PER_10MIN: guestSessionsPer10Min,
   };
 }
 

@@ -64,6 +64,13 @@ function migrate(db) {
     db.exec('ALTER TABLE preferences ADD COLUMN last_activity_at TEXT');
     db.exec('UPDATE preferences SET last_activity_at = created_at WHERE last_activity_at IS NULL');
   }
+  const sessionCols = db.prepare('PRAGMA table_info(sessions)').all();
+  if (!sessionCols.some((c) => c.name === 'guest')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN guest INTEGER NOT NULL DEFAULT 0');
+  }
+  if (!sessionCols.some((c) => c.name === 'client_key')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN client_key TEXT');
+  }
 }
 
 export function openStore(dbPath) {

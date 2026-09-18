@@ -71,6 +71,8 @@ The original numbered signup steps (1–5), including the model key, are done. N
 | `WEEKEND_STAFF_PASSCODE` or `WEEKEND_STAFF_PASSCODE_HASH` | plain or `scrypt$…` |
 | `WEEKEND_BRANCH_ID` | `br_…` for فرع النرجس (مرسية) |
 | `WEEKEND_TRUST_PROXY` | `1` |
+| `WEEKEND_PUBLIC_GUEST` | optional; default `true` in owner-review |
+| `WEEKEND_GUEST_SESSIONS_PER_10MIN` | optional; default `5` public-guest session creates per client per 10 minutes |
 | `PORT` | set by Railway; do not invent a value |
 
 `WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH` is **not** used in `owner-review`. `railway.json` starts `npm start` and health-checks `GET /health`. Code for bind/health/volume parents is on `main` (PR #14). The generated domain exists and `/health` is 200; the process is **not released**.

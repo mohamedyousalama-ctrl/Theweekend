@@ -70,3 +70,17 @@ test('WEEKEND_PUBLIC_GUEST rejects values other than true or false', () => {
     err => err instanceof ConfigError && err.variable === 'WEEKEND_PUBLIC_GUEST',
   );
 });
+
+test('WEEKEND_GUEST_SESSIONS_PER_10MIN defaults to 5 and rejects non-integers below 1', () => {
+  const env = testEnv();
+  delete env.WEEKEND_GUEST_SESSIONS_PER_10MIN;
+  assert.equal(loadConfig(env).WEEKEND_GUEST_SESSIONS_PER_10MIN, 5);
+  assert.equal(loadConfig(testEnv({ WEEKEND_GUEST_SESSIONS_PER_10MIN: '2' })).WEEKEND_GUEST_SESSIONS_PER_10MIN, 2);
+  for (const value of ['0', '-1', '1.5', 'yes']) {
+    assert.throws(
+      () => loadConfig(testEnv({ WEEKEND_GUEST_SESSIONS_PER_10MIN: value })),
+      err => err instanceof ConfigError && err.variable === 'WEEKEND_GUEST_SESSIONS_PER_10MIN',
+      value,
+    );
+  }
+});

@@ -43,3 +43,36 @@ export class AttemptLimiter {
     this.global.push(this.now());
   }
 }
+
+/**
+ * Sliding-window counter for successful public-guest events (session creates, turns).
+ * Check-and-add is one step so two concurrent calls cannot both pass the max.
+ */
+export class WindowCounter {
+  constructor(now = () => Date.now(), { windowMs, max } = {}) {
+    this.now = now;
+    this.windowMs = windowMs;
+    this.max = max;
+    this.byKey = new Map();
+  }
+
+  prune(key) {
+    const now = this.now();
+    const list = (this.byKey.get(key) ?? []).filter((t) => now - t < this.windowMs);
+    if (list.length) this.byKey.set(key, list); else this.byKey.delete(key);
+    return list;
+  }
+
+  isLimited(key) {
+    return this.prune(key).length >= this.max;
+  }
+
+  /** Records one event when under the max. Returns false when the key is already at the max. */
+  tryRecord(key) {
+    const list = this.prune(key);
+    if (list.length >= this.max) return false;
+    list.push(this.now());
+    this.byKey.set(key, list);
+    return true;
+  }
+}

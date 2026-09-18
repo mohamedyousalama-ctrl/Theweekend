@@ -5,7 +5,7 @@
 import { assertContract, validateContract } from '../contracts/validate.mjs';
 import { runModelTurn } from '../integrations/internal/model-adapter.mjs';
 import { newId, passcodeMatches, readSignedSession, signSession } from './ids.mjs';
-import { AttemptLimiter } from './limiter.mjs';
+import { AttemptLimiter, WindowCounter } from './limiter.mjs';
 import { openStore } from './store.mjs';
 import { settledOrSoon, withTimeout } from './timeout.mjs';
 
@@ -42,6 +42,7 @@ export const PHOTO_OBSERVATIONS_TTL_MS = 24 * 60 * 60 * 1000;
 export const PREFERENCE_TTL_MS = 90 * 24 * 60 * 60 * 1000;
 export const RETENTION_SWEEP_INTERVAL_MS = 10 * 60 * 1000;
 export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
+export const GUEST_SESSION_WINDOW_MS = 10 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -296,6 +297,14 @@ export function createApp(config, deps = {}) {
   sweepPreferenceRetentionAt(store, clock);
   sweepStaffHandoffsAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
+  const nowMs = () => {
+    const t = Date.parse(clock());
+    return Number.isFinite(t) ? t : Date.now();
+  };
+  const guestSessionLimiter = deps.guestSessionLimiter || new WindowCounter(nowMs, {
+    windowMs: GUEST_SESSION_WINDOW_MS,
+    max: config.WEEKEND_GUEST_SESSIONS_PER_10MIN,
+  });
   const photoBytes = new Map();
   const photoBytesMax = Number.isInteger(deps.photoBytesMax) && deps.photoBytesMax > 0
     ? deps.photoBytesMax
@@ -641,6 +650,7 @@ export function createApp(config, deps = {}) {
     if (role === 'staff' && !passcodeMatches(config.WEEKEND_STAFF_PASSCODE_HASH, passcode)) {
       rejectPasscode(clientKey);
     }
+    let guest = false;
     if (role === 'customer') {
       const code = typeof passcode === 'string' ? passcode : '';
       const publicOk = config.WEEKEND_PUBLIC_GUEST === true && code.length === 0;
@@ -649,16 +659,20 @@ export function createApp(config, deps = {}) {
         && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
         && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
       if (!publicOk && !ownerOk && !localOk) rejectPasscode(clientKey);
+      guest = publicOk && !ownerOk && !localOk;
+    }
+    if (guest && !guestSessionLimiter.tryRecord(clientKey)) {
+      fail('UNAUTHORIZED', 'session.throttled', true, {}, 401);
     }
     const now = iso(clock);
     const subjectId = newId('sub_');
     const sessionId = newId('ses_');
     store.run('INSERT INTO subjects (subject_id, role, created_at) VALUES (?, ?, ?)', [subjectId, role, now]);
     store.run(
-      `INSERT INTO sessions (session_id, subject_id, role, token_hmac, verified, expires_at, created_at)
-       VALUES (?, ?, ?, ?, 1, ?, ?)`,
+      `INSERT INTO sessions (session_id, subject_id, role, token_hmac, verified, expires_at, created_at, guest, client_key)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?)`,
       [sessionId, subjectId, role, signSession(sessionId, config.WEEKEND_SESSION_SECRET),
-        new Date(Date.parse(now) + 8 * 3600000).toISOString(), now],
+        new Date(Date.parse(now) + 8 * 3600000).toISOString(), now, guest ? 1 : 0, clientKey],
     );
     const session = store.get('SELECT * FROM sessions WHERE session_id = ?', [sessionId]);
     return { token: signSession(sessionId, config.WEEKEND_SESSION_SECRET), context: contextOf(session) };

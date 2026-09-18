@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS sessions (
   verified INTEGER NOT NULL,
   expires_at TEXT NOT NULL,
   created_at TEXT NOT NULL,
+  guest INTEGER NOT NULL DEFAULT 0,
+  client_key TEXT,
   FOREIGN KEY (subject_id) REFERENCES subjects(subject_id)
 );
 
