@@ -43,8 +43,8 @@ test('capabilitiesFor: customer staff_inbox follows the staff-inbox store, not t
   const config = loadConfig(testEnv());
   assert.equal(capabilitiesFor(config, 'customer', false, true).staff_inbox, 'enabled');
   assert.equal(capabilitiesFor(config, 'customer', false, false).staff_inbox, 'unavailable');
-  assert.equal(capabilitiesFor(config, 'staff', false, false).staff_inbox, 'enabled');
-  assert.equal(capabilitiesFor(config, 'owner', false, false).staff_inbox, 'enabled');
+  assert.equal(capabilitiesFor(config, 'staff', false, false).staff_inbox, 'unavailable');
+  assert.equal(capabilitiesFor(config, 'owner', false, false).staff_inbox, 'unavailable');
 });
 
 test('customer session reports staff_inbox enabled when the store is up', () => {
@@ -233,5 +233,33 @@ test('staff actions are not issued or executed after the inbox store goes down',
   assert.throws(() => app.executeAction(token, talk.action_id), inboxDown);
   assert.throws(() => app.executeAction(token, shareText.action_id), inboxDown);
   assert.throws(() => app.executeAction(token, sharePhoto.action_id), inboxDown);
+  app.close();
+});
+
+test('internal adapter staff proposals are filtered when the inbox store is down', async () => {
+  const { app } = testApp();
+  const { token, context } = app.createSession('customer', OWNER_PASS);
+
+  const up = await app.submitTurn(
+    token,
+    turnInput(context.session_id, '11111111-2222-4333-8444-555555555881'),
+  );
+  const upKinds = (up.allowed_actions || []).map((a) => a.kind);
+  assert.ok(upKinds.includes('talk_to_staff'));
+  assert.equal(up.context.capabilities.staff_inbox, 'enabled');
+
+  app.store.probe = () => {
+    throw new Error('down');
+  };
+
+  const down = await app.submitTurn(
+    token,
+    turnInput(context.session_id, '11111111-2222-4333-8444-555555555882'),
+  );
+  assert.equal(down.context.capabilities.staff_inbox, 'unavailable');
+  const downKinds = (down.allowed_actions || []).map((a) => a.kind);
+  assert.equal(downKinds.includes('talk_to_staff'), false);
+  assert.equal(downKinds.includes('share_brief_text'), false);
+  assert.equal(downKinds.includes('share_photo_ref'), false);
   app.close();
 });

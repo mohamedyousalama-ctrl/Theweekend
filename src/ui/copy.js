@@ -345,7 +345,7 @@ const MESSAGE_KEYS = {
   'store.unavailable': { ar: 'التخزين غير متاح.', en: 'The store is unavailable.' },
   'staff_inbox.unavailable': {
     ar: 'خدمة الفريق غير متاحة الآن. جرّب بعد شوي.',
-    en: 'The team inbox is not available right now. Try again shortly.',
+    en: 'The team can\'t be reached right now. Try again shortly.',
   },
   'upload.rejected': { ar: 'رُفض الرفع. المسار النصي ما زال متاحاً.', en: 'Upload rejected. The text path remains.' },
   'input.invalid': { ar: COPY.ar.validation, en: COPY.en.validation },

@@ -35,6 +35,7 @@ const ACTION_LABELS = {
   decline: { label_ar: 'لا شكراً', label_en: 'No thanks' },
   continue_without_photo: { label_ar: 'نكمل بدون صورة', label_en: 'Continue without a photo' },
 };
+const STAFF_INBOX_ACTION_KINDS = new Set(['talk_to_staff', 'share_brief_text', 'share_photo_ref']);
 
 export const PHOTO_BYTES_TTL_MS = 10 * 60 * 1000;
 export const PHOTO_BYTES_MAX_ENTRIES = 32;
@@ -173,7 +174,7 @@ export function capabilitiesFor(config, role, realAdapter = false, staffInboxAva
     model: modelCapability(config, realAdapter),
     photo: config.WEEKEND_PHOTO_ENABLED ? 'enabled' : 'disabled',
     booking_handoff: config.WEEKEND_BOOKING_HANDOFF_MODE,
-    staff_inbox: (role === 'staff' || role === 'owner' || staffInboxAvailable) ? 'enabled' : 'unavailable',
+    staff_inbox: staffInboxAvailable ? 'enabled' : 'unavailable',
     preferences: 'enabled',
   };
 }
@@ -1614,7 +1615,9 @@ export function createApp(config, deps = {}) {
       );
     }
     const allowed = [];
+    const inboxUp = staffInboxStoreUp();
     for (const proposed of output.proposed_actions) {
+      if (STAFF_INBOX_ACTION_KINDS.has(proposed.kind) && !inboxUp) continue;
       const saved = persistProposedAction(session, proposed);
       if (saved) allowed.push(saved);
     }
