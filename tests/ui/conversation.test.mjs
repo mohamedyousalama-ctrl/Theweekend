@@ -86,7 +86,8 @@ test('action row drops invented kinds and does not execute proposals', () => {
   assert.deepEqual(row.meta.inventedDropped, ['prepare_booking_request']);
   assert.equal(row.html.includes('prepare_booking_request'), false);
   assert.equal(row.meta.bookingConfirmed, false);
-  assert.match(row.html, /تسليم خارجي|مؤكد/);
+  assert.match(row.html, /صفحة الحجز الرسمية/);
+  assert.match(row.html, /data-booking-confirmed="false"/);
 });
 
 test('photo preview stays hidden without capability and photo_analysis receipt', () => {

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>THE WEEKEND — راكان</title>
+  <title>THE WEEKEND — مركز تجربة الضيف</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@300;400;500;600;700&family=Archivo+Black&display=swap" rel="stylesheet">
@@ -11,14 +11,56 @@
   <link rel="stylesheet" href="styles/tokens.css">
   <link rel="stylesheet" href="styles/rtl.css">
   <link rel="stylesheet" href="styles/chrome.css">
-  <link rel="stylesheet" href="styles/conversation.css">
-  <link rel="stylesheet" href="styles/brief.css">
-  <link rel="stylesheet" href="styles/staff.css">
-  <link rel="stylesheet" href="styles/preferences.css">
-  <link rel="stylesheet" href="styles/states.css">
+  <link rel="stylesheet" href="styles/hub.css">
 </head>
-<body>
-  <div id="rakan-root" data-shell="app"></div>
-  <script type="module" src="./app.js"></script>
+<body class="hub-body">
+  <a class="skip-link" href="#hub-main">تخطّ إلى المحتوى</a>
+  <header class="hub-top">
+    <div class="wk-wordmark" dir="ltr" aria-label="THE WEEKEND">
+      <span class="wk-wordmark-week">THE WEEK</span>
+      <span class="wk-wordmark-end">END</span>
+    </div>
+  </header>
+  <main id="hub-main" class="hub-main" tabindex="-1">
+    <p class="hub-kicker">مركز تجربة الضيف</p>
+    <h1 class="hub-title">مساعد رقمي يرتّب الطلب قبل الحجز</h1>
+    <p class="hub-lead">هذا المكان للفريق يجرب فيه رحلة الضيف من أول رسالة إلى صفحة الحجز.</p>
+    <p class="hub-lead">المساعد اسمه خالد، وهو برنامج مو شخص. تقدر تبدأ بدون صورة وبدون تسجيل. الحجز يتم من صفحة المحل الرسمية. صفحات الفريق الداخلية لها دخول مستقل.</p>
+    <p class="hub-actions">
+      <a class="wk-pill hub-cta" href="/try">ابدأ المحادثة</a>
+    </p>
+    <nav class="hub-grid" aria-label="صفحات المركز">
+      <a class="hub-card" href="/try">
+        <span class="hub-icon" aria-hidden="true">💬</span>
+        <strong>جرّبه الآن</strong>
+        <span>محادثة الضيف</span>
+      </a>
+      <a class="hub-card" href="/journey">
+        <span class="hub-icon" aria-hidden="true">🧭</span>
+        <strong>رحلة الضيف</strong>
+        <span>من الرسالة إلى الحجز</span>
+      </a>
+      <a class="hub-card" href="/brief">
+        <span class="hub-icon" aria-hidden="true">📋</span>
+        <strong>موجز الحلاق</strong>
+        <span>مثال للنص الواصل للفريق</span>
+      </a>
+      <a class="hub-card" href="/team">
+        <span class="hub-icon" aria-hidden="true">📥</span>
+        <strong>صندوق الفريق</strong>
+        <span>دخول مستقل للطاقم</span>
+      </a>
+      <a class="hub-card" href="/prefs">
+        <span class="hub-icon" aria-hidden="true">⚙️</span>
+        <strong>التفضيلات</strong>
+        <span>دخول مستقل للطاقم</span>
+      </a>
+      <a class="hub-card" href="/how">
+        <span class="hub-icon" aria-hidden="true">ℹ️</span>
+        <strong>كيف يشتغل</strong>
+        <span>بكلام المحل مو الهندسة</span>
+      </a>
+    </nav>
+  </main>
 </body>
 </html>

@@ -13,7 +13,8 @@ test('prompt version header matches the adapter', () => {
 
 test('the model-facing prompt carries the non-negotiable rules', () => {
   for (const needle of [
-    'راكان',
+    'خالد',
+    'مو خالد المالك',
     'a digital assistant — a bot, not an employee',
     'VAT-inclusive',
     'do **not** book, confirm, change or cancel',

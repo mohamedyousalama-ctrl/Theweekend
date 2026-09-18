@@ -9,6 +9,8 @@ export function renderComposer({
   sessionId = '',
   imageRef = null,
   validationError = null,
+  variant = 'weekend',
+  photoEnabled = false,
 } = {}) {
   const fieldCopy = validationError?.message_key
     ? (messageFromKey(validationError.message_key, locale) || t(locale, 'validation'))
@@ -32,12 +34,25 @@ export function renderComposer({
       'aria-describedby': validationError ? 'composer-error' : false,
     }, escapeHtml(draft)),
     fieldError,
+    variant === 'whatsapp' && photoEnabled
+      ? el('div', { class: 'wk-photo-upload', 'data-photo-upload': 'enabled' }, [
+        el('label', { for: 'wk-photo-upload' }, t(locale, 'photo_upload')),
+        el('input', {
+          id: 'wk-photo-upload',
+          name: 'photo',
+          type: 'file',
+          accept: 'image/jpeg,image/png,image/webp',
+          disabled,
+          'data-photo-input': 'true',
+        }, ''),
+      ])
+      : '',
     el('button', {
       type: 'submit',
       class: 'wk-pill',
       disabled,
       'data-send': 'true',
-    }, t(locale, 'send')),
+    }, variant === 'whatsapp' ? '➤' : t(locale, 'send')),
   ]);
   return {
     html,

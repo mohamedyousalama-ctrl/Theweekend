@@ -642,11 +642,13 @@ export function createApp(config, deps = {}) {
       rejectPasscode(clientKey);
     }
     if (role === 'customer') {
+      const code = typeof passcode === 'string' ? passcode : '';
+      const publicOk = config.WEEKEND_PUBLIC_GUEST === true && code.length === 0;
       const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
       const localOk = config.WEEKEND_ENV === 'local'
         && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
         && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
-      if (!ownerOk && !localOk) rejectPasscode(clientKey);
+      if (!publicOk && !ownerOk && !localOk) rejectPasscode(clientKey);
     }
     const now = iso(clock);
     const subjectId = newId('sub_');

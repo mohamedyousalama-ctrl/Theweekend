@@ -26,7 +26,7 @@ Read before replacing, use current blob SHAs for contents-API updates, and verif
 
 ## Product invariants
 
-- Introduce Rakan as a digital/AI assistant, not a human barber. No fabricated biography, nationality, work history or relationship.
+- Introduce the assistant as a digital/AI assistant, not a human barber. Visible name (D18): **خالد**, always with the subtitle **مساعد رقمي · ذا ويكند**. No fabricated biography, nationality, work history or relationship, and never impersonation of خالد the shop owner.
 - Direct booking remains possible without a photo, consultation, enrichment or marketing consent.
 - Only authoritative booking truth permits confirmation. Request-only and demo modes cannot masquerade as integrated success.
 - Explicit customer approval is required for create, modify, cancel and paid additions. Server code validates ownership, price, availability, permissions, quote version and consent.

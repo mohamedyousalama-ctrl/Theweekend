@@ -62,5 +62,7 @@ test('pending and external_handoff are not confirmed bookings', () => {
   assert.equal(handoff.meta.handoff, true);
   assert.equal(handoff.meta.showSuccess, false);
   assert.equal(handoff.meta.bookingConfirmed, false);
-  assert.match(handoff.html, /ليس تأكيداً/);
+  assert.match(handoff.html, /صفحة الحجز الرسمية/);
+  assert.match(handoff.html, /data-booking="unconfirmed"/);
+  assert.match(handoff.html, /data-success="false"/);
 });

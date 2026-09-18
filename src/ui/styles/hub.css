@@ -1,0 +1,147 @@
+.hub-body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--wk-ground);
+  color: var(--wk-ink);
+}
+
+.hub-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--wk-hairline);
+}
+
+.hub-back {
+  color: var(--wk-muted-2);
+  text-decoration: none;
+  font-size: 14px;
+}
+
+.hub-back:hover {
+  color: var(--wk-white);
+}
+
+.hub-main {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 36px 20px 64px;
+}
+
+.hub-kicker {
+  margin: 0 0 8px;
+  color: var(--wk-red-soft);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+.hub-title {
+  margin: 0 0 16px;
+  font-size: 32px;
+  line-height: 1.35;
+}
+
+.hub-lead {
+  margin: 0 0 12px;
+  max-width: 42em;
+  color: var(--wk-muted-2);
+  font-size: 17px;
+  line-height: 1.85;
+}
+
+.hub-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 28px 0;
+}
+
+.hub-cta {
+  display: inline-block;
+  text-decoration: none;
+  padding: 12px 22px;
+}
+
+.hub-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.hub-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1 1 140px;
+  min-width: 140px;
+  padding: 18px 16px;
+  border-radius: var(--wk-radius-card);
+  background: var(--wk-card);
+  border: 1px solid var(--wk-hairline);
+  color: inherit;
+  text-decoration: none;
+}
+
+.hub-card:hover {
+  border-color: rgba(225, 29, 46, 0.45);
+}
+
+.hub-card strong {
+  font-size: 17px;
+}
+
+.hub-card span:last-child {
+  color: var(--wk-muted-3);
+  font-size: 14px;
+}
+
+.hub-icon {
+  font-size: 22px;
+}
+
+.hub-steps,
+.hub-list {
+  margin: 0;
+  padding: 0 1.2em;
+  color: var(--wk-muted-2);
+  font-size: 17px;
+  line-height: 1.9;
+}
+
+.hub-steps li,
+.hub-list li {
+  margin-bottom: 10px;
+}
+
+.hub-brief {
+  padding: 20px;
+  border-radius: var(--wk-radius-lg);
+  background: var(--wk-card);
+  border: 1px solid var(--wk-hairline);
+}
+
+.hub-brief h2 {
+  margin: 0 0 8px;
+  font-size: 15px;
+  color: var(--wk-gold);
+}
+
+.hub-lock-note {
+  padding: 12px 20px 0;
+}
+
+.hub-lock-note a {
+  color: var(--wk-muted-2);
+}
+
+@media (min-width: 720px) {
+  .hub-grid {
+    display: flex;
+  }
+
+  .hub-title {
+    font-size: 40px;
+  }
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText } from '../../src/agent/adapter.mjs';
+import { createRakanAdapter, mapModelOutput, ungroundedPrices, ungroundedFacts, ungroundedLinks, linksIn, canonicalAmount, normalizeDigits, estimateCostMinor, maxCostMinorPerTurn, sniffImageMime, MODEL_OUTPUT_SCHEMA, customerLang, errorText, PROMPT_VERSION } from '../../src/agent/adapter.mjs';
 import { validateContract } from '../../src/contracts/validate.mjs';
 import { knowledge, context, input, modelJson, response, fakeClient, badRequest, PNG_BYTES, realConfig, photoConsent, PRICE_REF } from './fixtures.mjs';
 
@@ -39,7 +39,7 @@ test('grounded price reply → valid contract output, actions kept, usage costed
   assert.equal(first.output.observations, null);
   assert.equal(first.usage.provider, 'anthropic');
   assert.equal(first.usage.model_id, 'claude-opus-5');
-  assert.equal(first.usage.prompt_version, 'rakan.system.v0.5');
+  assert.equal(first.usage.prompt_version, PROMPT_VERSION);
   assert.equal(first.usage.input_tokens, 1200);
   assert.equal(first.usage.cost_estimate_minor, estimateCostMinor('claude-opus-5', { input_tokens: 1200, output_tokens: 180, cache_read_input_tokens: 900 }));
   const req = client.calls[0];

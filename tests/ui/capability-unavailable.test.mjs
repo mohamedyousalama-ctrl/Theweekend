@@ -28,7 +28,7 @@ test('capability copy labels independently and never confirms official booking',
   assert.equal(view.meta.bookingConfirmed, false);
   assert.equal(view.meta.m2Mounted, false);
   assert.equal(view.meta.photoOptional, true);
-  assert.match(view.html, /تسليم خارجي/);
+  assert.match(view.html, /صفحة الحجز الرسمية/);
   assert.match(view.html, /data-booking="unconfirmed"/);
   assert.match(view.html, /مساعد رقمي/);
   assert.equal(view.html.includes('booking_handoff:'), false);

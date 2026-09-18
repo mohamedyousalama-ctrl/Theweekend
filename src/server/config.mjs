@@ -96,6 +96,11 @@ export function loadConfig(env) {
   if (!/^br_[A-Za-z0-9_-]{1,80}$/.test(branchId)) throw new ConfigError('WEEKEND_BRANCH_ID');
   if (env.WEEKEND_SESSION_SECRET.trim().length < 16) throw new ConfigError('WEEKEND_SESSION_SECRET');
 
+  const publicGuestRaw = present(env.WEEKEND_PUBLIC_GUEST)
+    ? env.WEEKEND_PUBLIC_GUEST.trim()
+    : (weekendEnv === 'owner-review' ? 'true' : 'false');
+  if (!['true', 'false'].includes(publicGuestRaw)) throw new ConfigError('WEEKEND_PUBLIC_GUEST');
+
   const ownerHash = resolvePasscodeHash(env, 'WEEKEND_OWNER_PASSCODE_HASH', 'WEEKEND_OWNER_PASSCODE', true);
   const staffHash = resolvePasscodeHash(env, 'WEEKEND_STAFF_PASSCODE_HASH', 'WEEKEND_STAFF_PASSCODE', true);
   const localCustomerHash = resolvePasscodeHash(
@@ -130,6 +135,7 @@ export function loadConfig(env) {
     WEEKEND_STAFF_PASSCODE_HASH: staffHash,
     WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH: localCustomerHash,
     WEEKEND_BRANCH_ID: branchId,
+    WEEKEND_PUBLIC_GUEST: publicGuestRaw === 'true',
   };
 }
 

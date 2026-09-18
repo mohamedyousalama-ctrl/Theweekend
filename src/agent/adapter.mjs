@@ -21,7 +21,7 @@ import { validateContract } from '../contracts/validate.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..', '..');
 
-export const PROMPT_VERSION = 'rakan.system.v0.5';
+export const PROMPT_VERSION = 'rakan.system.v0.6';
 export const DEFAULT_PROMPT_PATH = path.join(ROOT, 'prompts', 'rakan.system.md');
 export const DEFAULT_KNOWLEDGE_PATH = path.join(ROOT, 'knowledge', 'marsiya.v1.json');
 
@@ -470,12 +470,12 @@ const ERROR_COPY = {
     en: 'That took too long. Please send your message again.',
   },
   'model.temporarily_unavailable': {
-    ar: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.',
-    en: 'Rakan is not available right now. Try again in a bit, or use the booking page.',
+    ar: 'خالد مو متاح هاللحظة. تقدر تحجز من الصفحة الرسمية أو تطلب أحد من الفريق.',
+    en: 'Khalid is not available right now. You can book from the official page or ask someone on the team.',
   },
   'model.misconfigured': {
-    ar: 'راكان مو متاح هاللحظة. جرّب بعد شوي أو استخدم صفحة الحجز.',
-    en: 'Rakan is not available right now. Try again in a bit, or use the booking page.',
+    ar: 'خالد مو متاح هاللحظة. تقدر تحجز من الصفحة الرسمية أو تطلب أحد من الفريق.',
+    en: 'Khalid is not available right now. You can book from the official page or ask someone on the team.',
   },
   'agent.refused': {
     ar: 'ما أقدر أساعد بهذا الطلب. لو تبي، نكمل بشي ثاني.',

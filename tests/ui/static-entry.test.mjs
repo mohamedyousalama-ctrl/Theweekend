@@ -13,7 +13,7 @@ function listen(server) {
   });
 }
 
-test('C serves src/ui/index.html without new route handlers', async () => {
+test('C serves src/ui/index.html as the Arabic team hub', async () => {
   const { app, config } = testApp();
   const server = createHttpServer(app, config);
   const port = await listen(server);
@@ -21,13 +21,14 @@ test('C serves src/ui/index.html without new route handlers', async () => {
     const res = await fetch(`http://127.0.0.1:${port}/`);
     assert.equal(res.status, 200);
     const html = await res.text();
-    assert.match(html, /rakan-root/);
-    assert.match(html, /app.js/);
-    assert.equal(html.includes('support.js'), false);
+    assert.match(html, /مركز تجربة الضيف/);
+    assert.match(html, /href="\/try"/);
+    assert.equal(html.includes('rakan-root'), false);
+    assert.equal(/ديمو|owner-review|Owner review/i.test(html), false);
     const css = await fetch(`http://127.0.0.1:${port}/styles/tokens.css`);
     assert.equal(css.status, 200);
-    const js = await fetch(`http://127.0.0.1:${port}/app.js`);
-    assert.equal(js.status, 200);
+    const hub = await fetch(`http://127.0.0.1:${port}/styles/hub.css`);
+    assert.equal(hub.status, 200);
   } finally {
     await new Promise((resolve) => server.close(resolve));
     app.close();
