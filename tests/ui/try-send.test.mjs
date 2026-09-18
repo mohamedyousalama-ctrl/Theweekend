@@ -206,6 +206,44 @@ test('try Send resends pending text after a stale guest token when public guest 
   assert.match(root.innerHTML, /أبغى فيد/);
 });
 
+test('try Send stops after one automatic resend when every turn is session.expired', async () => {
+  let sessionCalls = 0;
+  let turnCalls = 0;
+  const expired = {
+    contract_version: '0.1.0',
+    code: 'UNAUTHORIZED',
+    message_key: 'session.expired',
+    retryable: false,
+    details: {},
+  };
+  const fetchImpl = async (path, opts = {}) => {
+    if (path === '/session') {
+      sessionCalls += 1;
+      return { ok: true, status: 200, json: async () => ({ token: `tok_${sessionCalls}`, context }) };
+    }
+    if (path === '/turns') {
+      turnCalls += 1;
+      return { ok: false, status: 401, json: async () => expired };
+    }
+    if (path === '/health') {
+      return { ok: true, status: 200, json: async () => ({ contract_version: '0.1.0', model: 'ok', store: 'ok' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl, shell: 'try' });
+  await app.startPublicGuest();
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'أبغى فيد';
+  assert.equal(composer.fire('submit'), 1);
+  await settle();
+  assert.equal(turnCalls, 2);
+  assert.equal(sessionCalls, 3);
+  assert.equal(app.state.error?.message_key, 'session.expired');
+  assert.equal(app.state.loadingTurn, false);
+});
+
 test('try pass-gate copy exists in both languages and is not shame copy', () => {
   assert.equal(Boolean(COPY.ar.try_pass_label), true);
   assert.equal(Boolean(COPY.en.try_pass_label), true);

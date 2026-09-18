@@ -629,7 +629,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
     }
   }
 
-  async function submitTurn(text) {
+  async function submitTurn(text, retried = false) {
     if (!String(text || '').trim()) {
       state.error = {
         contract_version: '0.1.0',
@@ -701,8 +701,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         state.context = null;
         state.pendingTurnText = text;
         await ensureGuestSession();
-        if (state.guestNeedsPasscode) state.error = err;
-        else if (state.pendingTurnText) await submitTurn(state.pendingTurnText);
+        // One resend at most: if the just-refreshed session also fails the same way, stop and show the
+        // error instead of looping — otherwise a server that keeps rejecting fresh guest sessions resends forever.
+        if (state.guestNeedsPasscode || retried) state.error = err;
+        else if (state.pendingTurnText) await submitTurn(state.pendingTurnText, true);
         return;
       }
       state.error = err;
