@@ -114,6 +114,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       active: state.surface,
       locale: loc,
       gallery: state.gallery,
+      shell: state.shell,
     });
     const main = renderSurface(loc);
     const session = renderSession(loc);
