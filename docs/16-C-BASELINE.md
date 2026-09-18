@@ -12,8 +12,8 @@
 | Baseline suite rerun on `468fbe4` | `node --test tests/*.test.mjs` → **112 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-14 04:35 UTC) | tested, this checkout |
 | CodeRabbit on PR #1 | skipped the draft — **not** a pass | recorded |
 | Non-author review of PR #1 content | NOT_RUN in this pass (historical reviews in docs 14/15 stand as what they are) | honest status |
-| Current `main` after PRs #24–#29 | `2050d452aab515f807de7a83d88eb470648eba0e` | verified (git), 2026-09-18 |
-| `npm test` on `2050d45` (staff-inbox follow-up merged with retry) | **364 pass, 0 fail, 0 skipped** (Node v22.14.0) | tested, this checkout's ancestor |
+| Current `main` after PRs #24–#30 | `fcf75f2ddeecc05a7e76fbbf19422f0b8f776858` | verified (git), 2026-09-18 |
+| `npm test` on `fcf75f2` | **364 pass, 0 fail, 0 skipped** (Node v22) | tested, this checkout |
 
 The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application. The 364-test pin is still not G01–G13 production release. Text `eval:agent` ran on 2026-09-15 (28/30 on prompt v0.4; two-case recheck on v0.5). Vision and the #8 browser walkthrough were not run.
 
