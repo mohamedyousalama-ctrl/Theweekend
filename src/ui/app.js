@@ -699,9 +699,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       ) {
         state.token = null;
         state.context = null;
-        state.error = err;
         state.pendingTurnText = text;
         await ensureGuestSession();
+        if (state.guestNeedsPasscode) state.error = err;
+        else if (state.pendingTurnText) await submitTurn(state.pendingTurnText);
         return;
       }
       state.error = err;
@@ -741,8 +742,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
       ) {
         state.token = null;
         state.context = null;
-        state.error = err;
         await ensureGuestSession();
+        if (state.guestNeedsPasscode) state.error = err;
         paint();
         return;
       }

@@ -154,7 +154,56 @@ test('try Send recovers a guest_closed token by showing the passcode gate', asyn
   assert.equal(app.state.context, null);
   assert.equal(app.state.pendingTurnText, 'أبغى فيد');
   assert.ok(root.querySelector('[data-try-pass="true"]'), 'passcode gate after the trial session is closed');
-  assert.match(root.innerHTML, /افتح المحادثة برمز الدخول/);
+  assert.match(root.innerHTML, /رمز الدخول للمحادثة/);
+  assert.match(root.innerHTML, /انتهت جلسة التجربة/);
+});
+
+test('try Send resends pending text after a stale guest token when public guest stays on', async () => {
+  let sessionCalls = 0;
+  let turnCalls = 0;
+  const expired = {
+    contract_version: '0.1.0',
+    code: 'UNAUTHORIZED',
+    message_key: 'session.expired',
+    retryable: false,
+    details: {},
+  };
+  const fetchImpl = async (path, opts = {}) => {
+    const json = parseBody(opts);
+    if (path === '/session') {
+      sessionCalls += 1;
+      return { ok: true, status: 200, json: async () => ({ token: `tok_${sessionCalls}`, context }) };
+    }
+    if (path === '/turns') {
+      turnCalls += 1;
+      if (turnCalls === 1) {
+        return { ok: false, status: 401, json: async () => expired };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ output, allowed_actions: [], action_result: null, context }),
+      };
+    }
+    if (path === '/health') {
+      return { ok: true, status: 200, json: async () => ({ contract_version: '0.1.0', model: 'ok', store: 'ok' }) };
+    }
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const root = createRoot();
+  const app = createRakanUi(root, { fetchImpl, shell: 'try' });
+  await app.startPublicGuest();
+  const composer = root.querySelector('[data-component="composer"]');
+  const textarea = root.querySelector('#wk-composer-text');
+  textarea.value = 'أبغى فيد';
+  assert.equal(composer.fire('submit'), 1);
+  await settle();
+  assert.equal(app.state.error, null);
+  assert.equal(root.querySelector('[data-try-pass="true"]'), null);
+  assert.equal(turnCalls, 2);
+  assert.equal(sessionCalls, 2);
+  assert.equal(app.state.context?.session_id, context.session_id);
+  assert.match(root.innerHTML, /أبغى فيد/);
 });
 
 test('try pass-gate copy exists in both languages and is not shame copy', () => {
