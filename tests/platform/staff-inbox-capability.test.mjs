@@ -4,6 +4,7 @@ import { createRakanAdapter } from '../../src/agent/adapter.mjs';
 import { createHttpServer } from '../../src/server/http.mjs';
 import { capabilitiesFor } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
+import { handoffSkip } from '../../scripts/owner-walkthrough.mjs';
 import { fakeClient, knowledge, modelJson, response } from '../agent/fixtures.mjs';
 import { OWNER_PASS, STAFF_PASS, testApp, testEnv } from './helpers.mjs';
 
@@ -34,19 +35,6 @@ function ownerReviewReal(overrides = {}) {
     WEEKEND_MODEL_ID: 'claude-opus-5',
     WEEKEND_VISION_MODEL_ID: 'claude-opus-5',
     ...overrides,
-  };
-}
-
-/**
- * Same predicate C5 exports as `handoffSkip` from `scripts/owner-walkthrough.mjs`.
- * That module is not imported here: on this base it has no main-guard and would
- * run the live walkthrough on load. PR #41 adds the export and the guard.
- */
-function handoffSkip(talk) {
-  if (talk) return null;
-  return {
-    not_run: 'staff handoff (no talk_to_staff on greet/price/style turns)',
-    blocker: 'staff handoff was not exercised: no talk_to_staff on greet/price/style turns',
   };
 }
 
