@@ -97,6 +97,22 @@ test('startup sweep deletes sessions 30 days past expiry and keeps a 2-day-old r
       1, ?, ?, NULL
     )
   `).run(PREFERENCE_TEXT, isoMinus(oldExpires, 8 * 3600000), now);
+  raw.prepare(`
+    INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('img_old_retention', 'ses_old_retention', 'sub_old_retention', '{}', now);
+  raw.prepare(`
+    INSERT INTO images (image_ref, subject_id, session_id, byte_length, content_type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('img_old_retention', 'sub_old_retention', 'ses_old_retention', 1024, 'image/jpeg', now);
+  raw.prepare(`
+    INSERT INTO photo_observations (image_ref, session_id, subject_id, observations_json, created_at)
+    VALUES (?, ?, ?, ?, ?)
+  `).run('img_recent_retention', 'ses_recent_retention', 'sub_recent_retention', '{}', now);
+  raw.prepare(`
+    INSERT INTO images (image_ref, subject_id, session_id, byte_length, content_type, created_at)
+    VALUES (?, ?, ?, ?, ?, ?)
+  `).run('img_recent_retention', 'sub_recent_retention', 'ses_recent_retention', 2048, 'image/png', now);
   raw.close();
 
   const { app } = testApp({
@@ -111,6 +127,10 @@ test('startup sweep deletes sessions 30 days past expiry and keeps a 2-day-old r
   assert.equal(oldGone.result, null);
   assert.equal(oldGone.handoff, null);
   assert.equal(oldGone.pending, null);
+  const oldPhotoObs = app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', ['img_old_retention']);
+  const oldPhotoImg = app.store.get('SELECT * FROM images WHERE image_ref = ?', ['img_old_retention']);
+  assert.equal(oldPhotoObs, null, 'photo_observations for the old session is gone (defensive backstop)');
+  assert.equal(oldPhotoImg, null, 'images for the old session is gone (defensive backstop)');
 
   const recent = app.store.get('SELECT * FROM sessions WHERE session_id = ?', ['ses_recent_retention']);
   assert.ok(recent, 'a session only 2 days past expiry is kept');
@@ -122,6 +142,10 @@ test('startup sweep deletes sessions 30 days past expiry and keeps a 2-day-old r
   assert.ok(recentKept.result);
   assert.ok(recentKept.handoff);
   assert.ok(recentKept.pending);
+  const recentPhotoObs = app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', ['img_recent_retention']);
+  const recentPhotoImg = app.store.get('SELECT * FROM images WHERE image_ref = ?', ['img_recent_retention']);
+  assert.ok(recentPhotoObs, 'a recent session keeps its photo_observations row');
+  assert.ok(recentPhotoImg, 'a recent session keeps its images row');
 
   const subject = app.store.get('SELECT * FROM subjects WHERE subject_id = ?', ['sub_old_retention']);
   assert.ok(subject, 'subjects are never deleted by the session sweep');
