@@ -26,7 +26,7 @@
 
 ## Owner steps (unblocked 2026-09-15; project created the same day)
 
-C2 (PR #24), the consent/brief UI (PR #25), then PRs #26–#34 and **#36** (hub) are on `main` (`55c4c6b`). This is not a customer-facing release. Owner-reported 2026-09-18 15:17 UTC: live `GET /customer.js` HTTP 200 (CSP build). Confirm the Railway deployment SHA after each merge.
+C2 (PR #24), the consent/brief UI (PR #25), then PRs #26–#45 (hub, guest limits and kill switch, staff inbox capability) are on `main` (`3fb3d74`, 2026-09-19). This is not a customer-facing release. Owner-reported 2026-09-18 15:17 UTC: live `GET /customer.js` HTTP 200 (CSP build). Confirm the Railway deployment SHA after each merge.
 
 **Created (2026-09-15, in the owner's own Railway account, by CLI):**
 
