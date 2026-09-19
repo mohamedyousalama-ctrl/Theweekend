@@ -11,3 +11,4 @@ private/
 uploads/
 customer-data/
 .railway/
+node_modules
