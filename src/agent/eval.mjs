@@ -1,7 +1,7 @@
 /**
  * Real-model evaluation for the Rakan adapter (issue #5 acceptance evidence).
  *
- *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir] [--text-only]
+ *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir] [--text-only] [--staff-inbox enabled|unavailable]
  *
  * Runs every case against the real adapter, checks the stated expectations, and prints a report with
  * prompt version, model id, case counts, latency and cost — separately from the deterministic tests.
@@ -16,12 +16,20 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createRakanAdapter, PROMPT_VERSION } from './adapter.mjs';
 import { evalExit } from './eval-exit.mjs';
+import { staffInboxFlag } from './eval-flags.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i === -1 ? def : args[i + 1]; };
 const casesPath = opt('--cases', 'tests/agent/cases.json');
 const imagesDir = opt('--images', null);
 const textOnly = args.includes('--text-only');
+let staffInbox;
+try {
+  staffInbox = staffInboxFlag(args);
+} catch (err) {
+  process.stderr.write(`${err.message}\n`);
+  process.exit(2);
+}
 
 const config = {
   WEEKEND_MODEL_MODE: 'real',
@@ -42,7 +50,7 @@ function context(sessionId, withPhoto) {
   return {
     contract_version: '0.1.0', session_id: sessionId, subject_id: `sub_${sessionId.slice(4)}`, role: 'customer', verified: true,
     branch_id: 'br_marsiya', locale: 'ar',
-    capabilities: { model: 'real', photo: withPhoto ? 'enabled' : 'disabled', booking_handoff: 'official_link', staff_inbox: 'unavailable', preferences: 'enabled' },
+    capabilities: { model: 'real', photo: withPhoto ? 'enabled' : 'disabled', booking_handoff: 'official_link', staff_inbox: staffInbox, preferences: 'enabled' },
     consents: withPhoto ? [{ contract_version: '0.1.0', receipt_id: 'rcp_eval', subject_id: `sub_${sessionId.slice(4)}`, kind: 'photo_analysis', notice_version: 'notice_photo_v1', granted_at: new Date().toISOString(), revoked_at: null, retention_policy_key: 'ret_photo_v1', granted_via: 'customer_ui' }] : [],
     issued_at: new Date().toISOString(),
   };

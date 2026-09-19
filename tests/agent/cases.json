@@ -384,6 +384,16 @@
         "حجزت",
         "فاضي"
       ]
+    },
+    {
+      "id": "talk_to_staff",
+      "text": "أبي أكلم أحد من الفريق مو بوت",
+      "must": [],
+      "must_not": [],
+      "actions_any_of": [
+        "talk_to_staff"
+      ],
+      "notes": "requires --staff-inbox=enabled (the default); the case the 2026-09-15/09-18 evals could never exercise"
     }
   ]
 }
