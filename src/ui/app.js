@@ -629,7 +629,7 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
     }
   }
 
-  async function submitTurn(text) {
+  async function submitTurn(text, retried = false) {
     if (!String(text || '').trim()) {
       state.error = {
         contract_version: '0.1.0',
@@ -691,6 +691,22 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         beginConsent(err, { type: 'turn', text }, 'photo_analysis');
         return;
       }
+      if (
+        state.shell === 'try'
+        && (err?.message_key === 'session.guest_closed'
+          || err?.message_key === 'session.expired'
+          || err?.message_key === 'session.invalid')
+      ) {
+        state.token = null;
+        state.context = null;
+        state.pendingTurnText = text;
+        await ensureGuestSession();
+        // One resend at most: if the just-refreshed session also fails the same way, stop and show the
+        // error instead of looping — otherwise a server that keeps rejecting fresh guest sessions resends forever.
+        if (state.guestNeedsPasscode || retried) state.error = err;
+        else if (state.pendingTurnText) await submitTurn(state.pendingTurnText, true);
+        return;
+      }
       state.error = err;
       if (err?.retryable) state.pendingRetry = { type: 'turn', text };
     } finally {
@@ -718,6 +734,19 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         const receiptKind = lookupReceiptKindForAction(actionId, [state.allowedActions, state.shareActions]);
         beginConsent(err, { type: 'action', actionId, opensItself, receiptKind }, receiptKind);
         state.actionResult = null;
+        return;
+      }
+      if (
+        state.shell === 'try'
+        && (err?.message_key === 'session.guest_closed'
+          || err?.message_key === 'session.expired'
+          || err?.message_key === 'session.invalid')
+      ) {
+        state.token = null;
+        state.context = null;
+        await ensureGuestSession();
+        if (state.guestNeedsPasscode) state.error = err;
+        paint();
         return;
       }
       state.error = err;

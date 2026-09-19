@@ -134,7 +134,8 @@ CREATE TABLE IF NOT EXISTS daily_spend (
   cost_minor INTEGER NOT NULL,
   guest_cost_minor INTEGER NOT NULL DEFAULT 0,
   guest_alert_80 INTEGER NOT NULL DEFAULT 0,
-  guest_alert_100 INTEGER NOT NULL DEFAULT 0
+  guest_alert_100 INTEGER NOT NULL DEFAULT 0,
+  guest_settled_minor INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS guest_upload_quota (

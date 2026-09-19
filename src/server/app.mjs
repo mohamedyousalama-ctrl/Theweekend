@@ -319,6 +319,14 @@ export function createApp(config, deps = {}) {
   const inflight = new Map();
   const inflightTurns = new Map();
   store.run(`UPDATE turns SET status = 'failed' WHERE status = 'pending'`);
+  // A persisted guest session must not outlive an operator turning the switch off: a browser tab holding a token
+  // minted before this deployment cannot be told to log out, so any still-live guest session row is expired here,
+  // at the moment the switch is off, before any request is served. requireSession's live WEEKEND_PUBLIC_GUEST check
+  // is the check that actually closes the hole for this process; this is defence in depth for the data itself.
+  if (config.WEEKEND_PUBLIC_GUEST !== true) {
+    const startupNow = iso(clock);
+    store.run('UPDATE sessions SET expires_at = ? WHERE guest = 1 AND expires_at > ?', [startupNow, startupNow]);
+  }
   sweepPreferenceRetentionAt(store, clock);
   sweepStaffHandoffsAt(store, clock);
   sealStoredClientKeys(store, config.WEEKEND_SESSION_SECRET);
@@ -446,6 +454,12 @@ export function createApp(config, deps = {}) {
     if (!sessionId) fail('UNAUTHORIZED', 'session.invalid', false, {}, 401);
     const session = store.get('SELECT * FROM sessions WHERE session_id = ?', [sessionId]);
     if (!session || session.verified !== 1) fail('UNAUTHORIZED', 'session.invalid', false, {}, 401);
+    // The switch is read once at process start (docs/16 §5): a guest session opened while it was on must not go
+    // on authorizing requests once a deployment starts with it off, even though the token itself is still fresh.
+    // Checked before expiry so a row expired at start (defence in depth) is still reported as session.guest_closed.
+    if (isGuestSession(session) && config.WEEKEND_PUBLIC_GUEST !== true) {
+      fail('UNAUTHORIZED', 'session.guest_closed', false, {}, 401);
+    }
     if (Date.parse(session.expires_at) <= Date.parse(iso(clock))) {
       fail('UNAUTHORIZED', 'session.expired', false, {}, 401);
     }
@@ -653,8 +667,8 @@ export function createApp(config, deps = {}) {
 
   function ensureSpendDay(day) {
     store.run(
-      `INSERT INTO daily_spend (day, calls, cost_minor, guest_cost_minor, guest_alert_80, guest_alert_100)
-       VALUES (?, 0, 0, 0, 0, 0)
+      `INSERT INTO daily_spend (day, calls, cost_minor, guest_cost_minor, guest_alert_80, guest_alert_100, guest_settled_minor)
+       VALUES (?, 0, 0, 0, 0, 0, 0)
        ON CONFLICT(day) DO NOTHING`,
       [day],
     );
@@ -665,7 +679,8 @@ export function createApp(config, deps = {}) {
     if (guestCap <= 0) return;
     const row = store.get('SELECT * FROM daily_spend WHERE day = ?', [day]);
     if (!row) return;
-    if (row.guest_cost_minor >= Math.ceil(guestCap * 0.8)) {
+    const settled = row.guest_settled_minor ?? 0;
+    if (settled >= Math.ceil(guestCap * 0.8)) {
       const marked = store.run(
         'UPDATE daily_spend SET guest_alert_80 = 1 WHERE day = ? AND guest_alert_80 = 0',
         [day],
@@ -674,12 +689,12 @@ export function createApp(config, deps = {}) {
         log({
           kind: 'guest_spend',
           share_reached: 80,
-          guest_cost_minor: row.guest_cost_minor,
+          guest_settled_minor: settled,
           guest_cap_minor: guestCap,
         });
       }
     }
-    if (row.guest_cost_minor >= guestCap) {
+    if (settled >= guestCap) {
       const marked = store.run(
         'UPDATE daily_spend SET guest_alert_100 = 1 WHERE day = ? AND guest_alert_100 = 0',
         [day],
@@ -688,7 +703,7 @@ export function createApp(config, deps = {}) {
         log({
           kind: 'guest_spend',
           share_reached: 100,
-          guest_cost_minor: row.guest_cost_minor,
+          guest_settled_minor: settled,
           guest_cap_minor: guestCap,
         });
       }
@@ -724,7 +739,8 @@ export function createApp(config, deps = {}) {
 
   /**
    * After the call: the reserved ceiling is replaced by the real cost. Owner/staff actuals are recorded even past
-   * the cap. A guest actual is clamped to the remaining guest share so it cannot consume the owner reserve.
+   * the cap. A guest actual is clamped to the remaining guest share measured on settled guest spend
+   * (in-flight reservations do not count) so it cannot consume the owner reserve.
    */
   function settleSpend(now, reservedMinor, actualMinor, { guest = false } = {}) {
     const day = now.slice(0, 10);
@@ -733,14 +749,25 @@ export function createApp(config, deps = {}) {
       store.run('UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?) WHERE day = ?', [reservedMinor, actual, day]);
       return;
     }
-    const row = store.get('SELECT guest_cost_minor FROM daily_spend WHERE day = ?', [day]);
+    const row = store.get('SELECT guest_settled_minor FROM daily_spend WHERE day = ?', [day]);
     const guestCap = guestShareMinor();
-    const guestBase = Math.max(0, (row?.guest_cost_minor ?? 0) - reservedMinor);
-    const charged = Math.max(0, Math.min(actual, guestCap - guestBase));
+    const settledSoFar = row?.guest_settled_minor ?? 0;
+    const charged = Math.max(0, Math.min(actual, guestCap - settledSoFar));
     const overage = actual - charged;
+    // cost_minor only ever carries the guest side's contribution up to the share (MIN(share, guest_cost_minor)),
+    // measured before and after this settle. guest_cost_minor keeps tracking the raw settled + still-outstanding
+    // total unchanged, since admission still gates new guest reservations on it. A guest actual that pushes the raw
+    // guest ledger above the share while another guest reservation is still in flight cannot eat the owner/staff reserve.
     store.run(
-      `UPDATE daily_spend SET cost_minor = MAX(0, cost_minor - ? + ?), guest_cost_minor = MAX(0, guest_cost_minor - ? + ?) WHERE day = ?`,
-      [reservedMinor, charged, reservedMinor, charged, day],
+      `UPDATE daily_spend SET
+         cost_minor = MAX(0, cost_minor
+           - MIN(?, guest_cost_minor)
+           + MIN(?, MAX(0, guest_cost_minor - ? + ?))
+         ),
+         guest_cost_minor = MAX(0, guest_cost_minor - ? + ?),
+         guest_settled_minor = guest_settled_minor + ?
+       WHERE day = ?`,
+      [guestCap, guestCap, reservedMinor, charged, reservedMinor, charged, charged, day],
     );
     if (overage > 0) {
       log({
@@ -795,13 +822,18 @@ export function createApp(config, deps = {}) {
     let guest = false;
     if (role === 'customer') {
       const code = typeof passcode === 'string' ? passcode : '';
-      const publicOk = config.WEEKEND_PUBLIC_GUEST === true && code.length === 0;
-      const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
-      const localOk = config.WEEKEND_ENV === 'local'
-        && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
-        && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
-      if (!publicOk && !ownerOk && !localOk) rejectPasscode(clientKey);
-      guest = publicOk && !ownerOk && !localOk;
+      if (code.length === 0) {
+        // Empty passcode: a public-guest create when the switch is on, otherwise a try-page probe.
+        // Never a guessed credential (passcode hashes are required non-empty at start): no scrypt, no recordFailure.
+        if (config.WEEKEND_PUBLIC_GUEST !== true) fail('UNAUTHORIZED', 'session.passcode', false, {}, 401);
+        guest = true;
+      } else {
+        const ownerOk = passcodeMatches(config.WEEKEND_OWNER_PASSCODE_HASH, passcode);
+        const localOk = config.WEEKEND_ENV === 'local'
+          && config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH
+          && passcodeMatches(config.WEEKEND_LOCAL_CUSTOMER_PASSCODE_HASH, passcode);
+        if (!ownerOk && !localOk) rejectPasscode(clientKey);
+      }
     }
     if (guest && !guestSessionLimiter.tryRecord(clientKey)) {
       fail('UNAUTHORIZED', 'session.throttled', true, {}, 401);
@@ -1531,6 +1563,7 @@ export function createApp(config, deps = {}) {
       }, 429);
     }
     if (!reserveSpend(now, costCeilingMinor, { guest })) {
+      if (guest) guestTurnLimiter.release(session.client_key || 'unknown');
       fail('BUDGET_EXCEEDED', 'model.budget_exceeded', false, {
         capability: 'model',
         limit: config.WEEKEND_SPEND_CAP_USD_PER_DAY,

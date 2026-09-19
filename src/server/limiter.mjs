@@ -96,4 +96,11 @@ export class WindowCounter {
     while (this.byKey.size > this.maxKeys) this.byKey.delete(this.byKey.keys().next().value);
     return true;
   }
+
+  release(key) {
+    const list = this.byKey.get(key);
+    if (!list || !list.length) return;
+    list.pop();
+    if (!list.length) this.byKey.delete(key);
+  }
 }

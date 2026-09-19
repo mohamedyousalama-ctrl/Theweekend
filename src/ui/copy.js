@@ -350,6 +350,10 @@ const MESSAGE_KEYS = {
   'upload.rejected': { ar: 'رُفض الرفع. المسار النصي ما زال متاحاً.', en: 'Upload rejected. The text path remains.' },
   'input.invalid': { ar: COPY.ar.validation, en: COPY.en.validation },
   'session.invalid': { ar: 'الجلسة غير صالحة.', en: 'The session is not valid.' },
+  'session.guest_closed': {
+    ar: 'انتهت جلسة التجربة. تحتاج رمز الدخول من فريق ذا ويكند.',
+    en: 'The trial session has ended. You need the passcode from The Weekend’s team.',
+  },
   'session.expired': { ar: 'انتهت الجلسة. ادخل من جديد.', en: 'The session expired. Sign in again.' },
   'session.passcode': { ar: 'رمز الدخول غير صحيح.', en: 'The passcode is not correct.' },
   'session.try_pass': { ar: 'افتح المحادثة برمز الدخول ثم أرسل.', en: 'Open the chat with the passcode, then send.' },
