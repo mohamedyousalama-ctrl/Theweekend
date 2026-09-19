@@ -190,9 +190,10 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         id: 'wk-try-pass-input',
         name: 'passcode',
         type: 'password',
-        autocomplete: 'current-password',
+        autocomplete: 'off',
         required: true,
       }, ''),
+      el('p', { class: 'wk-note' }, t(loc, 'try_pass_source')),
       el('button', { type: 'submit', class: 'wk-pill' }, t(loc, 'try_pass_send')),
     ]);
   }
@@ -703,7 +704,8 @@ export function createRakanUi(root, { fetchImpl, initialSurface, shell } = {}) {
         await ensureGuestSession();
         // One resend at most: if the just-refreshed session also fails the same way, stop and show the
         // error instead of looping — otherwise a server that keeps rejecting fresh guest sessions resends forever.
-        if (state.guestNeedsPasscode || retried) state.error = err;
+        if (state.guestNeedsPasscode) state.error = err;
+        else if (retried) state.error = { ...err, message_key: 'try.recovery_failed' };
         else if (state.pendingTurnText) await submitTurn(state.pendingTurnText, true);
         return;
       }
