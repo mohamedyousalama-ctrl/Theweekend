@@ -107,7 +107,7 @@ Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29). B4 poli
 
 - An hourly Routine in the owner's claude.ai account wakes the Claude session to read GitHub and respond; a PR subscription on the integrator's open PR (#23 now) does the same on pushes and reviews. If Claude Code is retired, the owner disables the Routine in claude.ai → Routines. GPT then works from the owner's prompts; Cursor cannot post issue comments (reports in PR bodies); Grok's issue comments fail (403) — the owner relays them.
 - Bot reviewers on every PR: Codex (reviews automatically when a PR is opened or marked ready, or on a «@codex review» comment; found nothing wrong with PR #23); Qodo (paused for this account since 2026-09-14 — nothing to do); CodeRabbit (no automatic reviews). A bot finding is a bug report: verify, fix in a small PR, or say why not on the PR.
-- Under D17 the integrator may start Cursor work with an `@cursor` comment on the issue and ask Codex for a review with «@codex review». An `@cursor` comment on an issue or a PR starts a Cursor agent within about a minute (proven on #7, PR #24 and PR #29); the Cursor agent also merges PRs when the owner tells it to (2026-09-15 and 2026-09-18), which bypasses D17 unless the owner records a new decision (§7 item 6).
+- Under D17 the integrator may start Cursor work with an `@cursor` comment on the issue and ask Codex for a review with «@codex review». An `@cursor` comment on an issue or a PR starts a Cursor agent within about a minute (proven on #7, PR #24 and PR #29); the Cursor agent also merges PRs when the owner tells it to (2026-09-15 and 2026-09-18), which bypasses D17 unless the owner records a new decision (§7 item 7).
 
 ## 9. Evidence you cannot see in Git
 
