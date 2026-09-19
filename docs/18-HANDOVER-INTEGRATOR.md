@@ -96,10 +96,12 @@ Third handback **merged** (PR #25). Staff follow-up **merged** (PR #29). B4 poli
 ## 7. Owner pending tasks (as of this file)
 
 1. **Model key** — done on Railway `rakan` (2026-09-15). Do not paste it in Git, issues, or chat.
-2. **#8 owner walkthrough** with Khalid (domain from Railway → Settings → Networking, shared privately). Partial agent record: `docs/20`. Text eval is recorded (`docs/19`); vision eval still needs permitted faces. Owner-reported 15:17 UTC: live `/customer.js` 200. Confirm Railway deployed `55c4c6b` before the phone pass.
+2. **#8 owner walkthrough** with Khalid (domain from Railway → Settings → Networking, shared privately). Partial agent record: `docs/20`. Text eval is recorded (`docs/19`); vision eval still needs permitted faces. Owner-reported 2026-09-18 15:17 UTC: live `/customer.js` 200. Before the phone pass, confirm Railway deployed the current pin from `CONTINUE.md` §5 (`3fb3d74` today: `GET /copy.js` must contain `session.guest_closed`), not an older build.
 3. Rekaz API key from Khalid (for #10).
 4. Answers to `research/claude-20260913/MISSING-FACTS.md` rows 18 and 19; and whether photo sharing should ever include the saved photo itself, not just written notes about it — until you decide, staff only see written notes (D14).
 5. **Privacy** — regenerate the Railway domain (Settings → Networking) because the old one was published in Git history; share the new one privately. Decide whether the repository stays public: the e-mail and the old domain stay in history unless the history is rewritten, which needs your explicit authority.
+6. **Kill switch** — decide whether `/try` stays passcode-free. To close it: set `WEEKEND_PUBLIC_GUEST=false` in Railway Variables, deploy that change and confirm the new deployment is live (`docs/17-HOSTING.md`); this also ends guest sessions that were already open. Keep `WEEKEND_TRUST_PROXY=1`.
+7. **Decisions still open** — the visible name (D18 records «خالد»; confirm or choose Rakan), one shared team passcode (yes/no), and the merge rule (keep D17 — the integrator merges — or «Cursor merges on my instruction, the integrator audits after»).
 6. **Merge rule** — either keep D17 (Cursor opens PRs, the integrator reviews and merges) or record a new decision that Cursor merges on your instruction and the integrator audits afterwards. B4 (**#34**), C3 (**#32**) and A3 (**#33**) are on `main`; they were not a two-agent D17 review.
 
 ## 8. Automation that only Claude Code can run (disable if Claude is gone)
