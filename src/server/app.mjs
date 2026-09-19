@@ -46,6 +46,7 @@ export const STAFF_HANDOFF_RECEIVED_TTL_MS = 30 * 60 * 1000;
 export const GUEST_SESSION_WINDOW_MS = 10 * 60 * 1000;
 export const GUEST_TURN_WINDOW_MS = 60 * 1000;
 export const CLIENT_KEY_RETENTION_MS = 24 * 60 * 60 * 1000;
+export const SESSION_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
 export class AppError extends Error {
   constructor(shape, status = 400) {
@@ -105,6 +106,31 @@ function sweepClientKeyRetentionAt(store, clock) {
        AND expires_at <= ?`,
     [cutoff],
   );
+}
+
+/**
+ * Deletes sessions rows (and their dependents) whose expires_at is older than SESSION_RETENTION_MS. Must run
+ * after client_key nulling (24h) so a row is never deleted while it still carries a live client digest; this
+ * function only ever runs alongside/after sweepClientKeyRetentionAt, never before it, at every call site.
+ * subjects/preferences/permission_receipts/briefs/delivery_receipts are never touched here: they are keyed on
+ * subject_id, not session_id, and already have their own retention (preferences) or are meant to outlive the
+ * browser session entirely (consent audit trail, approved briefs). photo_observations/images are already swept
+ * on their own 24h TTL by sweepPhotoRetention; the deletes here are a defensive backstop in case a row somehow
+ * survives that sweep, not the primary mechanism.
+ */
+function sweepSessionRetentionAt(store, clock) {
+  const cutoff = new Date(Date.parse(iso(clock)) - SESSION_RETENTION_MS).toISOString();
+  const oldSessionIds = 'SELECT session_id FROM sessions WHERE expires_at < ?';
+  store.transaction(() => {
+    store.run(`DELETE FROM action_results WHERE action_id IN (SELECT action_id FROM allowed_actions WHERE session_id IN (${oldSessionIds}))`, [cutoff]);
+    store.run(`DELETE FROM allowed_actions WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM turns WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM staff_handoffs WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM pending_requests WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM photo_observations WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM images WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run('DELETE FROM sessions WHERE expires_at < ?', [cutoff]);
+  });
 }
 
 function sealStoredClientKeys(store, secret) {
@@ -335,6 +361,7 @@ export function createApp(config, deps = {}) {
   sweepStaffHandoffsAt(store, clock);
   sealStoredClientKeys(store, config.WEEKEND_SESSION_SECRET);
   sweepClientKeyRetentionAt(store, clock);
+  sweepSessionRetentionAt(store, clock);
   const limiter = deps.limiter || new AttemptLimiter();
   const nowMs = () => {
     const t = Date.parse(clock());
@@ -1755,6 +1782,7 @@ export function createApp(config, deps = {}) {
     sweepPreferenceRetention();
     sweepPhotoRetention();
     sweepClientKeyRetentionAt(store, clock);
+    sweepSessionRetentionAt(store, clock);
     store.run('DELETE FROM guest_upload_quota WHERE day < ?', [iso(clock).slice(0, 10)]);
     limiter.sweep();
     guestSessionLimiter.sweep();
