@@ -1,7 +1,7 @@
 /**
  * Real-model evaluation for the Rakan adapter (issue #5 acceptance evidence).
  *
- *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir] [--text-only]
+ *   WEEKEND_MODEL_API_KEY=… WEEKEND_MODEL_ID=claude-opus-5 node src/agent/eval.mjs [--cases tests/agent/cases.json] [--images dir] [--text-only] [--staff-inbox enabled|unavailable]
  *
  * Runs every case against the real adapter, checks the stated expectations, and prints a report with
  * prompt version, model id, case counts, latency and cost — separately from the deterministic tests.
@@ -16,12 +16,21 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import { createRakanAdapter, PROMPT_VERSION } from './adapter.mjs';
 import { evalExit } from './eval-exit.mjs';
+import { staffInboxFlag } from './eval-flags.mjs';
+import { skipReason, buildSummary } from './eval-report.mjs';
 
 const args = process.argv.slice(2);
 const opt = (name, def) => { const i = args.indexOf(name); return i === -1 ? def : args[i + 1]; };
 const casesPath = opt('--cases', 'tests/agent/cases.json');
 const imagesDir = opt('--images', null);
 const textOnly = args.includes('--text-only');
+let staffInbox;
+try {
+  staffInbox = staffInboxFlag(args);
+} catch (err) {
+  process.stderr.write(`${err.message}\n`);
+  process.exit(2);
+}
 
 const config = {
   WEEKEND_MODEL_MODE: 'real',
@@ -42,7 +51,7 @@ function context(sessionId, withPhoto) {
   return {
     contract_version: '0.1.0', session_id: sessionId, subject_id: `sub_${sessionId.slice(4)}`, role: 'customer', verified: true,
     branch_id: 'br_marsiya', locale: 'ar',
-    capabilities: { model: 'real', photo: withPhoto ? 'enabled' : 'disabled', booking_handoff: 'official_link', staff_inbox: 'unavailable', preferences: 'enabled' },
+    capabilities: { model: 'real', photo: withPhoto ? 'enabled' : 'disabled', booking_handoff: 'official_link', staff_inbox: staffInbox, preferences: 'enabled' },
     consents: withPhoto ? [{ contract_version: '0.1.0', receipt_id: 'rcp_eval', subject_id: `sub_${sessionId.slice(4)}`, kind: 'photo_analysis', notice_version: 'notice_photo_v1', granted_at: new Date().toISOString(), revoked_at: null, retention_policy_key: 'ret_photo_v1', granted_via: 'customer_ui' }] : [],
     issued_at: new Date().toISOString(),
   };
@@ -61,8 +70,14 @@ function check(c, output) {
   return { text, fails };
 }
 
-const report = { prompt_version: PROMPT_VERSION, model_id: config.WEEKEND_MODEL_ID, started_at: new Date().toISOString(), cases: [], images: [] };
+const report = { prompt_version: PROMPT_VERSION, model_id: config.WEEKEND_MODEL_ID, started_at: new Date().toISOString(), cases: [], images: [], staff_inbox: staffInbox };
 for (const c of cases) {
+  const skip = skipReason(c, staffInbox);
+  if (skip) {
+    report.cases.push({ id: c.id, pass: null, skip: true, fails: [], reason: skip });
+    process.stdout.write(`skip ${c.id} ${skip}\n`);
+    continue;
+  }
   const sessionId = `ses_eval_${randomUUID().slice(0, 8)}`;
   const input = { contract_version: '0.1.0', session_id: sessionId, turn_id: randomUUID(), text: c.text, image_ref: null, client_action_id: null, locale_hint: 'auto' };
   const { output, usage } = await adapter({ context: context(sessionId, false), input, now: new Date().toISOString(), image_bytes: null });
@@ -83,19 +98,16 @@ if (imagesDir && !textOnly) {
     process.stdout.write(`${pass ? 'ok  ' : 'FAIL'} image ${file} ${usage.latency_ms}ms styles=${output.style_options.length}\n`);
   }
 }
-const passed = report.cases.filter((c) => c.pass).length;
-const imagesPassed = report.images.filter((c) => c.pass).length;
-const cost = report.cases.reduce((s, c) => s + (c.cost_minor || 0), 0) + report.images.reduce((s, c) => s + (c.cost_minor || 0), 0);
-report.summary = { text_cases: report.cases.length, text_passed: passed, image_cases: report.images.length, image_passed: imagesPassed, total_cost_minor_usd_cents: cost, finished_at: new Date().toISOString() };
+report.summary = buildSummary({ caseRows: report.cases, imageRows: report.images, staffInbox, finishedAt: new Date().toISOString() });
 process.stdout.write(`\n${JSON.stringify(report.summary)}\n`);
 process.stdout.write(`full report: ${JSON.stringify(report, null, 2).length} bytes (print with --json)\n`);
 if (args.includes('--json')) process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
 const { code, note } = evalExit({
-  textPassed: passed,
-  textTotal: report.cases.length,
+  textPassed: report.summary.text_passed,
+  textTotal: report.summary.text_cases,
   imagesRequested: Boolean(imagesDir),
-  imagePassed: imagesPassed,
-  imageTotal: report.images.length,
+  imagePassed: report.summary.image_passed,
+  imageTotal: report.summary.image_cases,
   textOnly,
 });
 if (note) process.stdout.write(`${note}\n`);
