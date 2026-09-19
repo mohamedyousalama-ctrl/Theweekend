@@ -116,7 +116,9 @@ function sweepClientKeyRetentionAt(store, clock) {
  * subject_id, not session_id, and already have their own retention (preferences) or are meant to outlive the
  * browser session entirely (consent audit trail, approved briefs). photo_observations/images are already swept
  * on their own 24h TTL by sweepPhotoRetention; the deletes here are a defensive backstop in case a row somehow
- * survives that sweep, not the primary mechanism.
+ * survives that sweep, not the primary mechanism. usage_records has no other retention anywhere in the codebase
+ * (its only read is sessionCalls()'s live per-session call count) and is not subject-scoped, so it is deleted
+ * here on the same cutoff as the session's other dependents, not just kept as a defensive backstop.
  */
 function sweepSessionRetentionAt(store, clock) {
   const cutoff = new Date(Date.parse(iso(clock)) - SESSION_RETENTION_MS).toISOString();
@@ -127,6 +129,7 @@ function sweepSessionRetentionAt(store, clock) {
     store.run(`DELETE FROM turns WHERE session_id IN (${oldSessionIds})`, [cutoff]);
     store.run(`DELETE FROM staff_handoffs WHERE session_id IN (${oldSessionIds})`, [cutoff]);
     store.run(`DELETE FROM pending_requests WHERE session_id IN (${oldSessionIds})`, [cutoff]);
+    store.run(`DELETE FROM usage_records WHERE session_id IN (${oldSessionIds})`, [cutoff]);
     store.run(`DELETE FROM photo_observations WHERE session_id IN (${oldSessionIds})`, [cutoff]);
     store.run(`DELETE FROM images WHERE session_id IN (${oldSessionIds})`, [cutoff]);
     store.run('DELETE FROM sessions WHERE expires_at < ?', [cutoff]);

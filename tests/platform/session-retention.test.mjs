@@ -54,6 +54,12 @@ function seedSession(raw, { subjectId, sessionId, expiresAt, createdAt }) {
     INSERT INTO pending_requests (request_id, subject_id, session_id, status, created_at)
     VALUES (?, ?, ?, 'pending', ?)
   `).run(`req_${sessionId}`, subjectId, sessionId, createdAt);
+  raw.prepare(`
+    INSERT INTO usage_records (
+      usage_id, session_id, turn_id, provider, model_id, prompt_version,
+      input_tokens, output_tokens, latency_ms, cost_estimate_minor, outcome, created_at
+    ) VALUES (?, ?, ?, 'anthropic', 'claude-opus-5', 'v0.9', 40, 120, 900, 3, 'ok', ?)
+  `).run(`use_${sessionId}`, sessionId, `trn_${sessionId}`, createdAt);
 }
 
 function dependentsOf(store, sessionId) {
@@ -63,6 +69,7 @@ function dependentsOf(store, sessionId) {
     result: store.get('SELECT * FROM action_results WHERE action_id = ?', [`act_${sessionId}`]),
     handoff: store.get('SELECT * FROM staff_handoffs WHERE session_id = ?', [sessionId]),
     pending: store.get('SELECT * FROM pending_requests WHERE session_id = ?', [sessionId]),
+    usage: store.get('SELECT * FROM usage_records WHERE session_id = ?', [sessionId]),
   };
 }
 
@@ -127,6 +134,7 @@ test('startup sweep deletes sessions 30 days past expiry and keeps a 2-day-old r
   assert.equal(oldGone.result, null);
   assert.equal(oldGone.handoff, null);
   assert.equal(oldGone.pending, null);
+  assert.equal(oldGone.usage, null, 'usage_records for the old session is gone: session-keyed, no other retention');
   const oldPhotoObs = app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', ['img_old_retention']);
   const oldPhotoImg = app.store.get('SELECT * FROM images WHERE image_ref = ?', ['img_old_retention']);
   assert.equal(oldPhotoObs, null, 'photo_observations for the old session is gone (defensive backstop)');
@@ -142,6 +150,7 @@ test('startup sweep deletes sessions 30 days past expiry and keeps a 2-day-old r
   assert.ok(recentKept.result);
   assert.ok(recentKept.handoff);
   assert.ok(recentKept.pending);
+  assert.ok(recentKept.usage, 'a recent session keeps its usage_records row');
   const recentPhotoObs = app.store.get('SELECT * FROM photo_observations WHERE image_ref = ?', ['img_recent_retention']);
   const recentPhotoImg = app.store.get('SELECT * FROM images WHERE image_ref = ?', ['img_recent_retention']);
   assert.ok(recentPhotoObs, 'a recent session keeps its photo_observations row');
