@@ -32,6 +32,7 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 5. **Open a draft PR** to `main` using `.github/pull_request_template.md`. Fill it truthfully: base commit, files, commands actually run, checks NOT run, model/vision tests `NOT RUN` if absent.
 6. **Report** on the issue with the exact format: `base <sha> → head <sha>; files: …; checks run: …; not run: …; blockers: …`. Then say `RELEASED` if you stop before finishing so the next agent can continue.
 7. **Reviews** are cross-stream (Grok reviews A behaviour, Claude Code reviews C platform/security, ChatGPT/Cursor reviews B fidelity, the integrator reviews B's use of the contracts). Nobody approves their own code. Merges: the integrator, under decision D17 in `docs/18-HANDOVER-INTEGRATOR.md` §3 (two-agent review, green `npm test`, bot reviews read, no overlapping writer); the owner may also merge.
+8. **Starting a Cursor agent** on an issue or PR: the comment begins `@cursor` followed by an instruction (`@cursor Apply …`). Never start the text after `@cursor` with the word «review»: that is Cursor Bugbot's keyword — it runs a bot review and starts no agent (learned 2026-09-18). Once started, Cursor reports through PR bodies and comments.
 
 ## 4. Hard limits (repeat of AGENTS.md — read the original)
 
@@ -49,4 +50,4 @@ If you are a new agent with no assigned stream: take the **first issue in #2 who
 - Contract definitions: `src/contracts/CONTRACT-v0.1.md` (implemented as schemas + fixtures + tests under #3).
 - Sandbox tools from the earlier pack: `sandbox/` (regression fixtures, not live capabilities).
 - Configuration names: `.env.example`; rules in `docs/16-C-BASELINE.md` §5.
-- Current `main` pin (2026-09-18): `55c4c6b7d4314b8f64786ae310b88fca326a6465` after PRs #26–#34 and **#36** (Arabic hub / خالد public `/try`). Issue comments remain newer than this line. Live-host notes: `docs/20-OWNER-WALKTHROUGH-2026-09-18.md`.
+- Current `main` pin (2026-09-19): `3fb3d7449ef28b5a676f577c4c3749c93a7cf3e0` after PRs #35, #37–#45 (C4 guest limits, C5 walkthrough runner, B5/B6 hub and booking copy, C6 staff inbox capability, C7 guest ledger and kill switch; details in `docs/18-HANDOVER-INTEGRATOR.md` §2). Issue comments remain newer than this line. Live-host notes: `docs/20-OWNER-WALKTHROUGH-2026-09-18.md`.
