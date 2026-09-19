@@ -12,8 +12,8 @@
 | Baseline suite rerun on `468fbe4` | `node --test tests/*.test.mjs` → **112 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-14 04:35 UTC) | tested, this checkout |
 | CodeRabbit on PR #1 | skipped the draft — **not** a pass | recorded |
 | Non-author review of PR #1 content | NOT_RUN in this pass (historical reviews in docs 14/15 stand as what they are) | honest status |
-| Current `main` after PRs #24–#45 | `3fb3d7449ef28b5a676f577c4c3749c93a7cf3e0` | verified (git), 2026-09-19 |
-| `npm test` on `3fb3d74` | `npm test` → **462 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-19 01:20 UTC) | tested, this checkout |
+| Current `main` after PRs #24–#50 | `7ab5a9d1bac6064d102ab61ed1a2c2749e66e101` | verified (git), 2026-09-19 |
+| `npm test` on `7ab5a9d` | `npm test` → **470 pass, 0 fail, 0 skipped** (Node v22.22.2, npm 10.9.7, 2026-09-19 06:21 UTC) | tested, this checkout |
 | `npm test` on this walkthrough checkout (`55c4c6b` plus the #8 record) | `npm test` → **396 pass, 0 fail, 0 skipped** (Node v22.14.0, npm 10.9.7, 2026-09-18) | tested, this checkout |
 
 The 112 passing tests exercise the synthetic sandbox (eight mock tools) and next-action policy. They prove nothing about model quality, merchant data or the real application. A green `npm test` pin is still not G01–G13 production release. Text `eval:agent` ran on 2026-09-15 (28/30 on prompt v0.4; two-case recheck on v0.5). Vision **NOT RUN**. Issue #8 live walkthrough on 2026-09-18 recorded unauthenticated probes only (`docs/20`); Khalid’s phone walkthrough was not run.
