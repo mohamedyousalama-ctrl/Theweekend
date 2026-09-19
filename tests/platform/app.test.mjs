@@ -1,4 +1,4 @@
-import test from 'node:test';
+import test, { describe } from 'node:test';
 import assert from 'node:assert/strict';
 import { AppError, PREFERENCE_TTL_MS, RETENTION_SWEEP_INTERVAL_MS, createApp } from '../../src/server/app.mjs';
 import { loadConfig } from '../../src/server/config.mjs';
@@ -22,6 +22,61 @@ test('owner-review never exposes a mock model capability', () => {
   const health = app.health();
   assert.equal(health.model, 'unavailable');
   app.close();
+});
+
+describe('GET /health kill-switch and deployed build', { concurrency: 1 }, () => {
+  test('public_guest is false and build.commit is null when Railway SHA is unset', () => {
+    const previous = process.env.RAILWAY_GIT_COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    try {
+      const now = '2026-09-14T10:00:00.000Z';
+      const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'false' }, { clock: () => now });
+      const health = app.health();
+      assert.equal(health.public_guest, false);
+      assert.equal(typeof health.build.started_at, 'string');
+      assert.equal(health.build.started_at, now);
+      assert.equal(health.build.commit, null);
+      app.close();
+    } finally {
+      if (previous === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+      else process.env.RAILWAY_GIT_COMMIT_SHA = previous;
+    }
+  });
+
+  test('public_guest is true when WEEKEND_PUBLIC_GUEST is enabled', () => {
+    const previous = process.env.RAILWAY_GIT_COMMIT_SHA;
+    delete process.env.RAILWAY_GIT_COMMIT_SHA;
+    try {
+      const now = '2026-09-14T10:00:00.000Z';
+      const { app } = testApp({ WEEKEND_PUBLIC_GUEST: 'true' }, { clock: () => now });
+      const health = app.health();
+      assert.equal(health.public_guest, true);
+      assert.equal(typeof health.build.started_at, 'string');
+      assert.equal(health.build.started_at, now);
+      assert.equal(health.build.commit, null);
+      app.close();
+    } finally {
+      if (previous === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+      else process.env.RAILWAY_GIT_COMMIT_SHA = previous;
+    }
+  });
+
+  test('build.commit is RAILWAY_GIT_COMMIT_SHA when the host sets it', () => {
+    const previous = process.env.RAILWAY_GIT_COMMIT_SHA;
+    const sha = '03d8333a39b3a6077ce15b508ac83d9f5668a23c';
+    process.env.RAILWAY_GIT_COMMIT_SHA = sha;
+    try {
+      const now = '2026-09-14T10:00:00.000Z';
+      const { app } = testApp({}, { clock: () => now });
+      const health = app.health();
+      assert.equal(health.build.commit, sha);
+      assert.equal(health.build.started_at, now);
+      app.close();
+    } finally {
+      if (previous === undefined) delete process.env.RAILWAY_GIT_COMMIT_SHA;
+      else process.env.RAILWAY_GIT_COMMIT_SHA = previous;
+    }
+  });
 });
 
 test('forged session is unauthorized', () => {
