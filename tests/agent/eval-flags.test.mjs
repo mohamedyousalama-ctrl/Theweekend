@@ -13,3 +13,21 @@ test('eval flags: staff inbox defaults to enabled; --staff-inbox unavailable is 
     { message: '--staff-inbox must be "enabled" or "unavailable" (got "always")' },
   );
 });
+
+test('eval flags: equals form is honoured; bare flag and unknown equals values throw', () => {
+  assert.equal(staffInboxFlag(['--staff-inbox=unavailable']), 'unavailable');
+  assert.equal(staffInboxFlag(['--staff-inbox=enabled']), 'enabled');
+
+  assert.throws(
+    () => staffInboxFlag(['--staff-inbox=bogus']),
+    { message: '--staff-inbox must be "enabled" or "unavailable" (got "bogus")' },
+  );
+  assert.throws(
+    () => staffInboxFlag(['--staff-inbox']),
+    { message: '--staff-inbox must be "enabled" or "unavailable" (got "undefined")' },
+  );
+  assert.throws(
+    () => staffInboxFlag(['--staff-inbox', '--text-only']),
+    { message: '--staff-inbox must be "enabled" or "unavailable" (got "--text-only")' },
+  );
+});
