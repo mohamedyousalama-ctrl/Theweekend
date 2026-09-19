@@ -91,6 +91,8 @@ test('try Send does not drop the message when public guest is closed', async () 
   assert.equal(app.state.context, null);
   assert.ok(root.querySelector('[data-try-pass="true"]'), 'passcode gate after guest session is refused');
   assert.match(root.innerHTML, /افتح المحادثة برمز الدخول/);
+  assert.match(root.innerHTML, /رمز الدخول من فريق ذا ويكند/);
+  assert.equal(root.querySelector('#wk-try-pass-input')?.getAttribute('autocomplete'), 'off');
 
   const composer = root.querySelector('[data-component="composer"]');
   const textarea = root.querySelector('#wk-composer-text');
@@ -240,12 +242,15 @@ test('try Send stops after one automatic resend when every turn is session.expir
   await settle();
   assert.equal(turnCalls, 2);
   assert.equal(sessionCalls, 3);
-  assert.equal(app.state.error?.message_key, 'session.expired');
+  assert.equal(app.state.error?.message_key, 'try.recovery_failed');
   assert.equal(app.state.loadingTurn, false);
 });
 
 test('try pass-gate copy exists in both languages and is not shame copy', () => {
   assert.equal(Boolean(COPY.ar.try_pass_label), true);
   assert.equal(Boolean(COPY.en.try_pass_label), true);
+  assert.equal(COPY.en.try_pass_send, 'Enter');
+  assert.equal(COPY.ar.try_pass_source, 'رمز الدخول من فريق ذا ويكند');
+  assert.equal(COPY.en.try_pass_source, 'Passcode from The Weekend’s team');
   assert.equal(/ديمو|demo|shame/i.test(`${COPY.ar.try_pass_label}${COPY.en.try_pass_label}`), false);
 });
