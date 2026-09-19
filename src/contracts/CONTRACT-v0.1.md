@@ -68,7 +68,7 @@ Conventions: JSON; `snake_case`; timestamps ISO-8601 UTC; ids are opaque strings
 ## 10. ErrorShape and HealthState
 
 `ErrorShape`: `code` ∈ `VALIDATION_ERROR, UNAUTHORIZED, NOT_FOUND, CONSENT_REQUIRED, CAPABILITY_UNAVAILABLE, MODEL_UNAVAILABLE, BUDGET_EXCEEDED, TIMEOUT, STALE_ACTION, CONFLICT, UPLOAD_REJECTED`, `message_key`, `retryable` (bool), `details` (object, no customer text).
-`HealthState`: `{ model, photo, booking_handoff, staff_inbox, preferences, store }` each `ok\|degraded\|unavailable`, plus `checked_at`. Never reports `ok` for a capability whose configuration is missing.
+`HealthState`: `{ model, photo, booking_handoff, staff_inbox, preferences, store }` each `ok\|degraded\|unavailable`, plus `checked_at`. Never reports `ok` for a capability whose configuration is missing. `/health` also carries `public_guest` (the running `WEEKEND_PUBLIC_GUEST` value) and `build: { started_at, commit }` (`commit` is `RAILWAY_GIT_COMMIT_SHA` when the host sets it, else `null`); both are metadata, not capability states, unauthenticated like the rest of this response.
 
 ## 11. ModelUsageRecord (A → C persisted)
 

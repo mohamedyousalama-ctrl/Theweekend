@@ -310,6 +310,10 @@ export function costCeilingFor(config, deps = {}) {
 
 export function createApp(config, deps = {}) {
   const clock = deps.clock || (() => new Date().toISOString());
+  const startedAt = iso(clock);
+  const buildCommit = typeof process.env.RAILWAY_GIT_COMMIT_SHA === 'string' && process.env.RAILWAY_GIT_COMMIT_SHA.trim()
+    ? process.env.RAILWAY_GIT_COMMIT_SHA.trim()
+    : null;
   const store = deps.store || openStore(config.WEEKEND_DB_PATH);
   const adapter = deps.adapter || runModelTurn;
   const realAdapter = Boolean(deps.adapter) && config.WEEKEND_MODEL_MODE === 'real';
@@ -1777,7 +1781,12 @@ export function createApp(config, deps = {}) {
   return {
     store,
     health() {
-      const state = { ...healthOf(config, staffInboxStoreUp(), realAdapter), checked_at: iso(clock) };
+      const state = {
+        ...healthOf(config, staffInboxStoreUp(), realAdapter),
+        checked_at: iso(clock),
+        public_guest: config.WEEKEND_PUBLIC_GUEST === true,
+        build: { started_at: startedAt, commit: buildCommit },
+      };
       assertContract('HealthState', state);
       return state;
     },

@@ -22,6 +22,16 @@
     "staff_inbox": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
     "preferences": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
     "store": { "type": "string", "enum": ["ok", "degraded", "unavailable"] },
-    "checked_at": { "type": "string", "format": "date-time" }
+    "checked_at": { "type": "string", "format": "date-time" },
+    "public_guest": { "type": "boolean" },
+    "build": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["started_at", "commit"],
+      "properties": {
+        "started_at": { "type": "string", "format": "date-time" },
+        "commit": { "type": ["string", "null"] }
+      }
+    }
   }
 }
